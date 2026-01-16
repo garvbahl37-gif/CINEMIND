@@ -5,12 +5,15 @@ import { TMDB_API_KEY, TMDB_IMAGE_BASE } from '../config';
 import GlassSkeleton from './GlassSkeleton';
 import { motion } from 'framer-motion';
 
+import { cn } from '../lib/utils';
+
 interface MovieCardProps {
     movie: Movie;
     onSelect: (movie: Movie) => void;
+    className?: string;
 }
 
-const MovieCard = memo(({ movie, onSelect }: MovieCardProps) => {
+const MovieCard = memo(({ movie, onSelect, className }: MovieCardProps) => {
     const [imageSrc, setImageSrc] = useState<string | null>(movie.poster || null);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [rating, setRating] = useState<number | null>(movie.vote_average || null);
@@ -46,7 +49,10 @@ const MovieCard = memo(({ movie, onSelect }: MovieCardProps) => {
 
     return (
         <motion.div
-            className="group relative flex-shrink-0 w-[150px] md:w-[260px] aspect-[2/3] rounded-xl md:rounded-2xl overflow-hidden cursor-pointer snap-start bg-neutral-900 shadow-xl ring-1 ring-white/10 will-change-transform backface-hidden"
+            className={cn(
+                "group relative flex-shrink-0 w-[150px] md:w-[260px] aspect-[2/3] rounded-xl md:rounded-2xl overflow-hidden cursor-pointer snap-start bg-neutral-900 shadow-xl ring-1 ring-white/10 will-change-transform backface-hidden",
+                className
+            )}
             onClick={() => onSelect({ ...movie, poster: imageSrc || movie.poster, vote_average: rating || movie.vote_average, releaseDate: releaseDate || movie.releaseDate })}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}

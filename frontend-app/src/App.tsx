@@ -33,6 +33,8 @@ function App() {
   const [failedPosters, setFailedPosters] = useState<Set<number>>(new Set());
 
   const [initialLoading, setInitialLoading] = useState(true)
+  const [loadingTop50, setLoadingTop50] = useState(true)
+  const [loadingTv, setLoadingTv] = useState(true)
 
   // Search Results State
   const [searchResults, setSearchResults] = useState<Movie[]>([])
@@ -108,6 +110,7 @@ function App() {
           id: m.tmdbId
         })));
       }
+      setLoadingTop50(false);
 
       // Fetch TV Shows
       const tvRes = await fetch(`${API_BASE}/movies/tv`, { signal });
@@ -119,6 +122,7 @@ function App() {
           id: m.tmdbId
         })));
       }
+      setLoadingTv(false);
 
     } catch (err) {
       console.error("Failed to load movies:", err)
@@ -709,7 +713,7 @@ function App() {
           <SearchResults
             query="All-Time Top 50"
             results={top50Movies}
-            loading={false}
+            loading={loadingTop50}
             onBack={() => setCurrentView('home')}
             onSelectMovie={handleSelectMovie}
           />
@@ -721,7 +725,7 @@ function App() {
           <SearchResults
             query="Popular TV Shows"
             results={tvShows}
-            loading={false}
+            loading={loadingTv}
             onBack={() => setCurrentView('home')}
             onSelectMovie={handleSelectMovie}
           />
