@@ -28,7 +28,7 @@ const FlowNode = ({ icon: Icon, label, details, delay, isActive, isCompleted, id
             />
         )}
     </motion.div>
-);       
+);
 
 const ConnectionLine = ({ activeStage, stageIndex }: { activeStage: number, stageIndex: number }) => {
     const isActive = activeStage > stageIndex;
@@ -112,7 +112,7 @@ const ProjectFlowchart = () => {
                         {stages.map((stage, index) => (
                             <div key={index} className="flex items-center snap-center shrink-0">
                                 {/* Node */}
-                                <div ref={el => stagesRef.current[index] = el}>
+                                <div ref={(el: HTMLDivElement | null) => { stagesRef.current[index] = el; }}>
                                     <FlowNode
                                         {...stage}
                                         id={`stage-${index}`}
