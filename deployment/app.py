@@ -360,69 +360,18 @@ async def search_movies(
     }
 
 
-# Cache for top 50 movies to avoid re-sorting every request
-top_50_cache = []
+# ============================================
+# Redis Configuration
+# ============================================
+import redis
 
-@app.get("/movies/top50", tags=["Movies"])
-async def get_top_50_movies():
-    """Get top 50 movies by average rating (min 1000 votes)."""
-    global top_50_cache
-    
-    if top_50_cache:
-        return {"count": len(top_50_cache), "results": top_50_cache}
-    
-    # Filter and sort movies
-    valid_movies = []
-    for item_id, movie in movies_data.items():
-        if movie.get("vote_count", 0) >= 1000:
-            valid_movies.append({
-                "item_id": int(item_id),
-                **movie
-            })
-    
-    # Sort by rating descending
-    valid_movies.sort(key=lambda x: x.get("vote_average", 0), reverse=True)
-    
-    # Cache top 50
-    top_50_cache = valid_movies[:50]
-    
-    return {
-        "count": len(top_50_cache),
-        "results": top_50_cache
-    }
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+redis_client = None
 
-
-
-# Cache for TV movies
-tv_movies_cache = []
-
-@app.get("/movies/tv", tags=["Movies"])
-async def get_tv_movies():
-    """Get popular TV shows from the dataset."""
-    global tv_movies_cache
-    
-    if tv_movies_cache:
-        return {"count": len(tv_movies_cache), "results": tv_movies_cache}
-    
-    # Filter for TV shows
-    tv_shows = []
-    for item_id, movie in movies_data.items():
-        if movie.get("media_type") == "tv":
-            tv_shows.append({
-                "item_id": int(item_id),
-                **movie
-            })
-    
-    # Sort by rating descending
-    tv_shows.sort(key=lambda x: x.get("vote_average", 0), reverse=True)
-    
-    # Cache
-    tv_movies_cache = tv_shows
-    
-    return {
-        "count": len(tv_movies_cache),
-        "results": tv_movies_cache
-    }
+try:
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+except Exception as e:
+    logger.warning(f"Redis connection failed: {e}. Caching will be disabled.")
 
 
 # ============================================
@@ -437,6 +386,100 @@ async def startup():
         logger.info("✅ API ready with trained embeddings!")
     else:
         logger.warning("⚠️ Running without embeddings - upload trained files!")
+        
+    # Check Redis
+    if redis_client:
+        try:
+            redis_client.ping()
+            logger.info("✅ Redis connected successfully!")
+        except Exception as e:
+            logger.warning(f"⚠️ Redis ping failed: {e}")
+
+# ... (Rest of the file remains similar, but we update endpoints)
+
+# Cache for top 50 movies to avoid re-sorting every request
+# Replaced global list with Redis pattern
+@app.get("/movies/top50", tags=["Movies"])
+async def get_top_50_movies():
+    """Get top 50 movies by average rating (min 1000 votes). Cached in Redis for 1 hour."""
+    
+    # Try Redis first
+    if redis_client:
+        try:
+            cached = redis_client.get("top_50_movies")
+            if cached:
+                results = json.loads(cached)
+                return {"count": len(results), "results": results, "source": "redis"}
+        except Exception as e:
+            logger.error(f"Redis get error: {e}")
+    
+    # Filter and sort movies (Fallthrough logic)
+    valid_movies = []
+    for item_id, movie in movies_data.items():
+        if movie.get("vote_count", 0) >= 1000:
+            valid_movies.append({
+                "item_id": int(item_id),
+                **movie
+            })
+    
+    # Sort by rating descending
+    valid_movies.sort(key=lambda x: x.get("vote_average", 0), reverse=True)
+    
+    # Top 50
+    top_50 = valid_movies[:50]
+    
+    # Save to Redis
+    if redis_client:
+        try:
+            redis_client.setex("top_50_movies", 3600, json.dumps(top_50)) # Cache for 1 hour
+        except Exception as e:
+            logger.error(f"Redis set error: {e}")
+    
+    return {
+        "count": len(top_50),
+        "results": top_50,
+        "source": "database"
+    }
+
+
+@app.get("/movies/tv", tags=["Movies"])
+async def get_tv_movies():
+    """Get popular TV shows from the dataset. Cached in Redis for 1 hour."""
+    
+    # Try Redis first
+    if redis_client:
+        try:
+            cached = redis_client.get("tv_movies")
+            if cached:
+                results = json.loads(cached)
+                return {"count": len(results), "results": results, "source": "redis"}
+        except Exception as e:
+            logger.error(f"Redis get error: {e}")
+    
+    # Filter for TV shows
+    tv_shows = []
+    for item_id, movie in movies_data.items():
+        if movie.get("media_type") == "tv":
+            tv_shows.append({
+                "item_id": int(item_id),
+                **movie
+            })
+    
+    # Sort by rating descending
+    tv_shows.sort(key=lambda x: x.get("vote_average", 0), reverse=True)
+    
+    # Save to Redis
+    if redis_client:
+        try:
+            redis_client.setex("tv_movies", 3600, json.dumps(tv_shows))
+        except Exception as e:
+            logger.error(f"Redis set error: {e}")
+    
+    return {
+        "count": len(tv_shows),
+        "results": tv_shows,
+        "source": "database"
+    }
 
 
 if __name__ == "__main__":

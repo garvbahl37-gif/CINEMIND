@@ -28,7 +28,7 @@ const FlowNode = ({ icon: Icon, label, details, delay, isActive, isCompleted, id
             />
         )}
     </motion.div>
-);
+);       
 
 const ConnectionLine = ({ activeStage, stageIndex }: { activeStage: number, stageIndex: number }) => {
     const isActive = activeStage > stageIndex;
