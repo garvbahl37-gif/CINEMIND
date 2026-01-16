@@ -74,31 +74,36 @@ const ProjectFlowchart = () => {
     }, []);
 
     // Auto-scroll effect
-    // Auto-scroll effect (Horizontal only, within container)
     useEffect(() => {
-        if (scrollContainerRef.current && activeStage < 5) {
+        if (scrollContainerRef.current) {
             const container = scrollContainerRef.current;
-            const activeElement = container.children[0].children[activeStage] as HTMLElement;
+            // The content is inside the first child (the flex container)
+            // But we are scrolling the container itself which has overflow-x
+            const wrapper = container.querySelector('div') as HTMLElement; // The inner flex wrapper
+            if (!wrapper) return;
 
-            if (activeElement) {
-                // Determine if the element is visible within the container
-                const containerRect = container.getBoundingClientRect();
-                const elementRect = activeElement.getBoundingClientRect();
+            // We need to target the specific stage element within the wrapper.
+            // Since there are 5 stages, we can likely find it by index.
+            const stageElements = wrapper.querySelectorAll('.snap-center');
+            const targetElement = stageElements[activeStage] as HTMLElement;
 
-                // Check if element is out of bounds horizontally
-                const isOutOfView =
-                    elementRect.left < containerRect.left ||
-                    elementRect.right > containerRect.right;
+            if (targetElement) {
+                // Determine center position
+                const containerWidth = container.clientWidth;
+                const elementWidth = targetElement.offsetWidth;
+                const elementLeft = targetElement.offsetLeft;
 
-                if (isOutOfView) {
-                    // Calculate position to center the element inside the container
-                    const scrollLeft = activeElement.offsetLeft - (container.clientWidth / 2) + (activeElement.clientWidth / 2);
+                // Calculate the scroll position needed to center the element
+                // elementLeft is relative to the wrapper, but since wrapper is the first child
+                // and container scrolls, we might need to adjust if wrapper has logic.
+                // Actually, if 'container' is the one with overflow-x-auto, then:
 
-                    container.scrollTo({
-                        left: scrollLeft,
-                        behavior: 'smooth'
-                    });
-                }
+                const scrollPos = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+                container.scrollTo({
+                    left: scrollPos,
+                    behavior: 'smooth'
+                });
             }
         }
     }, [activeStage]);

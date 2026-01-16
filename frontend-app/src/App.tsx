@@ -87,45 +87,56 @@ function App() {
       const fetchTimeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
       console.log("Fetching movies from:", `${API_BASE}/movies`);
-      const response = await fetch(`${API_BASE}/movies`, { signal })
+
+      // Parallelize fetches
+      const [moviesRes, top50Res, tvRes] = await Promise.all([
+        fetch(`${API_BASE}/movies`, { signal }),
+        fetch(`${API_BASE}/movies/top50`, { signal }),
+        fetch(`${API_BASE}/movies/tv`, { signal })
+      ]);
+
       clearTimeout(fetchTimeout);
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      const data = await response.json()
-      if (data.movies) {
-        setMoviesCache(data.movies)
-        processGenres(data.movies)
+      // Process Movies
+      if (moviesRes.ok) {
+        const data = await moviesRes.json();
+        if (data.movies) {
+          setMoviesCache(data.movies);
+          processGenres(data.movies);
+        }
       } else {
-        console.error("Invalid data format:", data);
+        console.error(`HTTP error! status: ${moviesRes.status}`);
       }
 
-      // Fetch Top 50
-      const top50Res = await fetch(`${API_BASE}/movies/top50`, { signal });
-      const top50Data = await top50Res.json();
-      if (top50Data.results) {
-        setTop50Movies(top50Data.results.map((m: any) => ({
-          ...m,
-          poster: m.poster_path ? `${TMDB_IMAGE_BASE}/w500${m.poster_path}` : m.poster,
-          id: m.tmdbId
-        })));
+      // Process Top 50
+      if (top50Res.ok) {
+        const top50Data = await top50Res.json();
+        if (top50Data.results) {
+          setTop50Movies(top50Data.results.map((m: any) => ({
+            ...m,
+            poster: m.poster_path ? `${TMDB_IMAGE_BASE}/w500${m.poster_path}` : m.poster,
+            id: m.tmdbId
+          })));
+        }
       }
       setLoadingTop50(false);
 
-      // Fetch TV Shows
-      const tvRes = await fetch(`${API_BASE}/movies/tv`, { signal });
-      const tvData = await tvRes.json();
-      if (tvData.results) {
-        setTvShows(tvData.results.map((m: any) => ({
-          ...m,
-          poster: m.poster_path ? `${TMDB_IMAGE_BASE}/w500${m.poster_path}` : m.poster,
-          id: m.tmdbId
-        })));
+      // Process TV Shows
+      if (tvRes.ok) {
+        const tvData = await tvRes.json();
+        if (tvData.results) {
+          setTvShows(tvData.results.map((m: any) => ({
+            ...m,
+            poster: m.poster_path ? `${TMDB_IMAGE_BASE}/w500${m.poster_path}` : m.poster,
+            id: m.tmdbId
+          })));
+        }
       }
       setLoadingTv(false);
 
     } catch (err) {
-      console.error("Failed to load movies:", err)
+      console.error("Failed to load movies:", err);
+      // Ensure loading states are cleared on error
       setLoadingTop50(false);
       setLoadingTv(false);
     }
