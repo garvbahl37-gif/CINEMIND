@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Python FastAPI Backend
+  backend:
+    build:
+      context: ./deployment
+    container_name: cinemind-backend
+    ports:
+      - "7860:7860"
+    volumes:
+      # Mount embeddings for persistence if needed, or dev reloading
+      - ./deployment:/app
+    environment:
+      - PORT=7860
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - cinemind-net
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend-app
+    container_name: cinemind-frontend
+    ports:
+      - "5173:80" # Mapping 80 inside container to 5173 host for familiarity
+    depends_on:
+      - backend
+    networks:
+      - cinemind-net
+
+  # Redis for Caching (Phase 2)
+  redis:
+    image: redis:alpine
+    container_name: cinemind-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - cinemind-net
+  # Just a placeholder for future MLOps expansion
+  # mlflow:
+  #   image: ghcr.io/mlflow/mlflow:v2.10.2
+  #   ports:
+  #     - "5000:5000"
+
+networks:
+  cinemind-net:
+    driver: bridge
