@@ -126,6 +126,8 @@ function App() {
 
     } catch (err) {
       console.error("Failed to load movies:", err)
+      setLoadingTop50(false);
+      setLoadingTv(false);
     }
   }
 

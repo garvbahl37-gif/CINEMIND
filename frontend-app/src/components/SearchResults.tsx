@@ -86,7 +86,7 @@ const SearchResults = ({ query, results, loading, onBack, onSelectMovie }: Searc
                             key={movie.tmdbId}
                             movie={movie}
                             onSelect={onSelectMovie}
-                            className="w-full"
+                            className="w-full md:w-full"
                         />
                     ))}
                 </motion.div>

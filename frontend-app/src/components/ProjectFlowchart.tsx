@@ -68,7 +68,7 @@ const ProjectFlowchart = () => {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setActiveStage(prev => (prev + 1) % 5); // 5 stages, continuous loop
+            setActiveStage(prev => (prev >= 4 ? 0 : prev + 1));
         }, 2000);
         return () => clearInterval(interval);
     }, []);
