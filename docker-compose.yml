@@ -67,11 +67,17 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     networks:
       - cinemind-net
-  # Just a placeholder for future MLOps expansion
-  # mlflow:
-  #   image: ghcr.io/mlflow/mlflow:v2.10.2
-  #   ports:
-  #     - "5000:5000"
+  # MLOps MLflow (Phase 4)
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.2
+    container_name: cinemind-mlflow
+    ports:
+      - "5000:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlflow/mlflow.db --default-artifact-root /mlflow/artifacts
+    volumes:
+      - ./mlflow_data:/mlflow
+    networks:
+      - cinemind-net
 
 networks:
   cinemind-net:
