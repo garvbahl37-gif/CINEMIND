@@ -85,25 +85,37 @@ const ProjectFlowchart = () => {
             // We need to target the specific stage element within the wrapper.
             // Since there are 5 stages, we can likely find it by index.
             const stageElements = wrapper.querySelectorAll('.snap-center');
-            const targetElement = stageElements[activeStage] as HTMLElement;
+            // The wrapper itself has display:contents on mobile often, or flex. 
+            // Better to find the actual visible child.
+            const wrapperElement = stageElements[activeStage] as HTMLElement;
 
-            if (targetElement) {
-                // Determine center position
-                const containerWidth = container.clientWidth;
-                const elementWidth = targetElement.offsetWidth;
-                const elementLeft = targetElement.offsetLeft;
+            if (wrapperElement) {
+                // Find the direct child which is the motion.div (roughly 1st child usually)
+                const targetElement = wrapperElement.firstElementChild as HTMLElement;
 
-                // Calculate the scroll position needed to center the element
-                // elementLeft is relative to the wrapper, but since wrapper is the first child
-                // and container scrolls, we might need to adjust if wrapper has logic.
-                // Actually, if 'container' is the one with overflow-x-auto, then:
+                if (targetElement) {
+                    // Determine center position
+                    const containerWidth = container.clientWidth;
+                    const elementWidth = targetElement.offsetWidth;
+                    // We need offsetLeft relative to the scrolling container
+                    // If wrapperElement has display:contents, its offsetLeft is 0. 
+                    // targetElement.offsetLeft might be relative to 'container' if container is the nearest positioned ancestor.
+                    // The container has relative position.
 
-                const scrollPos = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+                    const elementLeft = targetElement.offsetLeft;
 
-                container.scrollTo({
-                    left: scrollPos,
-                    behavior: 'smooth'
-                });
+                    // Calculate the scroll position needed to center the element
+                    // elementLeft is relative to the wrapper, but since wrapper is the first child
+                    // and container scrolls, we might need to adjust if wrapper has logic.
+                    // Actually, if 'container' is the one with overflow-x-auto, then:
+
+                    const scrollPos = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+                    container.scrollTo({
+                        left: scrollPos,
+                        behavior: 'smooth'
+                    });
+                }
             }
         }
     }, [activeStage]);
