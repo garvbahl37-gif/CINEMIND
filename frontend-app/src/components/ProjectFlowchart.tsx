@@ -1,30 +1,30 @@
 import { motion } from 'framer-motion';
-import { Database, FileText, Cpu, Layers, Zap } from 'lucide-react';
+import { Database, FileText, Cpu, Layers, Zap, ArrowRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
-const FlowNode = ({ icon: Icon, label, details, delay, isActive, isCompleted }: any) => (
+const FlowNode = ({ icon: Icon, label, details, delay, isActive, isCompleted, id }: any) => (
     <motion.div
-        className={`relative p-4 rounded-xl border ${isActive ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(220,38,38,0.3)]' : isCompleted ? 'border-primary/50 bg-primary/5' : 'border-white/10 bg-neutral-900/80'} backdrop-blur-md flex flex-col items-center gap-3 w-32 md:w-40 z-10 transition-colors duration-500`}
-        initial={{ opacity: 0, scale: 0.8 }}
+        id={id}
+        className={`relative p-6 rounded-2xl border ${isActive ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(220,38,38,0.2)]' : isCompleted ? 'border-primary/30 bg-primary/5' : 'border-white/10 bg-neutral-900/40'} backdrop-blur-xl flex flex-col items-center gap-4 min-w-[160px] md:w-48 z-10 transition-all duration-500`}
+        initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: isActive ? 1.05 : 1 }}
         transition={{ delay, duration: 0.5 }}
-        whileHover={{ scale: 1.05, borderColor: 'rgba(220,38,38,0.8)' }}
     >
-        <div className={`p-3 rounded-lg ${isActive ? 'bg-primary text-white' : isCompleted ? 'bg-primary/50 text-white/50' : 'bg-white/5 text-gray-400'} transition-colors duration-500`}>
-            <Icon size={24} />
+        <div className={`p-4 rounded-xl ${isActive ? 'bg-primary text-white' : isCompleted ? 'bg-primary/50 text-white/50' : 'bg-white/5 text-gray-400'} transition-colors duration-500 shadow-lg`}>
+            <Icon size={28} />
         </div>
         <div className="text-center">
-            <h4 className={`text-sm font-bold ${isActive ? 'text-white' : 'text-gray-200'}`}>{label}</h4>
-            <p className="text-[10px] text-gray-300 mt-1 leading-tight font-medium">{details}</p>
+            <h4 className={`text-base font-bold ${isActive ? 'text-white' : 'text-gray-300'} mb-1`}>{label}</h4>
+            <p className="text-[11px] text-gray-400 leading-tight font-medium max-w-[120px] mx-auto">{details}</p>
         </div>
 
         {/* Active Ping Effect */}
         {isActive && (
             <motion.div
-                className="absolute inset-0 rounded-xl border border-primary"
+                className="absolute inset-0 rounded-2xl border border-primary"
                 initial={{ scale: 1, opacity: 1 }}
-                animate={{ scale: 1.2, opacity: 0 }}
-                transition={{ duration: 1, repeat: Infinity }}
+                animate={{ scale: 1.15, opacity: 0 }}
+                transition={{ duration: 1.5, repeat: Infinity }}
             />
         )}
     </motion.div>
@@ -35,93 +35,47 @@ const ConnectionLine = ({ activeStage, stageIndex }: { activeStage: number, stag
     const isTraversing = activeStage === stageIndex;
 
     return (
-        <div className="h-full w-1 md:w-16 md:h-1 bg-white/5 relative overflow-hidden self-center">
+        <div className="hidden md:flex flex-1 h-1 bg-white/5 relative overflow-hidden items-center justify-center mx-2">
             <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-primary/50 to-primary"
                 initial={{ x: '-100%' }}
                 animate={{ x: isActive ? '0%' : isTraversing ? ['-100%', '100%'] : '-100%' }}
                 transition={isTraversing ? { duration: 1.5, ease: "linear", repeat: Infinity } : { duration: 0.5 }}
             />
+            {/* Arrow Head */}
+            <div className={`absolute right-0 text-white/10 ${isActive || isTraversing ? 'text-primary' : ''}`}>
+                <ArrowRight size={16} />
+            </div>
         </div>
     );
 };
 
-// Mobile Vertical Connection
-const VerticalConnection = ({ activeStage, stageIndex }: { activeStage: number, stageIndex: number }) => {
-    const isActive = activeStage > stageIndex;
-    const isTraversing = activeStage === stageIndex;
-    return (
-        <div className="w-1 h-8 md:hidden bg-white/5 relative overflow-hidden self-center my-1">
-            <motion.div
-                className="absolute inset-0 bg-gradient-to-b from-primary/50 to-primary"
-                initial={{ y: '-100%' }}
-                animate={{ y: isActive ? '0%' : isTraversing ? ['-100%', '100%'] : '-100%' }}
-                transition={isTraversing ? { duration: 1.5, ease: "linear", repeat: Infinity } : { duration: 0.5 }}
-            />
-        </div>
-    )
-}
-
 const ProjectFlowchart = () => {
     const [activeStage, setActiveStage] = useState(0);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const stagesRef = useRef<(HTMLDivElement | null)[]>([]);
 
     useEffect(() => {
         const interval = setInterval(() => {
             setActiveStage(prev => (prev >= 4 ? 0 : prev + 1));
-        }, 2000);
+        }, 2500); // Slightly slower for better readability
         return () => clearInterval(interval);
     }, []);
 
-    // Auto-scroll effect
+    // Robust Auto-scroll using scrollIntoView
     useEffect(() => {
-        if (scrollContainerRef.current) {
-            const container = scrollContainerRef.current;
-            // The content is inside the first child (the flex container)
-            // But we are scrolling the container itself which has overflow-x
-            const wrapper = container.querySelector('div') as HTMLElement; // The inner flex wrapper
-            if (!wrapper) return;
-
-            // We need to target the specific stage element within the wrapper.
-            // Since there are 5 stages, we can likely find it by index.
-            const stageElements = wrapper.querySelectorAll('.snap-center');
-            // The wrapper itself has display:contents on mobile often, or flex. 
-            // Better to find the actual visible child.
-            const wrapperElement = stageElements[activeStage] as HTMLElement;
-
-            if (wrapperElement) {
-                // Find the direct child which is the motion.div (roughly 1st child usually)
-                const targetElement = wrapperElement.firstElementChild as HTMLElement;
-
-                if (targetElement) {
-                    // Determine center position
-                    const containerWidth = container.clientWidth;
-                    const elementWidth = targetElement.offsetWidth;
-                    // We need offsetLeft relative to the scrolling container
-                    // If wrapperElement has display:contents, its offsetLeft is 0. 
-                    // targetElement.offsetLeft might be relative to 'container' if container is the nearest positioned ancestor.
-                    // The container has relative position.
-
-                    const elementLeft = targetElement.offsetLeft;
-
-                    // Calculate the scroll position needed to center the element
-                    // elementLeft is relative to the wrapper, but since wrapper is the first child
-                    // and container scrolls, we might need to adjust if wrapper has logic.
-                    // Actually, if 'container' is the one with overflow-x-auto, then:
-
-                    const scrollPos = elementLeft - (containerWidth / 2) + (elementWidth / 2);
-
-                    container.scrollTo({
-                        left: scrollPos,
-                        behavior: 'smooth'
-                    });
-                }
-            }
+        const activeElement = stagesRef.current[activeStage];
+        if (activeElement) {
+            activeElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'center'
+            });
         }
     }, [activeStage]);
 
     const stages = [
-        { icon: Database, label: "TMDB Data", details: "Raw Movies & Metadata" },
+        { icon: Database, label: "32M Rating Data", details: "Raw Movies & Metadata" },
         { icon: FileText, label: "Preprocessing", details: "Cleaning & Normalization" },
         { icon: Cpu, label: "Embedding", details: "Sentence-BERT (384d)" },
         { icon: Layers, label: "FAISS Index", details: "Vector Similarity Search" },
@@ -129,44 +83,67 @@ const ProjectFlowchart = () => {
     ];
 
     return (
-        <div className="w-full bg-black/40 border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden group">
+        <div className="w-full bg-black/40 border border-white/10 rounded-3xl p-6 md:p-10 backdrop-blur-sm relative overflow-hidden group">
             {/* Background Grid */}
             <div className="absolute inset-0 opacity-10"
                 style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}
             />
 
-            <div
-                ref={scrollContainerRef}
-                className="relative z-10 flex flex-col md:flex-row items-center justify-start md:justify-between gap-4 md:gap-2 overflow-x-auto md:overflow-visible pb-4 md:pb-0 scrollbar-hide snap-x"
-            >
-                <div className="flex md:contents w-max md:w-full gap-4 md:gap-0 px-4 md:px-0">
-                    {stages.map((stage, index) => (
-                        <div key={index} className="contents md:flex md:items-center snap-center">
-                            <FlowNode
-                                {...stage}
-                                delay={index * 0.1}
-                                isActive={activeStage === index}
-                                isCompleted={activeStage > index}
-                            />
-                            {index < stages.length - 1 && (
-                                <>
-                                    <div className="hidden md:block">
+            <div className="relative z-10">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8 px-2">
+                    <h3 className="text-lg font-semibold text-white/80">System Architecture</h3>
+                    <div className="flex items-center gap-2 text-xs text-primary font-mono bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                        </span>
+                        Live Pipeline
+                    </div>
+                </div>
+
+                {/* Pipeline Container */}
+                <div
+                    ref={scrollContainerRef}
+                    className="flex items-center overflow-x-auto pb-8 md:pb-0 hide-scrollbar snap-x snap-mandatory"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    <div className="flex items-center min-w-full px-4 md:px-0 gap-4 md:gap-0">
+                        {stages.map((stage, index) => (
+                            <div key={index} className="flex items-center snap-center shrink-0">
+                                {/* Node */}
+                                <div ref={el => stagesRef.current[index] = el}>
+                                    <FlowNode
+                                        {...stage}
+                                        id={`stage-${index}`}
+                                        delay={index * 0.1}
+                                        isActive={activeStage === index}
+                                        isCompleted={activeStage > index}
+                                    />
+                                </div>
+
+                                {/* Connector (Desktop) */}
+                                {index < stages.length - 1 && (
+                                    <div className="w-12 md:w-24 hidden md:flex items-center justify-center">
                                         <ConnectionLine activeStage={activeStage} stageIndex={index} />
                                     </div>
-                                    <VerticalConnection activeStage={activeStage} stageIndex={index} />
-                                </>
-                            )}
-                        </div>
-                    ))}
+                                )}
+
+                                {/* Connector (Mobile) */}
+                                {index < stages.length - 1 && (
+                                    <div className="md:hidden flex items-center justify-center px-2 text-white/20">
+                                        <ArrowRight size={20} />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <div className="mt-8 text-center">
-                <p className="text-xs text-gray-500 font-mono">
-                    <span className="text-primary mr-2">●</span>
-                    Pipeline Status: {activeStage < 5 ? 'PROCESSING...' : 'COMPLETE'}
-                    <span className="ml-4 opacity-50">Latency: 45ms</span>
-                </p>
+            <div className="mt-4 flex justify-between items-center text-xs text-gray-500 font-mono border-t border-white/5 pt-4">
+                <span>Latency: 45ms</span>
+                <span>Status: {activeStage === stages.length - 1 ? 'COMPLETE' : 'PROCESSING...'}</span>
             </div>
         </div>
     );
