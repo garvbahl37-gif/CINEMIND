@@ -1,0 +1,96 @@
+# Model Configuration
+# ===================
+
+two_tower:
+  # Embedding dimensions
+  embedding_dim: 128
+  hidden_dims: [256, 128]
+  output_dim: 64
+  
+  # Regularization
+  dropout: 0.1
+  weight_decay: 1e-5
+  
+  # Contrastive learning
+  temperature: 0.07
+  use_in_batch_negatives: true
+  hard_negative_ratio: 0.5
+
+training:
+  # Basic settings
+  batch_size: 2048
+  num_epochs: 50
+  learning_rate: 1e-3
+  
+  # Scheduler
+  warmup_epochs: 2
+  scheduler: cosine
+  min_lr: 1e-6
+  
+  # Optimization
+  grad_accumulation_steps: 1
+  max_grad_norm: 1.0
+  use_amp: true  # Mixed precision
+  
+  # Early stopping
+  patience: 5
+  min_delta: 0.001
+  monitor: recall@100
+
+faiss:
+  # Index configuration
+  index_type: ivf_pq  # flat, ivf_flat, ivf_pq, hnsw
+  
+  # IVF parameters
+  nlist: 256
+  nprobe: 16
+  
+  # PQ parameters
+  m: 8  # Subquantizers
+  nbits: 8  # Bits per code
+  
+  # HNSW parameters
+  M: 32
+  ef_construction: 200
+  ef_search: 64
+  
+  # Hardware
+  use_gpu: false
+  
+  # Targets
+  target_recall_100: 0.95
+  target_latency_ms: 5.0
+
+ranking:
+  # LightGBM
+  num_leaves: 31
+  learning_rate: 0.05
+  n_estimators: 200
+  
+  # Pipeline
+  num_candidates: 100  # From retrieval
+  final_k: 20  # After re-ranking
+
+reranking:
+  # MMR diversity
+  mmr_lambda: 0.7  # 1.0 = pure relevance, 0.0 = pure diversity
+  
+  # Freshness
+  freshness_boost: 0.2
+  freshness_decay_days: 90
+  
+  # Business rules
+  remove_watched: true
+
+serving:
+  # API
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  
+  # Caching
+  cache_ttl_seconds: 300
+  max_cache_size: 10000
+  
+  # Rate limiting
+  rate_limit_per_minute: 100

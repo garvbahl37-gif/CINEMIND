@@ -1,0 +1,21 @@
+# Node
+node_modules/
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Datasets (Too large for GitHub)
+ml-32m/
+*.csv
+*.npy
+
+# OS
+.DS_Store
+Thumbs.db

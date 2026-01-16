@@ -1,0 +1,70 @@
+:root {
+    /* Cinematic Color Palette */
+    --bg-deep: #030303;
+    --bg-surface: #0a0a0a;
+    --primary-glow: #7928ca;
+    --secondary-glow: #ff0080;
+    --accent-cyan: #00dfd8;
+    --netflix-red: #e50914;
+
+    /* Glassmorphism */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: blur(16px);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+    /* Typography */
+    --font-display: 'Playfair Display', serif;
+    --font-sans: 'Inter', sans-serif;
+
+    /* Animation */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-slow: 0.6s var(--ease-out-expo);
+    --transition-fast: 0.3s var(--ease-out-expo);
+
+    /* Spacing */
+    --header-height: 80px;
+    --container-width: 1400px;
+}
+
+body {
+    background-color: var(--bg-deep);
+    color: #ffffff;
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Typography Utilities */
+.text-gradient {
+    background: linear-gradient(135deg, #fff 0%, #aaa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.text-glow {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.font-display {
+    font-family: var(--font-display);
+}

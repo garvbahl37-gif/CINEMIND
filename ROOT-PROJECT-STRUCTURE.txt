@@ -1,0 +1,112 @@
+faang-recommender-system/
+│
+├── data/
+│   ├── raw/
+│   │   ├── movies.csv
+│   │   ├── ratings.csv
+│   │   ├── tags.csv
+│   │   ├── links.csv
+│   │
+│   ├── processed/
+│   │   ├── interactions.parquet
+│   │   ├── users.parquet
+│   │   ├── items.parquet
+│   │   ├── train.parquet
+│   │   ├── val.parquet
+│   │   └── test.parquet
+│   │
+│   └── features/
+│       ├── user_features.parquet
+│       ├── item_features.parquet
+│       └── interaction_features.parquet
+│
+├── embeddings/
+│   ├── user_embeddings.npy
+│   ├── item_embeddings.npy
+│   ├── text_embeddings.npy
+│   └── genre_embeddings.npy
+│
+├── candidate_generation/
+│   ├── two_tower/
+│   │   ├── model.py
+│   │   ├── train.py
+│   │   ├── loss.py
+│   │   └── inference.py
+│   │
+│   ├── matrix_factorization/
+│   │   ├── als.py
+│   │   └── evaluation.py
+│   │
+│   └── ann/
+│       ├── faiss_index.py
+│       └── build_index.py
+│
+├── ranking/
+│   ├── features.py
+│   ├── train_lgbm.py
+│   ├── train_nn.py
+│   ├── inference.py
+│   └── metrics.py
+│
+├── reranking/
+│   ├── diversity.py
+│   ├── freshness.py
+│   ├── business_rules.py
+│   └── fairness.py
+│
+├── cold_start/
+│   ├── user_cold_start.py
+│   ├── item_cold_start.py
+│   └── popularity_fallback.py
+│
+├── evaluation/
+│   ├── offline_metrics.py
+│   ├── online_metrics.py
+│   └── ab_testing.py
+│
+├── serving/
+│   ├── api/
+│   │   ├── main.py
+│   │   ├── schemas.py
+│   │   └── routes.py
+│   │
+│   ├── feature_store/
+│   │   ├── redis_client.py
+│   │   └── feature_loader.py
+│   │
+│   └── recommendation_service.py
+│
+├── pipelines/
+│   ├── data_pipeline.py
+│   ├── feature_pipeline.py
+│   ├── training_pipeline.py
+│   ├── inference_pipeline.py
+│   └── retraining_pipeline.py
+│
+├── monitoring/
+│   ├── data_drift.py
+│   ├── model_drift.py
+│   └── performance_monitor.py
+│
+├── configs/
+│   ├── model.yaml
+│   ├── training.yaml
+│   └── serving.yaml
+│
+├── notebooks/
+│   ├── eda.ipynb
+│   ├── baseline_cf.ipynb
+│   └── experiments.ipynb
+│
+├── tests/
+│   ├── test_features.py
+│   ├── test_models.py
+│   └── test_api.py
+│
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+│
+├── README.md
+├── requirements.txt
+└── run.sh
