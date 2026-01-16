@@ -1,6 +1,6 @@
-# FAANG-Grade Movie Recommender System
+# Advanced Real-Time Movie Recommender System
 
-A production-ready movie recommendation system built on the MovieLens-32M dataset (32M ratings, 200K users, 87K movies) with optimized FAISS indexing for sub-millisecond retrieval.
+A high-performance, scalable movie recommendation engine engineered for production environments. Leveraging the MovieLens-32M dataset, this system implements a state-of-the-art two-tower neural architecture for candidate generation, optimized FAISS vector indexing for low-latency retrieval, and advanced re-ranking logic to deliver personalized, diverse, and relevant content in real-time.
 
 ## Architecture
 
