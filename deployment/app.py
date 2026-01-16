@@ -321,7 +321,11 @@ async def search_movies(
         elif q_lower in title:
             score += 50
             
-        # 2. Tag Match (Medium Priority)
+    # Log search event to Kafka (Production Event)
+    from kafka_utils import kafka_producer
+    kafka_producer.send_event("user_searches", "SEARCH_QUERY", {"query": q})
+            
+    # 2. Tag Match (Medium Priority)
         # Check if query is in tags OR tag is in query (e.g. "hindi movies" -> tag "hindi")
         query_tokens = set(q_lower.split())
         for tag in tags:
