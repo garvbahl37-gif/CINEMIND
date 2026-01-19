@@ -1,97 +1,109 @@
-# 🎬 CineMind - Advanced AI Recommender System (Production Grade)
+# CINEMIND - Advanced Recommender System
 
-> **A scalable, event-driven Movie Recommendation Engine powered by FastAPI, React, Kafka, Redis, and MLOps.**
+CINEMIND is a production-grade movie recommendation engine designed to simulate high-scale, modern application architectures. It leverages a microservices approach, integrating a FastAPI backend, a React-based frontend, and robust data engineering pipelines powered by Apache Kafka, Redis, and MLflow.
 
-![Production Status](https://img.shields.io/badge/Status-Production%20Ready-green?style=for-the-badge)
-![Tech Stack](https://img.shields.io/badge/Stack-FastAPI%20|%20React%20|%20Docker%20|%20Kafka%20|%20Redis-blue?style=for-the-badge)
+## Project Overview
 
-## 🏗️ System Architecture
+This system is built to provide personalized movie recommendations using a Two-Tower Neural Network architecture for candidate generation and FAISS for efficient vector similarity search. It features a modern, responsive user interface and a backend capable of handling real-time search, filtering, and user interactions.
 
-This project simulates a **real-world "FAANG-scale" architecture** designed to handle high traffic, real-time events, and continuous model improvement.
+## Technology Stack
 
-```mermaid
-graph TD
-    User[User] -->|Browser| Frontend[React Frontend (Container)]
-    Frontend -->|API Reqs| Backend[FastAPI Backend (Container)]
-    
-    subgraph "Data & Performance Layer"
-        Backend -->|Cache Hit| Redis[Redis Cache (Hot Data)]
-        Backend -->|Cache Miss| FAISS[FAISS Index (Vector Search)]
-    end
-    
-    subgraph "Event Streaming (Real-Time)"
-        Backend -->|User Clicks/Search| Kafka[Apache Kafka]
-        Kafka -->|Topic: user_events| StreamProcess[spark-streaming (Future)]
-    end
-    
-    subgraph "MLOps (Model Lifecycle)"
-        FAISS -->|Model Metrics| MLflow[MLflow Server]
-        MLflow -->|Experiment Tracking| Dashboard[MLflow UI]
-    end
+### Core Application
+- **Frontend**: React (TypeScript), TailwindCSS, Framer Motion, Vite
+- **Backend**: Python, FastAPI, Uvicorn
+- **Containerization**: Docker, Docker Compose
+
+### Data & Machine Learning
+- **Vector Search**: FAISS (Facebook AI Similarity Search)
+- **Machine Learning**: PyTorch, Scikit-learn
+- **Embeddings**: Sentence-BERT (SBERT) for semantic text search
+- **Experiment Tracking**: MLflow
+- **Data Streaming**: Apache Kafka (User event tracking)
+- **Caching**: Redis (High-performance API caching)
+
+## Key Features
+
+1.  **Hybrid Search Engine**: Combines semantic vector search with traditional keyword matching (BM25 logic) to provide accurate search results for titles, genres, and metadata.
+2.  **Personalized Recommendations**: Utilizes user and item embeddings to suggest movies similar to user preferences or currently viewed items ("Also Liked" functionality).
+3.  **Real-Time Performance**: Implements Redis caching for frequently accessed data (Top 50, TV Shows), reducing API response times to single-digit milliseconds.
+4.  **Intelligent Intent Parsing**: Integrates with Large Language Models (LLM) to parse complex user queries (e.g., "90s action movies") into structured search filters.
+5.  **Reactive UI/UX**: Features a "Warm Luxe" aesthetic with glassmorphism effects, dynamic animations, and a fully responsive design.
+6.  **Event-Driven Architecture**: Captures user interactions such as searches and clicks via Kafka topics for future model retraining and analytics.
+
+## Project Structure
+
+```
+CINEMIND/
+├── deployment/                 # Production-ready backend configurations
+│   ├── app.py                  # Main FastAPI application entry point
+│   ├── llm_engine.py           # LLM integration for intent parsing
+│   ├── movies.json             # Core metadata dataset
+│   └── Dockerfile              # Backend container definition
+│
+├── frontend-app/               # React Frontend Application
+│   ├── src/                    # Source code
+│   │   ├── components/         # Reusable UI components
+│   │   ├── App.tsx             # Main application logic
+│   │   └── config.ts           # API configuration
+│   └── Dockerfile              # Frontend container definition
+│
+├── mlops/                      # Machine Learning Operations
+│   └── train.py                # Training pipelines and MLflow integration
+│
+├── candidate_generation/       # Recommendation Algorithms
+│   └── two_tower/              # Neural network architecture definition
+│
+├── data/                       # Data processing scripts and storage
+└── docker-compose.yml          # Container orchestration configuration
 ```
 
-## 🚀 Key Features
+## Installation and Setup
 
-*   **⚡ Hybrid Search Engine**: Combines **Sentence-BERT Embeddings (Vector Search)** with traditional keyword matching for 100% recall.
-*   **🏎️ Lightning Performance**: **Redis Caching** stores "Top 50" and "TV Shows" results, reducing API latency from ~200ms to **<5ms**.
-*   **📡 Real-Time Event Streaming**: **Apache Kafka** captures user interactions (searches) instantly for future training.
-*   **🧪 MLOps Integrated**: **MLflow** tracks model experiments and accuracy, ensuring reproducible AI.
-*   **🐳 Fully Dockerized**: The entire stack launches with a single command.
+### Prerequisites
+- Docker Desktop
+- Git
+- Node.js (Optional, for local frontend development)
+- Python 3.10+ (Optional, for local backend development)
 
-## 🛠️ Prerequisites
+### Running with Docker (Recommended)
+The entire application stack can be launched using Docker Compose.
 
-To run the full stack, you need:
-
-1.  **Docker Desktop** (Essential): Run all services without installing Python/Node manually.
-2.  **Git**: To clone the repo.
-
-## 🏃‍♂️ How to Run (Production Mode)
-
-1.  **Clone & Enter Directory**:
+1.  **Clone the repository:**
     ```bash
-    git clone <repo-url>
-    cd Advance-Recommender-System
+    git clone https://github.com/garvbahl37-gif/CINEMIND.git
+    cd CINEMIND
     ```
 
-2.  **Launch the Stack**:
+2.  **Start the services:**
     ```bash
     docker-compose up --build
     ```
-    *Wait for Docker to download images and build the containers.*
 
-3.  **Access Services**:
-    *   🍿 **Web App**: [http://localhost:5173](http://localhost:5173)
-    *   🧠 **Backend API**: [http://localhost:7860/docs](http://localhost:7860/docs)
-    *   📊 **MLFlow UI**: [http://localhost:5000](http://localhost:5000)
+3.  **Access the application:**
+    - Frontend: http://localhost:5173
+    - Backend API Docs: http://localhost:7860/docs
 
-## 📂 Project Structure
+### Local Development Setup
 
-```bash
-├── 📁 deployment/          # Docker & Cloud Configs (App Logic)
-│   ├── Dockerfile          # Backend Container
-│   ├── app.py              # Main FastAPI Application
-│   ├── kafka_utils.py      # Kafka Producer
-│   └── requirements.txt    # Dependencies
-├── 📁 frontend-app/        # React Application
-│   ├── src/                # UI Components
-│   └── Dockerfile          # Frontend Container
-├── 📁 mlops/               # AI Engineering
-│   └── train.py            # Training Pipeline & MLflow
-├── 📁 ml-32m/              # Dataset (if local)
-├── docker-compose.yml      # Orchestration Script
-└── README.md               # Documentation
-```
+**Backend:**
+1.  Navigate to the project root.
+2.  Install dependencies: `pip install -r requirements.txt`
+3.  Start the server:
+    ```bash
+    cd deployment
+    python -m uvicorn app:app --host 0.0.0.0 --port 8003
+    ```
 
-## 🧠 Advanced: Research Pipeline (Legacy)
+**Frontend:**
+1.  Navigate to `frontend-app`.
+2.  Install dependencies: `npm install`
+3.  Start the development server: `npm run dev`
 
-For data scientists wanting to retrain the underlying models from scratch:
+## Deployment
 
-```bash
-# Install local dependencies
-pip install -r requirements.txt
+The application is designed for cloud deployment:
+- **Frontend**: Deployed on Vercel (https://cinemind-theta.vercel.app/)
+- **Backend**: Hosted on Hugging Face Spaces (https://bharatverse11-movie-recommender-system.hf.space)
 
-# Run the training pipeline
-python run.py train --epochs 50
-```
-
-See `run.py` for full CLI options regarding the Two-Tower Architecture and FAISS Indexing.
+## License
+This project is licensed under the MIT License.
