@@ -1,10 +1,45 @@
+
+import requests
 import json
+import os
 
-data = json.load(open('deployment/movies.json', encoding='utf-8', errors='ignore'))
-targets = ["Planet Earth", "Band of Brothers", "Escape from Planet Earth", "Blue Planet II"]
+BASE_URL = "http://localhost:8003"
+MOVIES_PATH = "deployment/movies.json"
 
-with open('debug_output.txt', 'w', encoding='utf-8') as f:
-    for k, v in data.items():
-        title = v['title']
-        if any(t in title for t in targets):
-             f.write(f"Title: '{title}' | ID: {v['tmdbId']} | Type: {v['media_type']} | Poster: {v.get('poster_path')} | Date: {v.get('releaseDate')}\n")
+def check_tv_content():
+    if os.path.exists(MOVIES_PATH):
+        with open(MOVIES_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        tv_count = 0
+        media_types = {}
+        for mid, m in data.items():
+            mt = m.get("media_type", "unknown")
+            media_types[mt] = media_types.get(mt, 0) + 1
+            if mt == "tv":
+                tv_count += 1
+                
+        print(f"Media Type Counts: {media_types}")
+    else:
+        print("movies.json not found")
+
+def check_similar_endpoint():
+    # Try item ID 11 (American President)
+    try:
+        r = requests.get(f"{BASE_URL}/similar/11?k=5")
+        if r.status_code == 200:
+            res = r.json()
+            items = res.get("similar_items", [])
+            print(f"Similar items for ID 11 (k=5): Found {len(items)}")
+            for i in items:
+                print(f" - {i}")
+        else:
+            print(f"Similar endpoint failed: {r.status_code} {r.text}")
+    except Exception as e:
+        print(f"Request failed (backend might be down?): {e}")
+
+if __name__ == "__main__":
+    print("--- Checking Content ---")
+    check_tv_content()
+    print("\n--- Checking Endpoint ---")
+    check_similar_endpoint()

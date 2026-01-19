@@ -238,11 +238,17 @@ async def get_similar_items(
     item_emb = item_embeddings[item_id:item_id+1].copy()
     faiss.normalize_L2(item_emb)
     
-    # Search FAISS index (k+1 because the item itself will be first result)
-    distances, indices = faiss_index.search(item_emb, k + 1)
+    # Search FAISS index (Get more candidates to account for filtering)
+    search_k = max(50, k * 5)
+    distances, indices = faiss_index.search(item_emb, search_k)
     
-    # Filter out the query item itself
-    results = [(idx, dist) for idx, dist in zip(indices[0], distances[0]) if idx != item_id][:k]
+    # Filter out query item AND ensure item exists in metadata
+    results = []
+    for idx, dist in zip(indices[0], distances[0]):
+        if idx != item_id and str(idx) in movies_data:
+            results.append((idx, dist))
+            if len(results) >= k:
+                break
     
     latency_ms = (time.time() - start) * 1000
     
