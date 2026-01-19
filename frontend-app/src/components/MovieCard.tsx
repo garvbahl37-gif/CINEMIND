@@ -11,9 +11,10 @@ interface MovieCardProps {
     movie: Movie;
     onSelect: (movie: Movie) => void;
     className?: string;
+    compact?: boolean;
 }
 
-const MovieCard = memo(({ movie, onSelect, className }: MovieCardProps) => {
+const MovieCard = memo(({ movie, onSelect, className, compact = false }: MovieCardProps) => {
     const [imageSrc, setImageSrc] = useState<string | null>(movie.poster || null);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [rating, setRating] = useState<number | null>(movie.vote_average || null);
@@ -50,7 +51,8 @@ const MovieCard = memo(({ movie, onSelect, className }: MovieCardProps) => {
     return (
         <motion.div
             className={cn(
-                "group relative flex-shrink-0 w-[150px] md:w-[260px] aspect-[2/3] rounded-xl md:rounded-2xl overflow-hidden cursor-pointer snap-start bg-neutral-900 shadow-xl ring-1 ring-white/10 will-change-transform backface-hidden",
+                "group relative flex-shrink-0 overflow-hidden cursor-pointer snap-start bg-neutral-900 shadow-xl ring-1 ring-white/10 will-change-transform backface-hidden",
+                compact ? "w-full aspect-[2/3] rounded-lg" : "w-[150px] md:w-[260px] aspect-[2/3] rounded-xl md:rounded-2xl",
                 className
             )}
             onClick={() => onSelect({ ...movie, poster: imageSrc || movie.poster, vote_average: rating || movie.vote_average, releaseDate: releaseDate || movie.releaseDate })}
@@ -82,29 +84,45 @@ const MovieCard = memo(({ movie, onSelect, className }: MovieCardProps) => {
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-primary/10 to-transparent pointer-events-none mix-blend-overlay" />
 
             {/* Content Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6 z-10 flex flex-col justify-end h-full">
+            <div className={cn(
+                "absolute bottom-0 left-0 right-0 z-10 flex flex-col justify-end h-full",
+                compact ? "p-2" : "p-3 md:p-6"
+            )}>
                 <div className="transform translate-y-2 group-hover:translate-y-0 transition-transform duration-200 ease-out">
-                    <h3 className="text-white font-display font-bold text-sm md:text-xl leading-tight mb-1 md:mb-3 line-clamp-2 drop-shadow-lg group-hover:text-primary-foreground transition-colors tracking-tight">
+                    <h3 className={cn(
+                        "text-white font-display font-bold leading-tight mb-1 line-clamp-2 drop-shadow-lg group-hover:text-primary-foreground transition-colors tracking-tight",
+                        compact ? "text-xs mb-1" : "text-sm md:text-xl md:mb-3"
+                    )}>
                         {movie.title}
                     </h3>
 
-                    <div className="flex items-center justify-between text-[10px] md:text-xs font-semibold text-gray-300 mb-2 md:mb-4 tracking-wide">
-                        <div className="flex items-center gap-1.5 px-1.5 md:px-2 py-0.5 md:py-1 rounded-md bg-white/10 backdrop-blur-md border border-white/10">
-                            <Star className="w-3 h-3 md:w-3.5 md:h-3.5 text-yellow-500 fill-current" />
+                    <div className={cn(
+                        "flex items-center justify-between font-semibold text-gray-300 tracking-wide",
+                        compact ? "text-[9px] mb-1" : "text-[10px] md:text-xs mb-2 md:mb-4"
+                    )}>
+                        <div className={cn(
+                            "flex items-center gap-1.5 rounded-md bg-white/10 backdrop-blur-md border border-white/10",
+                            compact ? "px-1 py-0.5" : "px-1.5 md:px-2 py-0.5 md:py-1"
+                        )}>
+                            <Star className={cn("text-yellow-500 fill-current", compact ? "w-2.5 h-2.5" : "w-3 h-3 md:w-3.5 md:h-3.5")} />
                             <span className="text-white">{rating ? rating.toFixed(1) : '—'}</span>
                         </div>
-                        <div className="px-1.5 md:px-2 py-0.5 md:py-1 rounded-md bg-black/40 backdrop-blur-sm border border-white/5 text-gray-400">
-                            {releaseDate ? releaseDate.split('-')[0] : 'Unknown'}
-                        </div>
+                        {!compact && (
+                            <div className="px-1.5 md:px-2 py-0.5 md:py-1 rounded-md bg-black/40 backdrop-blur-sm border border-white/5 text-gray-400">
+                                {releaseDate ? releaseDate.split('-')[0] : 'Unknown'}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="hidden md:flex flex-wrap gap-2 h-0 opacity-0 group-hover:h-auto group-hover:opacity-100 transition-all duration-300 delay-75">
-                        {movie.genres?.slice(0, 3).map((g) => (
-                            <span key={g} className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-primary/20 text-primary-foreground border border-primary/20 backdrop-blur-sm">
-                                {g}
-                            </span>
-                        ))}
-                    </div>
+                    {!compact && (
+                        <div className="hidden md:flex flex-wrap gap-2 h-0 opacity-0 group-hover:h-auto group-hover:opacity-100 transition-all duration-300 delay-75">
+                            {movie.genres?.slice(0, 3).map((g) => (
+                                <span key={g} className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-primary/20 text-primary-foreground border border-primary/20 backdrop-blur-sm">
+                                    {g}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </motion.div>

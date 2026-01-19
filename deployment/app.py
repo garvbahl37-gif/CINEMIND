@@ -21,6 +21,10 @@ import faiss
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize LLM Engine (Global)
+from llm_engine import LLMEngine
+llm_engine = LLMEngine()
+
 # Initialize FastAPI
 app = FastAPI(
     title="MovieRec AI",
@@ -313,11 +317,73 @@ async def search_movies(
     from kafka_utils import kafka_producer
     kafka_producer.send_event("user_searches", "SEARCH_QUERY", {"query": q})
     
+    # Keyword Expansion Map
+    KEYWORD_MAP = {
+        "hindi": ["bollywood", "india", "indian"],
+        "sci-fi": ["science fiction", "scifi", "futuristic"],
+        "romance": ["romantic", "love"],
+        "animated": ["animation", "cartoon", "anime"]
+    }
+    
+    # Language Map for Metadata Matching
+    LANGUAGE_MAP = {
+        "english": "en",
+        "hindi": "hi",
+        "french": "fr",
+        "spanish": "es",
+        "korean": "ko",
+        "japanese": "ja"
+    }
+    
+    # Detect target language from query
+    target_lang = None
+    for lang, code in LANGUAGE_MAP.items():
+        if lang in q_lower:
+            target_lang = code
+            break
+
+    expanded_tokens = set(q_lower.split())
+    for token in q_lower.split():
+        if token in KEYWORD_MAP:
+            expanded_tokens.update(KEYWORD_MAP[token])
+            
+    # 🌟 Intelligent Intent Parsing (LLM)
+    # If query is > 1 word, try to extract intent (Genre, Year, etc.)
+    intent_filters = {}
+    if len(q.split()) > 1:
+        try:
+            intent_filters = llm_engine.parse_intent(q)
+            if intent_filters:
+                logger.info(f"🧠 Smart Search Filters: {intent_filters}")
+        except Exception as e:
+            logger.warning(f"Intent parsing failed: {e}")
+            
     for item_id, movie in movies_data.items():
         score = 0
         title = movie.get("title", "").lower()
         tags = [t.lower() for t in movie.get("tags", [])]
         genres = [g.lower() for g in movie.get("genres", [])]
+        
+        # 0. Language Match (Critical Priority)
+        if target_lang and movie.get("original_language") == target_lang:
+            score += 100
+        
+        # 0. Intelligent Intent Match (High Priority)
+        # Boost if movie matches LLM-extracted genre
+        if "genres" in intent_filters:
+             target_genres = [g.lower() for g in intent_filters["genres"]]
+             common_genres = set(target_genres).intersection(genres)
+             if common_genres:
+                 score += 40 * len(common_genres)
+        
+        # Boost if matches year range
+        if "year_min" in intent_filters:
+            m_year = movie.get("year", 0)
+            if m_year >= intent_filters["year_min"]:
+                if "year_max" in intent_filters and m_year <= intent_filters["year_max"]:
+                     score += 30 # Perfect range match
+                elif "year_max" not in intent_filters:
+                     score += 15 # Open ended match
         
         # 1. Title Match (Highest Priority)
         if q_lower == title:
@@ -326,18 +392,17 @@ async def search_movies(
             score += 50
             
         # 2. Tag Match (Medium Priority)
-        # Check if query is in tags OR tag is in query (e.g. "hindi movies" -> tag "hindi")
-        query_tokens = set(q_lower.split())
         for tag in tags:
+            # Check original query
             if q_lower == tag:
                 score += 30
             elif q_lower in tag:
                 score += 20
-            elif tag in q_lower and len(tag) > 2: # Avoid matching short words like "in"
+            elif tag in q_lower and len(tag) > 2:
                 score += 25
             
-            # Check for token overlap
-            if tag in query_tokens:
+            # Check expanded tokens
+            if tag in expanded_tokens:
                  score += 15
 
         # 3. Genre Match (Lowest Priority)
@@ -384,6 +449,7 @@ except Exception as e:
 
 @app.on_event("startup")
 async def startup():
+    global redis_client
     logger.info("🎬 MovieRec AI starting...")
     success = load_embeddings()
     if success:
@@ -397,7 +463,8 @@ async def startup():
             redis_client.ping()
             logger.info("✅ Redis connected successfully!")
         except Exception as e:
-            logger.warning(f"⚠️ Redis ping failed: {e}")
+            logger.warning(f"⚠️ Redis ping failed: {e}. Disabling Redis.")
+            redis_client = None
 
 # ... (Rest of the file remains similar, but we update endpoints)
 
@@ -486,7 +553,106 @@ async def get_tv_movies():
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 7860))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+# ============================================
+# Chat & LLM Integration
+# ============================================
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str
+
+@app.post("/chat/message", tags=["Chat"])
+async def chat_message(request: ChatRequest):
+    """
+    Handle chat interactions:
+    1. Retrieve history from Redis
+    2. Parse intent (filters) with LLM
+    3. Search movies with filters
+    4. Generate response with LLM
+    5. Update history
+    """
+    
+    # 1. Get History
+    history = []
+    if redis_client:
+        try:
+            cached_history = redis_client.get(f"chat:{request.session_id}")
+            if cached_history:
+                history = json.loads(cached_history)
+        except Exception as e:
+            logger.error(f"Redis get chat history error: {e}")
+
+    # Add user message to history
+    history.append({"role": "user", "content": request.message})
+    
+    # 2. Parse Intent
+    filters = llm_engine.parse_intent(request.message)
+    logger.info(f"Extracted filters: {filters}")
+    
+    # 3. Search Movies logic (simplified version of search_movies)
+    # We will score movies based on filters + simple text match if relevant
+    # For now, just simplistic filter application on top of popularity or relevance
+    
+    candidates = []
+    
+    # Simple candidate generation strategy:
+    # If filters exist, filter all movies. If not, maybe just use top 20 popular?
+    # Or actually run the search logic if query is present?
+    # Let's simple reuse search logic manually or call internal function?
+    # We'll do a custom filter pass:
+    
+    for item_id, movie in movies_data.items():
+        score = 0
+        
+        # Filter checks
+        if "year_min" in filters and movie.get("year", 0) < filters["year_min"]: continue
+        if "year_max" in filters and movie.get("year", 0) > filters["year_max"]: continue
+        
+        # Genre filter (any match)
+        if "genres" in filters:
+            movie_genres = [g.lower() for g in movie.get("genres", [])]
+            target_genres = [g.lower() for g in filters["genres"]]
+            if not any(g in movie_genres for g in target_genres):
+                continue
+                
+        # Duration check
+        # (Assuming we had runtime in metadata, if not, skip)
+        
+        # Scoring: Text match or Popularity
+        # If the user query has "action", we filtered. 
+        # So now we just want good movies.
+        score = movie.get("vote_average", 0) + (movie.get("vote_count", 0) / 10000)
+        
+        candidates.append({
+            "item_id": int(item_id),
+            "score": score,
+            **movie
+        })
+        
+    # Sort and take top 5
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    top_candidates = candidates[:5]
+    
+    # 4. Generate Response
+    response_text = llm_engine.generate_response(request.message, top_candidates, history)
+    
+    # Add assistant response to history
+    history.append({"role": "assistant", "content": response_text})
+    
+    # 5. Save History (limit to last 10 turns)
+    if redis_client:
+        try:
+            redis_client.setex(f"chat:{request.session_id}", 3600, json.dumps(history[-10:]))
+        except Exception as e:
+            logger.error(f"Redis set chat history error: {e}")
+            
+    return {
+        "response": response_text,
+        "recommendations": top_candidates
+    }
+
+@app.delete("/chat/history/{session_id}", tags=["Chat"])
+async def clear_history(session_id: str):
+    if redis_client:
+        redis_client.delete(f"chat:{session_id}")
+    return {"status": "cleared"}

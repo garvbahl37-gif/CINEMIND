@@ -17,6 +17,7 @@ import { API_BASE, TMDB_API_KEY, TMDB_IMAGE_BASE } from './config';
 import Navbar from './components/Navbar';
 import AboutPage from './components/AboutPage';
 import SearchResults from './components/SearchResults';
+import { ChatInterface } from './components/ChatInterface';
 
 function App() {
   // Navigation State
@@ -756,7 +757,7 @@ function App() {
           />
         )}
       </AnimatePresence>
-
+      <ChatInterface />
     </div >
   )
 }
