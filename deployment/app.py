@@ -639,6 +639,37 @@ async def chat_message(request: ChatRequest):
     candidates.sort(key=lambda x: x["score"], reverse=True)
     top_candidates = candidates[:5]
     
+    # 4. Generate Response with LLM (RAG)
+    # detailed_response = "Here are some movies you might like..." # Placeholder
+    try:
+        current_history = [{"role": m["role"], "content": m["content"]} for m in history] # Clean history
+        detailed_response = llm_engine.generate_response(
+            user_query=request.message,
+            candidates=top_candidates,
+            history=current_history
+        )
+    except Exception as e:
+        logger.error(f"LLM generation failed: {e}")
+        detailed_response = "I found some movies for you, but I'm having trouble analyzing them in detail right now."
+
+    # 5. Update History
+    history.append({"role": "assistant", "content": detailed_response})
+    
+    if redis_client:
+        try:
+             # Keep last 10 messages
+            redis_client.setex(f"chat:{request.session_id}", 3600, json.dumps(history[-10:]))
+        except Exception as e:
+            logger.error(f"Redis set chat history error: {e}")
+
+    # Format response for frontend
+    # Frontend expects: { response: str, recommendations: List[Movie] }
+    
+    return {
+        "response": detailed_response,
+        "recommendations": top_candidates
+    }
+    
     # 4. Generate Response
     response_text = llm_engine.generate_response(request.message, top_candidates, history)
     
