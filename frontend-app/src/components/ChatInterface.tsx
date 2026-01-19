@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, Send, Loader2, Video, Sparkles, BrainCircuit } from 'lucide-react';
+import { MessageSquare, X, Send, Loader2, Video, Sparkles, Bot } from 'lucide-react';
 import { API_BASE, TMDB_IMAGE_BASE } from '../config';
 import { cn } from '../lib/utils';
 import MovieCard from './MovieCard';
@@ -148,8 +148,8 @@ export const ChatInterface: React.FC = () => {
                         {/* Header */}
                         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-neutral-900/80 to-black/80">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-rose-900 flex items-center justify-center shadow-[0_0_15px_rgba(229,9,20,0.4)] ring-1 ring-white/10">
-                                    <BrainCircuit className="w-6 h-6 text-white" />
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg ring-2 ring-white/20">
+                                    <Bot className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
                                     <h3 className="font-['Orbitron'] font-bold text-white tracking-wider flex items-center gap-2">
@@ -281,7 +281,7 @@ export const ChatInterface: React.FC = () => {
                             exit={{ scale: 0.5, opacity: 0 }}
                             transition={{ type: "spring", stiffness: 260, damping: 20 }}
                         >
-                            <BrainCircuit className="w-7 h-7 md:w-9 md:h-9 text-white fill-white/10 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+                            <Bot className="w-8 h-8 md:w-10 md:h-10 text-white fill-white/10 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]" />
                         </motion.div>
                     )}
                 </AnimatePresence>
