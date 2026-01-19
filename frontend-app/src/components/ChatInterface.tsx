@@ -148,7 +148,7 @@ export const ChatInterface: React.FC = () => {
                         {/* Header */}
                         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-neutral-900/80 to-black/80">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg ring-2 ring-white/20">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-rose-900 flex items-center justify-center shadow-lg ring-1 ring-white/10">
                                     <Bot className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
