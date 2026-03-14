@@ -103,7 +103,7 @@ The entire application stack can be launched using Docker Compose.
 
 The application is designed for cloud deployment:
 - **Frontend**: Deployed on Vercel (https://cinemind-theta.vercel.app/)
-- **Backend**: Hosted on Hugging Face Spaces (https://bharatverse11-movie-recommender-system.hf.space)
+- **Backend**: Hosted on Hugging Face Spaces (https://huggingface.co/spaces/bharatverse11/Movie_Recommender_System/tree/main)
 
 ## License
 This project is licensed under the MIT License.
