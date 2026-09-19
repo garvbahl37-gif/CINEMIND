@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { backdrop, poster } from '../config';
 import Perforation from './Perforation';
 import { api } from '../api';
@@ -36,29 +37,36 @@ export default function FilmSheet({
   const ps = poster(full.poster_path, 'w500');
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto"
-         style={{ background: 'rgba(6,9,18,.86)', backdropFilter: 'blur(6px)' }}
+    <motion.div className="fixed inset-0 z-[100] overflow-y-auto"
+         style={{ background: 'rgba(5,6,9,.82)', backdropFilter: 'blur(10px)' }}
+         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+         transition={{ duration: .35 }}
          onClick={onClose} role="dialog" aria-modal="true" aria-label={full.title}>
-      <div className="mx-auto my-8 max-w-[1080px] border"
-           style={{ background: 'var(--ink)', borderColor: 'var(--ink-edge)',
-                    borderRadius: 'var(--frame)' }}
+      <motion.div className="glass mx-auto my-8 max-w-[1080px] overflow-hidden"
+           style={{ boxShadow: 'var(--lift-3)' }}
+           initial={{ opacity: 0, y: 40, scale: .97 }}
+           animate={{ opacity: 1, y: 0, scale: 1 }}
+           exit={{ opacity: 0, y: 24, scale: .98 }}
+           transition={{ type: 'spring', damping: 26, stiffness: 240 }}
            onClick={(e) => e.stopPropagation()}>
 
         <div className="relative">
           {bd && (
             <div className="relative h-[220px] overflow-hidden sm:h-[300px]">
-              <img src={bd} alt="" className="h-full w-full object-cover opacity-50" />
+              <img src={bd} alt="" className="kenburns h-full w-full object-cover" style={{ opacity: .55 }} />
               <div className="absolute inset-0" style={{ background:
-                'linear-gradient(180deg, rgba(16,21,38,.30) 0%, rgba(16,21,38,.72) 46%, var(--ink) 94%)' }} />
+                'linear-gradient(180deg, rgba(8,9,15,.28) 0%, rgba(8,9,15,.74) 48%, rgba(16,18,28,.99) 96%)' }} />
             </div>
           )}
-          <button onClick={onClose} aria-label="Close"
-                  className="absolute right-4 top-4 grid h-9 w-9 place-items-center border"
-                  style={{ borderColor: 'var(--ink-edge)', background: 'rgba(10,14,27,.8)',
-                           borderRadius: 'var(--frame)' }}>
+          <motion.button onClick={onClose} aria-label="Close"
+                  whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: .9 }}
+                  transition={{ duration: .25, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full"
+                  style={{ border: '1px solid rgba(255,255,255,.14)',
+                           background: 'rgba(5,6,9,.7)', backdropFilter: 'blur(10px)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-          </button>
+          </motion.button>
         </div>
 
         <div className="px-6 pb-10 sm:px-10" style={{ marginTop: bd ? '-64px' : '2rem' }}>
@@ -92,8 +100,8 @@ export default function FilmSheet({
                 <div className="mt-5 flex flex-wrap gap-1.5">
                   {full.tags.map((t) => (
                     <span key={t} className="px-2 py-0.5 text-[0.7rem]"
-                          style={{ background: 'var(--ink-raise)', color: 'var(--halide-dim)',
-                                   borderRadius: 'var(--frame)' }}>{t}</span>
+                          style={{ background: 'rgba(255,255,255,.05)', color: 'var(--halide-mid)',
+                                   borderRadius: 999 }}>{t}</span>
                   ))}
                 </div>
               )}
@@ -113,9 +121,8 @@ export default function FilmSheet({
                 {near.map((f) => (
                   <li key={f.item_id}>
                     <button onClick={() => onSelect(f)}
-                            className="group flex w-full items-center gap-3.5 border p-2.5 text-left
-                                       transition-colors hover:border-[var(--ink-edge)]"
-                            style={{ borderColor: 'transparent', borderRadius: 'var(--frame)' }}>
+                            className="group flex w-full items-center gap-3.5 rounded-[12px] p-2.5 text-left
+                                       transition-colors hover:bg-white/[.05]">
                       <div className="frame h-[66px] w-[44px] shrink-0">
                         {poster(f.poster_path, 'w185')
                           ? <img src={poster(f.poster_path, 'w185')!} alt="" loading="lazy" />
@@ -141,21 +148,21 @@ export default function FilmSheet({
               <div className="grid gap-4 sm:grid-cols-2">
                 {Array.from({ length: 6 }, (_, i) => (
                   <div key={i} className="h-[76px] animate-pulse"
-                       style={{ background: 'var(--ink-raise)', borderRadius: 'var(--frame)' }} />
+                       style={{ background: 'rgba(255,255,255,.035)', borderRadius: 12 }} />
                 ))}
               </div>
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="border px-2.5 py-1 text-[0.75rem]"
-          style={{ borderColor: 'var(--ink-edge)', color: 'var(--halide-mid)',
-                   borderRadius: 'var(--frame)' }}>{children}</span>
+    <span className="px-3 py-1 text-[.75rem]"
+          style={{ border: '1px solid rgba(255,255,255,.12)', borderRadius: 999,
+                   color: 'var(--halide-mid)', background: 'rgba(255,255,255,.035)' }}>{children}</span>
   );
 }

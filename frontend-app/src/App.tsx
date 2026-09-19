@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import ProximityHero from './components/ProximityHero';
 import Shelf from './components/Shelf';
@@ -6,15 +7,19 @@ import FilmSheet from './components/FilmSheet';
 import SearchPanel from './components/SearchPanel';
 import ResultsGrid from './components/ResultsGrid';
 import HowItWorks from './components/HowItWorks';
+import CinematicLoader from './components/CinematicLoader';
+import Atmosphere from './components/Atmosphere';
 import { api } from './api';
 import type { BrowsePayload, Film } from './types';
 
 type View = 'home' | 'top50' | 'tv' | 'about' | 'results';
+const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function App() {
   const [view, setView] = useState<View>('home');
   const [data, setData] = useState<BrowsePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [booted, setBooted] = useState(false);
   const [open, setOpen] = useState<Film | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -53,87 +58,94 @@ export default function App() {
 
   const navigate = (v: string) => { setView(v as View); window.scrollTo({ top: 0 }); };
 
-  if (error) {
-    return (
-      <main className="grid min-h-screen place-items-center px-6 text-center">
-        <div className="max-w-[44ch]">
-          <h1 style={{ fontSize: 'var(--t-xl)' }}>The catalogue didn’t load.</h1>
-          <p className="mt-4 text-[0.9rem]" style={{ color: 'var(--halide-mid)' }}>
-            The API returned: {error}
-          </p>
-          <button onClick={() => location.reload()}
-                  className="mt-7 px-5 py-2.5 text-[0.875rem] font-semibold"
-                  style={{ background: 'var(--lamp)', color: 'var(--ink-deep)',
-                           borderRadius: 'var(--frame)' }}>
-            Try again
-          </button>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <>
-      <Navbar view={view} onNavigate={navigate} onSearchFocus={() => setSearchOpen(true)} />
+      <Atmosphere />
+      <CinematicLoader ready={!!data || !!error} onDone={() => setBooted(true)} />
 
-      {view === 'home' && (
-        <main>
-          {data ? (
-            <ProximityHero seeds={data.hero} onSelect={setOpen} />
-          ) : (
-            <div className="min-h-[70vh] pt-40" style={{ paddingInline: 'var(--gut)' }}>
-              <div className="mx-auto max-w-[1180px]">
-                <div className="h-4 w-56 animate-pulse"
-                     style={{ background: 'var(--ink-raise)' }} />
-                <div className="mt-6 h-20 w-full max-w-[620px] animate-pulse"
-                     style={{ background: 'var(--ink-raise)' }} />
-              </div>
-            </div>
-          )}
-
-          <div className="pb-24 pt-2">
-            {data?.rows.map((r) => (
-              <Shelf key={r.genre} title={r.genre} films={r.items}
-                     onSelect={setOpen} count={r.items.length} />
-            ))}
+      {error ? (
+        <main className="grid min-h-screen place-items-center px-6 text-center">
+          <div className="glass max-w-[46ch] p-10">
+            <h1 style={{ fontSize: 'var(--t-xl)' }}>The projector didn’t start.</h1>
+            <p className="mt-4 text-[.9rem]" style={{ color: 'var(--halide-mid)' }}>
+              The catalogue API returned: {error}
+            </p>
+            <motion.button onClick={() => location.reload()}
+              whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
+              className="mt-7 px-6 py-3 text-[.875rem] font-semibold"
+              style={{ background: 'linear-gradient(135deg, var(--lamp-warm), var(--lamp))',
+                       color: '#1B1405', borderRadius: 'var(--r-sm)' }}>
+              Try again
+            </motion.button>
           </div>
         </main>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: booted ? 1 : 0 }}
+          transition={{ duration: .8, ease: EASE }}
+        >
+          <Navbar view={view} onNavigate={navigate} onSearchFocus={() => setSearchOpen(true)} />
+
+          <AnimatePresence mode="wait">
+            <motion.main key={view}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: .45, ease: EASE }}>
+
+              {view === 'home' && data && (
+                <>
+                  <ProximityHero seeds={data.hero} onSelect={setOpen} />
+                  <div className="pb-24">
+                    {data.rows.map((r) => (
+                      <Shelf key={r.genre} title={r.genre} films={r.items}
+                             onSelect={setOpen} count={r.items.length} />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {view === 'top50' && (
+                <ResultsGrid heading="The Top 50"
+                  note="Ranked by Bayesian average — a 4.6 from forty voters cannot outrank a 4.4 from ninety thousand"
+                  films={data?.top50 ?? []} loading={!data}
+                  onSelect={setOpen} onBack={() => navigate('home')} />
+              )}
+
+              {view === 'tv' && (
+                <ResultsGrid heading="Series" films={data?.tv ?? []} loading={!data}
+                  onSelect={setOpen} onBack={() => navigate('home')} />
+              )}
+
+              {view === 'results' && (
+                <ResultsGrid heading={`“${query}”`}
+                  note={searchMs !== null && !searching
+                    ? `${results.length} matches in ${searchMs.toFixed(1)} ms` : undefined}
+                  films={results} loading={searching}
+                  onSelect={setOpen} onBack={() => navigate('home')} />
+              )}
+
+              {view === 'about' && <HowItWorks />}
+            </motion.main>
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {open && (
+              <FilmSheet film={open} onClose={() => setOpen(null)} onSelect={setOpen} />
+            )}
+          </AnimatePresence>
+
+          <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)}
+                       onSelect={setOpen} onSubmit={runSearch} />
+
+          <footer className="py-12 text-[.78rem]"
+                  style={{ borderTop: '1px solid rgba(255,255,255,.06)',
+                           color: 'var(--halide-dim)', paddingInline: 'var(--gut)' }}>
+            Built on the MovieLens 32M dataset. Artwork and synopses from TMDB.
+          </footer>
+        </motion.div>
       )}
-
-      {view === 'top50' && (
-        <ResultsGrid heading="The top 50"
-                     note="Ranked by Bayesian average, so a 4.6 from forty voters cannot outrank a 4.4 from ninety thousand"
-                     films={data?.top50 ?? []} loading={!data}
-                     onSelect={setOpen} onBack={() => navigate('home')} />
-      )}
-
-      {view === 'tv' && (
-        <ResultsGrid heading="Series" films={data?.tv ?? []} loading={!data}
-                     onSelect={setOpen} onBack={() => navigate('home')} />
-      )}
-
-      {view === 'results' && (
-        <ResultsGrid heading={`“${query}”`}
-                     note={searchMs !== null && !searching
-                       ? `${results.length} matches in ${searchMs.toFixed(1)} ms` : undefined}
-                     films={results} loading={searching}
-                     onSelect={setOpen} onBack={() => navigate('home')} />
-      )}
-
-      {view === 'about' && <HowItWorks />}
-
-      {open && (
-        <FilmSheet film={open} onClose={() => setOpen(null)} onSelect={setOpen} />
-      )}
-
-      <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)}
-                   onSelect={setOpen} onSubmit={runSearch} />
-
-      <footer className="border-t py-10 text-[0.78rem]"
-              style={{ borderColor: 'var(--ink-edge)', color: 'var(--halide-dim)',
-                       paddingInline: 'var(--gut)' }}>
-        Built on the MovieLens 32M dataset. Film metadata and artwork from TMDB.
-      </footer>
     </>
   );
 }

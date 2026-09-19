@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 
 const VIEWS = [
   { id: 'home', label: 'Collection' },
@@ -21,18 +22,21 @@ export default function Navbar({
     <header
       className="fixed inset-x-0 top-0 z-50 transition-colors duration-300"
       style={{
-        background: lifted ? 'rgba(10,14,27,.92)' : 'transparent',
-        backdropFilter: lifted ? 'blur(14px)' : 'none',
-        borderBottom: `1px solid ${lifted ? 'var(--ink-edge)' : 'transparent'}`,
+        background: lifted ? 'rgba(5,6,9,.72)' : 'transparent',
+        backdropFilter: lifted ? 'blur(22px) saturate(150%)' : 'none',
+        WebkitBackdropFilter: lifted ? 'blur(22px) saturate(150%)' : 'none',
+        borderBottom: `1px solid ${lifted ? 'rgba(255,255,255,.07)' : 'transparent'}`,
       }}
     >
       <nav className="flex h-16 items-center gap-5 sm:gap-8"
            style={{ paddingInline: 'var(--gut)' }}>
-        <button onClick={() => onNavigate('home')} className="shrink-0"
-                style={{ fontFamily: 'var(--serif)', fontSize: '1.35rem', fontWeight: 900,
+        <motion.button onClick={() => onNavigate('home')} className="shrink-0"
+                whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
+                style={{ fontFamily: 'var(--serif)', fontSize: '1.55rem', fontWeight: 400,
                          letterSpacing: '-0.02em' }}>
-          Cine<span style={{ color: 'var(--lamp)' }}>mind</span>
-        </button>
+          Cine<span style={{ color: 'var(--lamp)',
+                             textShadow: '0 0 18px var(--lamp-glow)' }}>mind</span>
+        </motion.button>
 
         <div className="shelf flex flex-1 items-center gap-5 sm:gap-7">
           {VIEWS.map((v) => (
@@ -41,22 +45,27 @@ export default function Navbar({
                     style={{ color: view === v.id ? 'var(--halide)' : 'var(--halide-dim)' }}>
               {v.label}
               {view === v.id && (
-                <span className="absolute inset-x-0 -bottom-0.5 h-px"
-                      style={{ background: 'var(--lamp)' }} />
+                <motion.span layoutId="nav-lit" className="absolute inset-x-0 -bottom-1 h-[2px]"
+                      style={{ background: 'var(--lamp)', borderRadius: 2,
+                               boxShadow: '0 0 12px var(--lamp-glow)' }} />
               )}
             </button>
           ))}
         </div>
 
-        <button onClick={onSearchFocus}
-                className="ml-auto flex shrink-0 items-center gap-2 border px-3 py-1.5 text-[0.8rem]
-                           transition-colors hover:border-[var(--lamp)]"
-                style={{ borderColor: 'var(--ink-edge)', borderRadius: 'var(--frame)',
-                         color: 'var(--halide-mid)' }}>
+        <motion.button onClick={onSearchFocus}
+                whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
+                className="ml-auto flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-[.8rem]
+                           transition-colors hover:text-[var(--halide)]"
+                style={{ border: '1px solid rgba(255,255,255,.12)',
+                         background: 'rgba(255,255,255,.04)',
+                         backdropFilter: 'blur(10px)', color: 'var(--halide-mid)' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-          Search
-        </button>
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="ml-1 hidden rounded px-1.5 py-0.5 text-[.65rem] sm:inline"
+               style={{ background: 'rgba(255,255,255,.07)', color: 'var(--halide-dim)' }}>/</kbd>
+        </motion.button>
       </nav>
     </header>
   );

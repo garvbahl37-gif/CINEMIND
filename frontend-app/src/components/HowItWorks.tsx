@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 /**
  * The pipeline really is a sequence, so numbering it is information rather than
  * decoration. Numbers are set as frame counts, in the machine's colour.
@@ -42,19 +43,22 @@ export default function HowItWorks() {
         </p>
 
         <ol className="mt-16 space-y-12">
-          {STAGES.map((s) => (
-            <li key={s.n} className="grid gap-5 sm:grid-cols-[56px_1fr]">
-              <div className="machine pt-1" style={{ fontSize: '0.95rem' }}>{s.n}</div>
+          {STAGES.map((s, i) => (
+            <motion.li key={s.n} className="grid gap-5 sm:grid-cols-[62px_1fr]"
+              initial={{ opacity: 0, y: 26 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: .6, delay: i * .08, ease: [0.16, 1, 0.3, 1] }}>
+              <div className="machine pt-1" style={{ fontSize: '1rem' }}>{s.n}</div>
               <div>
                 <h2 style={{ fontSize: 'var(--t-md)' }}>{s.title}</h2>
                 <p className="mt-2.5 max-w-[58ch] text-[0.95rem]"
                    style={{ color: 'var(--halide-mid)', lineHeight: 1.72 }}>{s.body}</p>
               </div>
-            </li>
+            </motion.li>
           ))}
         </ol>
 
-        <div className="mt-20 border-t pt-8" style={{ borderColor: 'var(--ink-edge)' }}>
+        <div className="glass mt-20 p-8">
           <h2 style={{ fontSize: 'var(--t-md)' }}>What it is built on</h2>
           <dl className="mt-5 grid gap-x-10 gap-y-4 sm:grid-cols-2">
             {[

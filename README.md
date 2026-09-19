@@ -4,7 +4,7 @@ A film recommendation engine over **17,719 films** and **32 million ratings**.
 Item-item collaborative filtering and a two-tower neural network, reranked against
 what the films are actually about.
 
-Live: https://cinemind.vercel.app
+Live: https://cinemind-theta.vercel.app
 
 ---
 

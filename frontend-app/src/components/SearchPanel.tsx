@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { poster } from '../config';
 import { api } from '../api';
 import type { Film } from '../types';
@@ -31,7 +32,7 @@ export default function SearchPanel({
     return () => document.removeEventListener('keydown', k);
   }, [onClose]);
 
-  if (!open) return null;
+  // rendered inside AnimatePresence below
 
   const keys = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setCursor((c) => Math.min(c + 1, hits.length - 1)); }
@@ -43,19 +44,27 @@ export default function SearchPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex justify-center px-4 pt-[12vh]"
-         style={{ background: 'rgba(6,9,18,.8)', backdropFilter: 'blur(5px)' }}
+    <AnimatePresence>
+      {open && (
+    <motion.div className="fixed inset-0 z-[110] flex justify-center px-4 pt-[12vh]"
+         style={{ background: 'rgba(5,6,9,.78)', backdropFilter: 'blur(10px)' }}
+         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+         transition={{ duration: .25 }}
          onClick={onClose}>
-      <div className="h-fit w-full max-w-[620px] border"
-           style={{ background: 'var(--ink)', borderColor: 'var(--ink-edge)',
-                    borderRadius: 'var(--frame)' }}
+      <motion.div className="glass h-fit w-full max-w-[640px] overflow-hidden"
+           style={{ boxShadow: 'var(--lift-3)' }}
+           initial={{ opacity: 0, y: -24, scale: .97 }}
+           animate={{ opacity: 1, y: 0, scale: 1 }}
+           exit={{ opacity: 0, y: -16, scale: .98 }}
+           transition={{ type: 'spring', damping: 26, stiffness: 280 }}
            onClick={(e) => e.stopPropagation()}>
         <input
           ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={keys}
           placeholder="A title, a genre, a decade — try “90s sci-fi”"
           aria-label="Search films"
-          className="w-full bg-transparent px-5 py-4 text-[1.05rem] outline-none"
-          style={{ borderBottom: hits.length ? '1px solid var(--ink-edge)' : 'none' }}
+          className="w-full bg-transparent px-6 py-5 text-[1.05rem] outline-none
+                     placeholder:text-[var(--halide-dim)]"
+          style={{ borderBottom: hits.length ? '1px solid rgba(255,255,255,.08)' : 'none' }}
         />
         {hits.length > 0 && (
           <ul className="max-h-[52vh] overflow-y-auto py-1.5">
@@ -64,8 +73,8 @@ export default function SearchPanel({
                 <button
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => { onSelect(f); onClose(); }}
-                  className="flex w-full items-center gap-3 px-4 py-2 text-left"
-                  style={{ background: i === cursor ? 'var(--ink-raise)' : 'transparent' }}>
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                  style={{ background: i === cursor ? 'rgba(255,255,255,.07)' : 'transparent' }}>
                   <div className="frame h-[48px] w-[32px] shrink-0">
                     {poster(f.poster_path, 'w185')
                       ? <img src={poster(f.poster_path, 'w185')!} alt="" loading="lazy" />
@@ -83,11 +92,13 @@ export default function SearchPanel({
         {q.trim().length >= 2 && (
           <button onClick={() => { onSubmit(q.trim()); onClose(); }}
                   className="w-full px-5 py-3 text-left text-[0.82rem]"
-                  style={{ borderTop: '1px solid var(--ink-edge)', color: 'var(--halide-dim)' }}>
+                  style={{ borderTop: '1px solid rgba(255,255,255,.08)', color: 'var(--halide-dim)' }}>
             See all results for “{q.trim()}”
           </button>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
