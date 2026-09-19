@@ -1,0 +1,18 @@
+# Build-time only — never needed by the deployed function or the static site.
+models
+notebooks
+pipelines
+docs
+mlops
+evaluation
+candidate_generation
+ranking
+reranking
+serving
+configs
+data/raw
+__pycache__
+.venv
+preprocessing.py
+feature_engineering.py
+run.py
