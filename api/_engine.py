@@ -41,6 +41,18 @@ _LANGS = {"english": "en", "hindi": "hi", "french": "fr", "spanish": "es",
           "korean": "ko", "japanese": "ja", "german": "de", "italian": "it",
           "chinese": "zh", "russian": "ru", "swedish": "sv", "danish": "da"}
 
+_LANG_NAMES = {"en": "English", "fr": "French", "ja": "Japanese", "it": "Italian",
+               "es": "Spanish", "de": "German", "fi": "Finnish", "zh": "Chinese",
+               "sv": "Swedish", "cn": "Cantonese", "ru": "Russian", "ko": "Korean",
+               "hi": "Hindi", "da": "Danish", "nl": "Dutch", "pt": "Portuguese",
+               "pl": "Polish", "no": "Norwegian", "fa": "Persian", "he": "Hebrew",
+               "ar": "Arabic", "cs": "Czech", "hu": "Hungarian", "tr": "Turkish",
+               "th": "Thai", "el": "Greek", "ro": "Romanian", "sr": "Serbian",
+               "bn": "Bengali", "is": "Icelandic", "tl": "Tagalog", "id": "Indonesian",
+               "sh": "Serbo-Croatian", "vi": "Vietnamese", "ku": "Kurdish",
+               "et": "Estonian", "bs": "Bosnian", "mr": "Marathi", "ka": "Georgian",
+               "ta": "Tamil", "uk": "Ukrainian", "lv": "Latvian", "ca": "Catalan"}
+
 _DECADE = re.compile(r"\b(?:(19|20)?(\d0))['’]?s\b")
 _YEAR = re.compile(r"\b((?:19|20)\d{2})\b")
 _WORD_DECADE = {"twenties": 1920, "thirties": 1930, "forties": 1940, "fifties": 1950,
@@ -82,6 +94,9 @@ class Engine:
         self.genre_of = [{g.lower() for g in gs} for gs in self.c["genres"]]
         self.tag_of = [set(ts) for ts in self.c["tags"]]
         self.genres_all = {g.lower() for gs in self.c["genres"] for g in gs}
+        # lowercase key -> the label as it should be displayed ("sci-fi" -> "Sci-Fi")
+        self.genre_label = {g.lower(): g for gs in self.c["genres"] for g in gs}
+        self._cats: dict | None = None
 
         # Tag lookup, so "heist" or "time travel" finds films by theme.
         self.tag_index: dict[str, set[int]] = {}
@@ -206,25 +221,23 @@ class Engine:
         if "noir" in f:
             gs.add("film-noir")
         if gs:
-            out["genres"] = sorted(gs)
+            out["genres"] = sorted(self.genre_label.get(g, g) for g in gs)
         return out
 
-    def search(self, q: str, limit: int = 40) -> tuple[list[dict], dict]:
+    def _candidates(self, q: str, filt: dict) -> tuple[dict[int, float], str]:
         """
-        Structural terms (genre, language, decade) constrain the result set;
-        whatever is left of the query is matched as free text against titles,
+        Free-text scoring.
+
+        Structural terms (genre, language, decade) are stripped out first and
+        become filters instead; whatever is left is matched against titles,
         people and tags. Keeping those two roles apart is what stops a query
         like "80s horror" from returning The Rocky Horror Picture Show.
         """
         f = _fold(q).strip()
-        if not f:
-            return [], {}
-        filt = self.parse(q)
-        want_g = set(filt.get("genres", []))
-        ymin, ymax = filt.get("year_min"), filt.get("year_max")
+        want_g = {g.lower() for g in filt.get("genres", [])}
         lang = filt.get("lang")
 
-        # Strip the words already consumed as structure, so they don't double as title text.
+        # Words already consumed as structure must not double as title text.
         consumed = set(want_g)
         for w, g in _EXPAND.items():
             if g in want_g:
@@ -250,68 +263,179 @@ class Engine:
                 if len(w) > 1 and w not in _STOP and not _structural(w)
                 and not re.fullmatch(r"(19|20)?\d0s|(19|20)\d{2}", w)]
         free_text = " ".join(free)
+        if not free_text:
+            return {}, ""
 
         scores: dict[int, float] = {}
 
         def bump(i: int, v: float):
             scores[i] = scores.get(i, 0.0) + v
 
-        if free_text:
-            for i, t in enumerate(self.fold):
-                if t == free_text:
-                    bump(i, 300)
-                elif t.startswith(free_text):
-                    bump(i, 190)
-                elif free_text in t:
-                    bump(i, 130)
+        for i, t in enumerate(self.fold):
+            if t == free_text:
+                bump(i, 300)
+            elif t.startswith(free_text):
+                bump(i, 190)
+            elif free_text in t:
+                bump(i, 130)
+        for w in free:
+            for i in self.tokens.get(w, ()):
+                bump(i, 48)
+            if len(w) >= 4:
+                for tok, ids in self.tokens.items():
+                    if tok != w and tok.startswith(w):
+                        for i in ids:
+                            bump(i, 18)
+        # people: "christopher nolan", "tom hanks"
+        for i in self.people.get(free_text, ()):
+            bump(i, 210)
+        if len(free) > 1:
             for w in free:
-                for i in self.tokens.get(w, ()):
-                    bump(i, 48)
-                if len(w) >= 4:
-                    for tok, ids in self.tokens.items():
-                        if tok != w and tok.startswith(w):
-                            for i in ids:
-                                bump(i, 18)
-            # people: "christopher nolan", "tom hanks"
-            for i in self.people.get(free_text, ()):
-                bump(i, 210)
-            if len(free) > 1:
-                for w in free:
-                    for i in self.people.get(w, ()):
-                        bump(i, 26)
-            for w in free:
-                for i in self.tag_index.get(w, ()):
-                    bump(i, 34)
+                for i in self.people.get(w, ()):
+                    bump(i, 26)
+        for w in free:
+            for i in self.tag_index.get(w, ()):
+                bump(i, 34)
+        return scores, free_text
 
-        # Structure-only query ("90s sci-fi", "korean thrillers"): everything that
-        # satisfies the constraints is a candidate, ranked by quality.
-        if not scores:
-            if not (want_g or lang or ymin or ymax):
-                return [], filt
-            for i in range(self.n):
-                bump(i, 10)
-
-        out = []
-        for i, s0 in scores.items():
-            if want_g and not (self.genre_of[i] & want_g):
-                continue
-            if lang and self.c["lang"][i] != lang:
-                continue
+    # -- filtering --------------------------------------------------------
+    def _keep(self, i: int, g: set, ymin, ymax, lang, media, skip: str = "") -> bool:
+        """One item against the active filters, optionally ignoring one facet."""
+        if g and skip != "genres" and not g <= self.genre_of[i]:
+            return False
+        if lang and skip != "lang" and self.c["lang"][i] != lang:
+            return False
+        if skip != "decade" and (ymin or ymax):
             y = self.c["year"][i]
-            if ymin and (y is None or y < ymin):
-                continue
-            if ymax and (y is None or y > ymax):
-                continue
-            if free_text and s0 < 18:
-                continue
-            s0 += 26 * self.bayes[i]          # quality prior breaks ties
-            if not self.c["poster"][i]:
-                s0 -= 14
-            out.append((i, s0))
-        out.sort(key=lambda x: -x[1])
-        return [self.item(i, s) for i, s in out[:limit]], filt
+            if y is None or (ymin and y < ymin) or (ymax and y > ymax):
+                return False
+        if media and self.c["media"][i] != media:
+            return False
+        return True
 
-    def suggest(self, q: str, limit: int = 7) -> list[dict]:
+    def count(self, genres=None, lang=None, year_min=None, year_max=None) -> int:
+        g = {x.lower() for x in (genres or [])}
+        return sum(1 for i in range(self.n)
+                   if self._keep(i, g, year_min, year_max, lang, None))
+
+    def search(self, q: str = "", limit: int = 40, offset: int = 0,
+               genres=None, year_min=None, year_max=None, lang=None,
+               media=None, sort: str = "relevance", facets: bool = False) -> dict:
+        """
+        Query text and explicit filters are separate inputs.
+
+        The query is parsed for structure ("korean thrillers" -> ko + thriller)
+        and those become the *initial* filter selection, which the UI shows as
+        chips. Anything the caller passes explicitly replaces that selection, so
+        unticking a genre the query implied actually removes it — otherwise the
+        filter bar and the search box would fight each other.
+        """
+        parsed = self.parse(q) if q.strip() else {}
+        eff = dict(parsed)
+        if genres is not None:
+            eff["genres"] = list(genres)
+        for key, val in (("year_min", year_min), ("year_max", year_max),
+                         ("lang", lang), ("media", media)):
+            if val is not None:
+                eff[key] = val
+        eff = {k: v for k, v in eff.items() if v not in (None, [], "")}
+
+        scores, free_text = self._candidates(q, parsed) if q.strip() else ({}, "")
+        g = {x.lower() for x in eff.get("genres", [])}
+        ymin, ymax = eff.get("year_min"), eff.get("year_max")
+        lg, md = eff.get("lang"), eff.get("media")
+
+        if not scores:
+            # Browsing a category rather than searching text: every film that
+            # satisfies the constraints is a candidate, ranked by quality.
+            if not (g or lg or ymin or ymax or md):
+                return {"results": [], "filters": eff, "total": 0, "facets": None}
+            pool = [i for i in range(self.n) if self._keep(i, g, ymin, ymax, lg, md)]
+            ranked = [(i, 10.0 + 26 * float(self.bayes[i])
+                       - (0 if self.c["poster"][i] else 14)) for i in pool]
+        else:
+            pool, ranked = [], []
+            for i, s0 in scores.items():
+                if not self._keep(i, g, ymin, ymax, lg, md):
+                    continue
+                if free_text and s0 < 18:
+                    continue
+                pool.append(i)
+                s0 += 26 * float(self.bayes[i])       # quality prior breaks ties
+                if not self.c["poster"][i]:
+                    s0 -= 14
+                ranked.append((i, s0))
+
+        if sort == "rating":
+            ranked.sort(key=lambda x: -float(self.bayes[x[0]]))
+        elif sort == "newest":
+            ranked.sort(key=lambda x: (-(self.c["year"][x[0]] or 0), -x[1]))
+        elif sort == "oldest":
+            ranked.sort(key=lambda x: (self.c["year"][x[0]] or 9999, -x[1]))
+        elif sort == "title":
+            ranked.sort(key=lambda x: self.fold[x[0]])
+        else:
+            ranked.sort(key=lambda x: -x[1])
+
+        page = ranked[offset:offset + limit]
+        out = {
+            "results": [self.item(i, s) for i, s in page],
+            "filters": eff,
+            "total": len(ranked),
+        }
+        out["facets"] = self._facets(scores, free_text, g, ymin, ymax, lg, md) \
+            if facets else None
+        return out
+
+    def _facets(self, scores, free_text, g, ymin, ymax, lg, md) -> dict:
+        """
+        Counts for each filter dimension, computed with the *other* filters
+        applied but not its own — so a genre you have already picked doesn't
+        zero out every alternative and strand you there.
+        """
+        base = list(scores) if scores else range(self.n)
+        if scores and free_text:
+            base = [i for i in base if scores[i] >= 18]
+
+        gc: dict[str, int] = {}
+        dc: dict[int, int] = {}
+        lc: dict[str, int] = {}
+        for i in base:
+            if self._keep(i, g, ymin, ymax, lg, md):
+                for x in self.c["genres"][i]:
+                    gc[x] = gc.get(x, 0) + 1
+            if self._keep(i, g, ymin, ymax, lg, md, skip="decade"):
+                y = self.c["year"][i]
+                if y:
+                    d = (y // 10) * 10
+                    dc[d] = dc.get(d, 0) + 1
+            if self._keep(i, g, ymin, ymax, lg, md, skip="lang"):
+                code = self.c["lang"][i]
+                if code:
+                    lc[code] = lc.get(code, 0) + 1
+
+        allg = self._cats["genres"] if self._cats else \
+            [{"value": v} for v in sorted(self.genre_label.values())]
+        return {
+            "genres": sorted(({"value": x["value"], "count": gc.get(x["value"], 0)}
+                              for x in allg),
+                             key=lambda x: -x["count"]),
+            "decades": [{"value": k, "label": f"{k}s", "count": dc[k]}
+                        for k in sorted(dc, reverse=True)],
+            "languages": [{"value": k, "label": _LANG_NAMES.get(k, k.upper()),
+                           "count": v}
+                          for k, v in sorted(lc.items(), key=lambda x: -x[1])
+                          if k != "xx"],
+        }
+
+    def categories(self) -> dict:
+        """The browsable filter vocabulary — genres, decades and languages."""
+        if self._cats is None:
+            self._cats = self._facets({}, "", set(), None, None, None, None)
+        return self._cats
+
+    # -- autosuggest ------------------------------------------------------
+    def suggest(self, q: str, limit: int = 6) -> list[dict]:
         f = _fold(q).strip()
         if len(f) < 2:
             return []
@@ -324,6 +448,116 @@ class Engine:
         pre.sort(key=lambda i: -self.bayes[i])
         sub.sort(key=lambda i: -self.bayes[i])
         return self.items((pre + sub)[:limit])
+
+    def suggest_categories(self, q: str, limit: int = 5) -> list[dict]:
+        """
+        Category completions, so typing "rom" offers *Romance* as a filter and
+        "kor" offers *Korean*, rather than only films with those letters in the
+        title.
+
+        Each one carries the filters it applies, so selecting it runs exactly
+        the same filtered search the chips do — there is no second code path
+        that could disagree with the first.
+        """
+        f = _fold(q).strip()
+        if len(f) < 2:
+            return []
+        gcount = {c["value"]: c["count"] for c in self.categories()["genres"]}
+        lcount = {c["value"]: c["count"] for c in self.categories()["languages"]}
+        sing = _singular(f)
+        words = [w for w in re.split(r"[^a-z0-9'-]+", f) if w]
+        aliased = {_EXPAND[w] for w in words
+                   if w in _EXPAND and _EXPAND[w] in self.genres_all}
+        if f.startswith("noir") or "noir" in words:
+            aliased.add("film-noir")
+
+        def _genre_prefix(w: str) -> str | None:
+            """The genre a partial word is heading towards: "thr" -> Thriller."""
+            if len(w) < 3:
+                return None
+            w2 = _EXPAND.get(_singular(w), _singular(w))
+            for low, label in self.genre_label.items():
+                if low.startswith(w) or low == w2:
+                    return label
+            return None
+
+        genres, langs, people, tags = [], [], [], []
+
+        for low, label in self.genre_label.items():
+            if low.startswith(f) or low.startswith(sing) or low in aliased:
+                genres.append({"kind": "genre", "label": label,
+                               "sublabel": f"{gcount.get(label, 0):,} films",
+                               "filters": {"genres": [label]},
+                               "count": gcount.get(label, 0)})
+
+        for name, code in _LANGS.items():
+            hit = next((w for w in words if name.startswith(w) and len(w) >= 2), None)
+            if not hit or not lcount.get(code):
+                continue
+            filt: dict = {"lang": code}
+            label = name.title()
+            rest = [_genre_prefix(w) for w in words if w != hit]
+            rest = [x for x in rest if x]
+            n = lcount[code]
+            if rest:
+                filt["genres"] = sorted(set(rest))
+                label = f"{label} {' '.join(filt['genres'])}"
+                n = self.count(filt["genres"], code)
+            elif len(words) > 1:
+                continue          # extra words we could not place — don't guess
+            if not n:
+                continue
+            langs.append({"kind": "language", "label": label,
+                          "sublabel": f"{n:,} films", "filters": filt, "count": n})
+
+        # A query that already resolves to more than one constraint is worth
+        # offering whole: "korean thrillers", "90s sci-fi".
+        p = self.parse(q)
+        if p.get("year_min") and (p.get("genres") or p.get("lang")):
+            bits = []
+            if p.get("lang"):
+                bits.append(_LANG_NAMES.get(p["lang"], p["lang"]))
+            bits += list(p.get("genres", []))
+            bits.append(f"{p['year_min']}s" if p["year_min"] % 10 == 0
+                        else str(p["year_min"]))
+            n = self.count(p.get("genres"), p.get("lang"),
+                           p.get("year_min"), p.get("year_max"))
+            if n:
+                langs.insert(0, {"kind": "filter", "label": " ".join(bits),
+                                 "sublabel": f"{n:,} films", "filters": p,
+                                 "count": 10 ** 6})
+
+        for name, ids in self.people.items():
+            if " " not in name or len(ids) < 3:
+                continue                      # surnames are duplicates of these
+            if name.startswith(f) or any(w.startswith(f) for w in name.split()):
+                people.append({"kind": "person", "label": name.title(),
+                               "sublabel": f"{len(ids)} films",
+                               "filters": {"q": name}, "count": len(ids)})
+
+        for tag, ids in self.tag_index.items():
+            if len(tag) < 4 or len(ids) < 10 or tag in self.genres_all:
+                continue
+            if "(" in tag or ")" in tag:
+                continue
+            if tag.startswith(f):
+                tags.append({"kind": "tag", "label": tag.title(),
+                             "sublabel": f"{len(ids)} films",
+                             "filters": {"q": tag}, "count": len(ids)})
+
+        for b in (genres, langs, people, tags):
+            b.sort(key=lambda c: -c["count"])
+        # Interleave so one crowded kind can't take every slot.
+        out, seen = [], set()
+        for i in range(2):
+            for b in (langs, genres, people, tags):
+                if i >= len(b) or len(out) >= limit:
+                    continue
+                if b[i]["label"].lower() in seen:
+                    continue
+                seen.add(b[i]["label"].lower())
+                out.append(b[i])
+        return out
 
 
 @lru_cache(maxsize=1)

@@ -17,7 +17,7 @@ from typing import List, Optional
 # function's own directory is not on sys.path by default.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
@@ -101,23 +101,60 @@ async def movie(item_id: int, response: Response):
     return e.item(item_id)
 
 
+SORTS = {"relevance", "rating", "newest", "oldest", "title"}
+
+
+def _csv(v: Optional[str]) -> Optional[list]:
+    """`?genres=Action,Sci-Fi` -> ["Action", "Sci-Fi"]. Empty string means
+    "no genres", which is different from the parameter being absent."""
+    if v is None:
+        return None
+    return [x.strip() for x in v.split(",") if x.strip()]
+
+
+class Filters:
+    """The filter parameters every search surface accepts."""
+
+    def __init__(self,
+                 q: str = Query("", description="Free text; may also carry structure "
+                                                "like 'korean thrillers' or '90s sci-fi'"),
+                 genres: Optional[str] = Query(None, description="Comma-separated genre "
+                                                                 "names; overrides any the query implied"),
+                 year_min: Optional[int] = Query(None, ge=1874, le=2100),
+                 year_max: Optional[int] = Query(None, ge=1874, le=2100),
+                 lang: Optional[str] = Query(None, min_length=2, max_length=3),
+                 media: Optional[str] = Query(None, pattern="^(movie|tv)$"),
+                 sort: str = Query("relevance"),
+                 limit: int = Query(40, ge=1, le=120),
+                 offset: int = Query(0, ge=0, le=5000),
+                 facets: bool = Query(False)):
+        self.kw = dict(q=q or "", genres=_csv(genres), year_min=year_min,
+                       year_max=year_max, lang=lang, media=media,
+                       sort=sort if sort in SORTS else "relevance",
+                       limit=limit, offset=offset, facets=facets)
+
+
 @app.get("/api/search")
-async def search(response: Response,
-                 q: str = Query(..., min_length=1),
-                 limit: int = Query(40, ge=1, le=60)):
+async def search(response: Response, f: Filters = Depends()):
     t0 = time.perf_counter()
-    e = get_engine()
-    res, filters = e.search(q, limit)
+    r = get_engine().search(**f.kw)
     _cache(response, "public, max-age=120, s-maxage=3600")
-    return {"query": q, "filters": filters, "count": len(res), "results": res,
+    return {"query": f.kw["q"], **r, "count": len(r["results"]),
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
+
+
+@app.get("/api/categories")
+async def categories(response: Response):
+    """The filter vocabulary: every genre, decade and language, with counts."""
+    _cache(response)
+    return get_engine().categories()
 
 
 @app.get("/api/suggest")
 async def suggest(response: Response, q: str = Query(..., min_length=1)):
     e = get_engine()
     _cache(response, "public, max-age=300, s-maxage=86400")
-    return {"results": e.suggest(q)}
+    return {"categories": e.suggest_categories(q), "results": e.suggest(q)}
 
 
 class BlendRequest(BaseModel):
@@ -199,19 +236,18 @@ async def legacy_tv(response: Response):
 
 
 @app.get("/api/movies/search", tags=["Compat"])
-async def legacy_search(response: Response,
-                        q: str = Query(..., min_length=1),
-                        limit: int = Query(40, ge=1, le=60)):
+async def legacy_search(response: Response, f: Filters = Depends()):
     t0 = time.perf_counter()
     e = get_engine()
-    res, filters = e.search(q, limit)
+    r = e.search(**f.kw)
     _cache(response, "public, max-age=120, s-maxage=3600")
     out = []
-    for r in res:
-        d = _legacy(e, r["item_id"])
-        d["score"] = r.get("score")
+    for item in r["results"]:
+        d = _legacy(e, item["item_id"])
+        d["score"] = item.get("score")
         out.append(d)
-    return {"query": q, "filters": filters, "count": len(out), "results": out,
+    return {"query": f.kw["q"], "filters": r["filters"], "facets": r["facets"],
+            "total": r["total"], "count": len(out), "results": out,
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
 
 
@@ -233,7 +269,8 @@ async def chat(req: ChatRequest):
         return {"response": "Tell me a film you liked, or a genre and a decade.",
                 "recommendations": []}
 
-    res, filters = e.search(msg, 8)
+    r = e.search(msg, limit=8)
+    res, filters = r["results"], r["filters"]
 
     # "more like X" — if the query names one film, answer with its neighbours
     if res and (res[0].get("score") or 0) > 150 and len(res) < 4:

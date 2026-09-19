@@ -28,3 +28,6 @@ ml-32m/
 Thumbs.db
 .vercel
 .env*
+
+# Playwright MCP scratch output
+.playwright-mcp/

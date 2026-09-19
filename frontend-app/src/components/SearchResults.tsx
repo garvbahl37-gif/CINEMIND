@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
 import { Movie } from '../types';
 import MovieCard from './MovieCard';
+import FilterBar from './FilterBar';
 import { ArrowLeft, SearchX } from 'lucide-react';
+import { Facets, Filters, EMPTY } from '../lib/search';
 
 interface SearchResultsProps {
     query: string;
@@ -9,9 +11,32 @@ interface SearchResultsProps {
     loading: boolean;
     onBack: () => void;
     onSelectMovie: (movie: Movie) => void;
+    /** Supplying this turns on the filter bar; the fixed lists leave it out. */
+    filters?: Filters;
+    onFilters?: (f: Filters) => void;
+    facets?: Facets | null;
+    vocabulary?: Facets | null;
+    total?: number;
 }
 
-const SearchResults = ({ query, results, loading, onBack, onSelectMovie }: SearchResultsProps) => {
+/** What this result set is, in words, whether it came from text or from chips. */
+const describe = (query: string, f?: Filters, langLabel?: string) => {
+    if (query) return query;
+    const bits: string[] = [];
+    if (langLabel) bits.push(langLabel);
+    bits.push(...(f?.genres ?? []));
+    if (f?.yearMin) bits.push(`${f.yearMin}s`);
+    return bits.length ? bits.join(' ') : 'Everything';
+};
+
+const SearchResults = ({
+    query, results, loading, onBack, onSelectMovie,
+    filters, onFilters, facets, vocabulary, total,
+}: SearchResultsProps) => {
+    const langLabel = (vocabulary?.languages ?? facets?.languages ?? [])
+        .find(l => l.value === filters?.lang)?.label;
+    const heading = describe(query, filters, langLabel);
+    const count = total ?? results.length;
 
     // Container animation
     const containerVariants = {
@@ -34,15 +59,29 @@ const SearchResults = ({ query, results, loading, onBack, onSelectMovie }: Searc
                 >
                     <ArrowLeft className="w-6 h-6 text-neutral-400 group-hover:text-white transition-colors" />
                 </button>
-                <div>
-                    <h2 className="text-3xl font-display font-bold text-white">
-                        Results for <span className="text-primary">"{query}"</span>
+                <div className="min-w-0">
+                    <h2 className="text-3xl font-display font-bold text-white truncate">
+                        {query
+                            ? <>Results for <span className="text-primary">"{query}"</span></>
+                            : <span className="text-primary">{heading}</span>}
                     </h2>
                     <p className="text-neutral-400 mt-1">
-                        Found {results.length} movies matching your intent
+                        {loading ? 'Searching…'
+                            : `${count.toLocaleString()} ${count === 1 ? 'film' : 'films'}`}
+                        {!loading && count > results.length && ` · showing the top ${results.length}`}
                     </p>
                 </div>
             </div>
+
+            {onFilters && (
+                <FilterBar
+                    filters={filters ?? EMPTY}
+                    onChange={onFilters}
+                    facets={facets ?? null}
+                    vocabulary={vocabulary ?? null}
+                    total={count}
+                />
+            )}
 
             {/* Loading State */}
             {loading && (
@@ -61,8 +100,9 @@ const SearchResults = ({ query, results, loading, onBack, onSelectMovie }: Searc
                     </div>
                     <h3 className="text-2xl font-bold text-white mb-2">No matches found</h3>
                     <p className="text-neutral-400 max-w-md">
-                        We couldn't find any movies matching "{query}" in our database or by tag.
-                        Try searching for a genre like "Action" or "Hindi".
+                        Nothing matches {query ? `"${query}"` : 'those filters'}. The catalogue
+                        covers 17,719 films — try removing a filter, or search a genre,
+                        a decade like "90s", a director, or a title.
                     </p>
                     <button
                         onClick={onBack}
@@ -83,7 +123,7 @@ const SearchResults = ({ query, results, loading, onBack, onSelectMovie }: Searc
                 >
                     {results.map((movie) => (
                         <MovieCard
-                            key={movie.tmdbId}
+                            key={movie.item_id ?? movie.tmdbId}
                             movie={movie}
                             onSelect={onSelectMovie}
                             className="w-full md:w-full"
