@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { backdrop, poster } from '../config';
-import MatchScore from './MatchScore';
+import RecoCard from './RecoCard';
 import { api } from '../api';
 import type { Film } from '../types';
 
@@ -108,47 +108,36 @@ export default function FilmSheet({
             </div>
           </div>
 
-          <div className="mt-12">
-            <div className="mb-5 flex items-baseline justify-between gap-4">
-              <h3 style={{ fontSize: 'var(--t-md)' }}>If you liked this</h3>
+          <div className="mt-14">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <div>
+                <h3 style={{ fontSize: 'clamp(1.5rem, 3vw, var(--t-xl))' }}>
+                  If you liked this
+                </h3>
+                <div className="mt-2 h-[3px] w-16 rounded-full"
+                     style={{ background: 'linear-gradient(90deg, var(--lamp), transparent)' }} />
+              </div>
               {latency !== null && (
-                <span className="machine">ranked in {latency.toFixed(1)} ms</span>
+                <span className="machine shrink-0">ranked in {latency.toFixed(1)} ms</span>
               )}
             </div>
 
             {near.length > 0 ? (
-              <ul className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                {near.map((f) => (
+              <ul className="grid gap-x-5 gap-y-8"
+                  style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(146px, 1fr))' }}>
+                {near.map((f, i) => (
                   <li key={f.item_id}>
-                    <button onClick={() => onSelect(f)}
-                            className="group flex w-full items-center gap-3.5 rounded-[12px] p-2.5 text-left
-                                       transition-colors hover:bg-white/[.05]">
-                      <div className="frame h-[66px] w-[44px] shrink-0">
-                        {poster(f.poster_path, 'w185')
-                          ? <img src={poster(f.poster_path, 'w185')!} alt="" loading="lazy" />
-                          : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[0.9rem] font-medium transition-colors
-                                        group-hover:text-[var(--lamp-hi)]">{f.title}</div>
-                        <div className="mt-0.5 truncate text-[0.75rem]"
-                             style={{ color: 'var(--halide-dim)' }}>
-                          {f.year}
-                          {f.shared_genres?.length
-                            ? `  ·  shares ${f.shared_genres.slice(0, 2).join(', ')}`
-                            : ''}
-                        </div>
-                        <div className="mt-1.5"><MatchScore score={f.score ?? 0} /></div>
-                      </div>
-                    </button>
+                    <RecoCard film={f} rank={i + 1} index={i} onSelect={onSelect} />
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <div key={i} className="h-[76px] animate-pulse"
-                       style={{ background: 'rgba(255,255,255,.035)', borderRadius: 12 }} />
+              <div className="grid gap-x-5 gap-y-8"
+                   style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(146px, 1fr))' }}>
+                {Array.from({ length: 8 }, (_, i) => (
+                  <div key={i} className="animate-pulse"
+                       style={{ aspectRatio: '2/3', background: 'rgba(255,255,255,.035)',
+                                borderRadius: 'var(--r-sm)' }} />
                 ))}
               </div>
             )}
