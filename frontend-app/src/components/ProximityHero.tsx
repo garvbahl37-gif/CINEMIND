@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { backdrop, poster } from '../config';
-import Perforation from './Perforation';
+import MatchScore from './MatchScore';
 import type { Film } from '../types';
 import { api } from '../api';
+import HeroSearch from './HeroSearch';
 import { clip } from '../lib';
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -15,8 +16,9 @@ const EASE = [0.16, 1, 0.3, 1] as const;
  * orchestrated sequence rather than a shower of separate fades.
  */
 export default function ProximityHero({
-  seeds, onSelect,
-}: { seeds: Film[]; onSelect: (f: Film) => void }) {
+  seeds, onSelect, onSearch,
+}: { seeds: Film[]; onSelect: (f: Film) => void;
+     onSearch: (q: string) => void }) {
   const [idx, setIdx] = useState(0);
   const [near, setNear] = useState<Film[]>([]);
   const film = seeds[idx];
@@ -38,11 +40,11 @@ export default function ProximityHero({
   const bd = backdrop(film.backdrop_path, 'original');
 
   return (
-    <section className="relative isolate overflow-hidden pt-28"
+    <section className="relative z-20 pt-28"
              style={{ paddingInline: 'var(--gut)' }}>
       {/* the still */}
       <AnimatePresence mode="wait">
-        <motion.div key={film.item_id} className="absolute inset-0 -z-10"
+        <motion.div key={film.item_id} className="absolute inset-0 -z-10 overflow-hidden"
                     style={{ y: bgY, opacity: fade }}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     transition={{ duration: .9, ease: EASE }}>
@@ -90,7 +92,11 @@ export default function ProximityHero({
                 </p>
               ) : null,
 
-              <div className="mt-9 flex flex-wrap gap-3" key="c">
+              <div className="mt-8" key="s">
+                <HeroSearch onSelect={onSelect} onSubmit={onSearch} />
+              </div>,
+
+              <div className="mt-7 flex flex-wrap gap-3" key="c">
                 <motion.button onClick={() => onSelect(film)}
                   whileHover={{ scale: 1.03 }} whileTap={{ scale: .97 }}
                   transition={{ duration: .2, ease: EASE }}
@@ -107,8 +113,11 @@ export default function ProximityHero({
                   Next reel
                 </motion.button>
               </div>,
-            ].filter(Boolean).map((child, i) => (
+            ].filter(Boolean).map((child, i, all) => (
               <motion.div key={i}
+                style={{ position: 'relative',
+                         // the search row must sit above the buttons beneath it
+                         zIndex: all.length - i }}
                 variants={{ out: { opacity: 0, y: 26, filter: 'blur(6px)' },
                             in: { opacity: 1, y: 0, filter: 'blur(0px)',
                                   transition: { duration: .75, ease: EASE } } }}>
@@ -147,9 +156,9 @@ export default function ProximityHero({
                       <div className="truncate text-[.875rem] font-medium transition-colors
                                       group-hover:text-[var(--lamp-hi)]">{f.title}</div>
                       <div className="mt-1.5">
-                        <Perforation score={f.score ?? 0}
-                          label={f.shared_genres?.length
-                            ? f.shared_genres.slice(0, 2).join(' · ') : String(f.year ?? '')} />
+                        <MatchScore score={f.score ?? 0}
+                          note={f.shared_genres?.length
+                            ? f.shared_genres.slice(0, 2).join(', ') : String(f.year ?? '')} />
                       </div>
                     </div>
                   </motion.button>

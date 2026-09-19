@@ -40,10 +40,10 @@ export default function Navbar({
         <motion.button onClick={() => onNavigate('home')}
           whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
           className="shrink-0"
-          style={{ fontFamily: 'var(--serif)', fontSize: '1.6rem', fontWeight: 400,
-                   letterSpacing: '-.02em' }}>
-          Cine<span style={{ color: 'var(--lamp-hi)',
-                             textShadow: '0 0 22px var(--lamp-glow)' }}>mind</span>
+          style={{ fontFamily: 'var(--display)', fontSize: '1.35rem', fontWeight: 800,
+                   fontStretch: '112%', letterSpacing: '-.035em' }}>
+          CINE<span style={{ color: 'var(--lamp-hi)',
+                             textShadow: '0 0 24px var(--lamp-glow)' }}>MIND</span>
         </motion.button>
 
         {/* centred rail — absolutely placed so it stays centred on the page,

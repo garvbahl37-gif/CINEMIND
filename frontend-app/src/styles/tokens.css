@@ -10,7 +10,7 @@
    Contrast against --ink: scarlet 4.81:1, halide-dim 5.57:1, emulsion 12:1.
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Geist:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Geist:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* surfaces — a black with the faintest red cast, never pure #000 */
@@ -36,10 +36,12 @@
   --emulsion:   #7FE3D4;
   --emulsion-d: #2E8C82;
 
-  /* Instrument Serif set large and light reads as modern editorial rather than
-     antique luxury; a didone's hairlines disappear against a dark ground. */
-  --serif: 'Instrument Serif', 'Georgia', serif;
-  --sans:  'Geist', 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+  /* Archivo at 800 with a slightly expanded width is the language of film
+     titling — heavy, wide, and it holds its weight against a dark ground,
+     where a hairline serif simply disappears. */
+  --display: 'Archivo', 'Helvetica Neue', system-ui, sans-serif;
+  --serif:   var(--display);
+  --sans:    'Geist', 'Inter', 'Helvetica Neue', system-ui, sans-serif;
 
   --t-xs: .75rem;   --t-sm: .875rem;  --t-base: 1rem;
   --t-md: 1.25rem;  --t-lg: 1.563rem; --t-xl: 1.953rem;
@@ -76,13 +78,15 @@ body {
 ::selection { background: var(--lamp); color: var(--ink-deep); }
 
 h1, h2, h3 {
-  font-family: var(--serif);
-  font-weight: 400;
-  line-height: 1.02;
-  letter-spacing: -.018em;
+  font-family: var(--display);
+  font-weight: 800;
+  font-stretch: 112%;
+  line-height: 1.0;
+  letter-spacing: -.035em;
   margin: 0;
 }
-h1 { letter-spacing: -.028em; }
+h1 { font-weight: 800; letter-spacing: -.045em; }
+h2 { font-weight: 700; letter-spacing: -.03em; }
 
 :focus-visible {
   outline: 2px solid var(--emulsion);
@@ -122,18 +126,6 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
   font-weight: 500;
   letter-spacing: .04em;
   font-variant-numeric: tabular-nums;
-}
-
-/* Similarity as film perforations rather than a progress bar. */
-.perf { display: flex; gap: 3px; align-items: center; }
-.perf i {
-  display: block; width: 7px; height: 13px; border-radius: 2px;
-  background: var(--ink-edge);
-  transition: background .3s var(--ease), box-shadow .3s var(--ease);
-}
-.perf i[data-on="1"] {
-  background: var(--emulsion);
-  box-shadow: 0 0 8px rgba(127,227,212,.55);
 }
 
 /* --- glass -------------------------------------------------------------- */

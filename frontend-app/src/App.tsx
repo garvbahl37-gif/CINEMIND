@@ -96,8 +96,8 @@ export default function App() {
 
               {view === 'home' && data && (
                 <>
-                  <ProximityHero seeds={data.hero} onSelect={setOpen} />
-                  <div className="pb-24">
+                  <ProximityHero seeds={data.hero} onSelect={setOpen} onSearch={runSearch} />
+                  <div className="relative z-0 pb-24">
                     {data.rows.map((r) => (
                       <Shelf key={r.genre} title={r.genre} films={r.items}
                              onSelect={setOpen} count={r.items.length} />

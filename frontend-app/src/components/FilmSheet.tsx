@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { backdrop, poster } from '../config';
-import Perforation from './Perforation';
+import MatchScore from './MatchScore';
 import { api } from '../api';
 import type { Film } from '../types';
 
@@ -138,7 +138,7 @@ export default function FilmSheet({
                             ? `  ·  shares ${f.shared_genres.slice(0, 2).join(', ')}`
                             : ''}
                         </div>
-                        <div className="mt-1.5"><Perforation score={f.score ?? 0} /></div>
+                        <div className="mt-1.5"><MatchScore score={f.score ?? 0} /></div>
                       </div>
                     </button>
                   </li>
