@@ -142,3 +142,127 @@ async def top50(response: Response):
     e = get_engine()
     _cache(response)
     return {"results": e.items(e.browse["top50"])}
+
+
+# ============================================================
+# Compatibility layer for the original frontend
+#
+# The first version of this app fetched a dictionary of every film and did its
+# grouping, suggestions and filtering in the browser. These endpoints keep that
+# shape — but keyed by the model's item_id rather than raw MovieLens movieIds,
+# which is the mismatch that made every recommendation wrong.
+# ============================================================
+
+def _legacy(e, i: int) -> dict:
+    """The field names the original components read."""
+    d = e.item(i)
+    d["vote_average"] = d.pop("rating_avg", None)
+    d["vote_count"] = d.pop("rating_count", 0)
+    d["releaseDate"] = f"{d['year']}-01-01" if d.get("year") else None
+    p = d.get("poster_path")
+    d["poster"] = f"https://image.tmdb.org/t/p/w500{p}" if p else None
+    b = d.get("backdrop_path")
+    d["backdrop"] = f"https://image.tmdb.org/t/p/w780{b}" if b else None
+    return d
+
+
+@app.get("/api/movies", tags=["Compat"])
+async def all_movies(response: Response, limit: int = Query(1600, ge=100, le=4000)):
+    """
+    The browsable catalogue, keyed by item_id.
+
+    Capped rather than complete: all 17,719 films is ~11 MB of JSON, which is a
+    slow first paint on a phone. These are the best-rated films that have
+    artwork, which is what the genre rows actually draw from.
+    """
+    e = get_engine()
+    order = sorted(range(e.n),
+                   key=lambda i: -e.bayes[i] if e.c["poster"][i] else 1)[:limit]
+    _cache(response)
+    return {"count": len(order), "movies": {str(i): _legacy(e, i) for i in order}}
+
+
+@app.get("/api/movies/top50", tags=["Compat"])
+async def legacy_top50(response: Response):
+    e = get_engine()
+    _cache(response)
+    res = [_legacy(e, i) for i in e.browse["top50"]]
+    return {"count": len(res), "results": res, "source": "precomputed"}
+
+
+@app.get("/api/movies/tv", tags=["Compat"])
+async def legacy_tv(response: Response):
+    e = get_engine()
+    _cache(response)
+    res = [_legacy(e, i) for i in e.browse["tv"]]
+    return {"count": len(res), "results": res, "source": "precomputed"}
+
+
+@app.get("/api/movies/search", tags=["Compat"])
+async def legacy_search(response: Response,
+                        q: str = Query(..., min_length=1),
+                        limit: int = Query(40, ge=1, le=60)):
+    t0 = time.perf_counter()
+    e = get_engine()
+    res, filters = e.search(q, limit)
+    _cache(response, "public, max-age=120, s-maxage=3600")
+    out = []
+    for r in res:
+        d = _legacy(e, r["item_id"])
+        d["score"] = r.get("score")
+        out.append(d)
+    return {"query": q, "filters": filters, "count": len(out), "results": out,
+            "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
+
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+
+@app.post("/api/chat/message", tags=["Compat"])
+async def chat(req: ChatRequest):
+    """
+    Conversational search. Intent parsing is deterministic rather than a call
+    out to a hosted LLM, so it costs nothing, cannot rate-limit, and answers in
+    milliseconds instead of seconds.
+    """
+    e = get_engine()
+    msg = (req.message or "").strip()
+    if not msg:
+        return {"response": "Tell me a film you liked, or a genre and a decade.",
+                "recommendations": []}
+
+    res, filters = e.search(msg, 8)
+
+    # "more like X" — if the query names one film, answer with its neighbours
+    if res and (res[0].get("score") or 0) > 150 and len(res) < 4:
+        src = res[0]
+        near = e.similar(src["item_id"], 8)
+        body = ", ".join(f"{f['title']} ({f['year']})" for f in near[:3])
+        return {
+            "response": f"If you liked {src['title']}, the closest films in the "
+                        f"model's space are {body}. They share "
+                        f"{', '.join(near[0].get('shared_genres') or ['a lot']) }.",
+            "recommendations": [_legacy(e, f["item_id"]) | {"score": f.get("score")}
+                                for f in near],
+        }
+
+    if not res:
+        return {"response": "Nothing in the catalogue matches that. It covers 17,719 "
+                            "films from MovieLens — try a genre, a decade like “90s”, "
+                            "a director, or a title.",
+                "recommendations": []}
+
+    bits = []
+    if filters.get("genres"):
+        bits.append(" and ".join(filters["genres"]))
+    if filters.get("year_min"):
+        lo, hi = filters["year_min"], filters.get("year_max", filters["year_min"])
+        bits.append(f"from {lo}" if lo == hi else f"between {lo} and {hi}")
+    lead = f"Here are the best {' '.join(bits)} films I have" if bits \
+        else f"Here's what matches “{msg}”"
+    top = ", ".join(f"{f['title']} ({f['year']})" for f in res[:3])
+    return {"response": f"{lead}. Start with {top}.",
+            "recommendations": [_legacy(e, f["item_id"]) | {"score": f.get("score")}
+                                for f in res]}

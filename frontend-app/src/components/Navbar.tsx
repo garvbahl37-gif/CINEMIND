@@ -1,121 +1,128 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
 
-const VIEWS = [
-  { id: 'home', label: 'Collection' },
-  { id: 'top50', label: 'Top 50' },
-  { id: 'tv', label: 'Series' },
-  { id: 'about', label: 'How it works' },
-];
-
-const EASE = [0.16, 1, 0.3, 1] as const;
-
-/**
- * A floating glass rail rather than a full-width bar: the wordmark sits left,
- * the sections centre on the page, and the lit pill behind the active section
- * slides between them as one shared element.
- */
-export default function Navbar({
-  view, onNavigate, onSearchFocus,
-}: { view: string; onNavigate: (v: string) => void; onSearchFocus: () => void }) {
-  const [lifted, setLifted] = useState(false);
-
-  useEffect(() => {
-    const f = () => setLifted(window.scrollY > 12);
-    f();
-    window.addEventListener('scroll', f, { passive: true });
-    return () => window.removeEventListener('scroll', f);
-  }, []);
-
-  return (
-    <motion.header
-      className="fixed inset-x-0 top-0 z-50"
-      initial={{ y: -28, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: .7, delay: .15, ease: EASE }}
-    >
-      <nav className="mx-auto flex h-20 max-w-[1320px] items-center gap-4"
-           style={{ paddingInline: 'var(--gut)' }}>
-
-        <motion.button onClick={() => onNavigate('home')}
-          whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
-          className="shrink-0"
-          style={{ fontFamily: 'var(--display)', fontSize: '1.35rem', fontWeight: 800,
-                   fontStretch: '112%', letterSpacing: '-.035em' }}>
-          CINE<span style={{ color: 'var(--lamp-hi)',
-                             textShadow: '0 0 24px var(--lamp-glow)' }}>MIND</span>
-        </motion.button>
-
-        {/* centred rail — absolutely placed so it stays centred on the page,
-            not on whatever space is left over beside the wordmark */}
-        <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 md:block">
-          <motion.div
-            className="pointer-events-auto flex items-center gap-1 rounded-full p-1.5"
-            animate={{
-              background: lifted ? 'rgba(20,15,18,.72)' : 'rgba(20,15,18,.42)',
-              borderColor: lifted ? 'rgba(255,255,255,.10)' : 'rgba(255,255,255,.06)',
-            }}
-            transition={{ duration: .4 }}
-            style={{
-              border: '1px solid rgba(255,255,255,.08)',
-              backdropFilter: 'blur(22px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(22px) saturate(160%)',
-              boxShadow: 'var(--lift-2), inset 0 1px 0 rgba(255,255,255,.07)',
-            }}
-          >
-            {VIEWS.map((v) => (
-              <button key={v.id} onClick={() => onNavigate(v.id)}
-                      className="relative rounded-full px-4 py-2 text-[.82rem] transition-colors"
-                      style={{ color: view === v.id ? 'var(--halide)' : 'var(--halide-mid)' }}>
-                {view === v.id && (
-                  <motion.span layoutId="nav-lit" className="absolute inset-0 rounded-full"
-                    transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-                    style={{
-                      background: 'linear-gradient(140deg, rgba(232,53,74,.26), rgba(232,53,74,.10))',
-                      border: '1px solid rgba(232,53,74,.34)',
-                      boxShadow: '0 4px 18px var(--lamp-glow)',
-                    }} />
-                )}
-                <span className="relative z-10">{v.label}</span>
-              </button>
-            ))}
-          </motion.div>
-        </div>
-
-        {/* mobile: the same sections, scrollable */}
-        <div className="shelf flex flex-1 items-center gap-1 md:hidden">
-          {VIEWS.map((v) => (
-            <button key={v.id} onClick={() => onNavigate(v.id)}
-                    className="relative shrink-0 rounded-full px-3 py-1.5 text-[.78rem]"
-                    style={{ color: view === v.id ? 'var(--halide)' : 'var(--halide-dim)',
-                             background: view === v.id ? 'rgba(232,53,74,.18)' : 'transparent',
-                             border: `1px solid ${view === v.id
-                               ? 'rgba(232,53,74,.34)' : 'transparent'}` }}>
-              {v.label}
-            </button>
-          ))}
-        </div>
-
-        <motion.button onClick={onSearchFocus}
-          whileHover={{ scale: 1.04 }} whileTap={{ scale: .96 }}
-          aria-label="Search films"
-          className="ml-auto flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-[.82rem]
-                     transition-colors hover:text-[var(--halide)]"
-          style={{ border: '1px solid rgba(255,255,255,.10)',
-                   background: 'rgba(20,15,18,.6)',
-                   backdropFilter: 'blur(22px) saturate(160%)',
-                   WebkitBackdropFilter: 'blur(22px) saturate(160%)',
-                   boxShadow: 'var(--lift-1), inset 0 1px 0 rgba(255,255,255,.06)',
-                   color: 'var(--halide-mid)' }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               strokeWidth="2" strokeLinecap="round">
-            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
-          </svg>
-          <span className="hidden sm:inline">Search</span>
-          <kbd className="ml-0.5 hidden rounded px-1.5 py-0.5 text-[.65rem] sm:inline"
-               style={{ background: 'rgba(255,255,255,.08)', color: 'var(--halide-dim)' }}>/</kbd>
-        </motion.button>
-      </nav>
-    </motion.header>
-  );
+interface NavbarProps {
+    onNavigate: (page: string) => void;
+    currentPage: string;
 }
+
+const Navbar = ({ onNavigate, currentPage }: NavbarProps) => {
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 50);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const navLinks = [
+        { id: 'home', label: 'Home' },
+        { id: 'top50', label: 'Top 50' },
+        { id: 'tvshows', label: 'TV Shows' },
+        { id: 'about', label: 'About' }
+    ];
+
+    const handleNavClick = (pageId: string) => {
+        onNavigate(pageId);
+        setMobileMenuOpen(false);
+    };
+
+    return (
+        <motion.nav
+            initial={{ y: -100 }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.5 }}
+            className={cn(
+                "fixed top-0 w-full z-50 transition-all duration-500",
+                isScrolled
+                    ? "bg-black/80 backdrop-blur-xl py-3 shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
+                    : "bg-gradient-to-b from-black/90 to-transparent py-6"
+            )}
+        >
+            <div className="max-w-[1800px] mx-auto px-4 md:px-12 flex items-center justify-between h-full relative">
+
+                {/* Left: Spacer to balance Right Spacer */}
+                <div className="hidden lg:block w-1/3" />
+
+                {/* Center: Navigation Links */}
+                <div className="hidden lg:flex flex-1 justify-center items-center gap-2">
+                    {navLinks.map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => handleNavClick(item.id)}
+                            className={cn(
+                                "relative px-5 py-2 text-sm font-sans font-bold uppercase tracking-[0.2em] transition-all duration-300 rounded-full",
+                                currentPage === item.id
+                                    ? "text-white"
+                                    : "text-neutral-500 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            <span className="relative z-10">{item.label}</span>
+                            {currentPage === item.id && (
+                                <motion.div
+                                    layoutId="nav-pill"
+                                    className="absolute inset-0 bg-white/10 border border-white/10 rounded-full shadow-[0_0_15px_-3px_rgba(255,255,255,0.1)]"
+                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                />
+                            )}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Right: Spacer for Balance */}
+                <div className="hidden lg:block w-1/3" />
+
+                {/* Mobile Header (Visible only on mobile) */}
+                <div className="lg:hidden text-lg font-bold text-white">
+                    CINE<span className="text-primary">MIND</span>
+                </div>
+
+                {/* Mobile Menu Toggle */}
+                <button
+                    className="lg:hidden text-white p-2 hover:bg-white/10 rounded-full transition-colors z-50"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                >
+                    {mobileMenuOpen ? <X /> : <Menu />}
+                </button>
+            </div>
+
+            {/* Mobile Menu Overlay */}
+            <AnimatePresence>
+                {mobileMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="lg:hidden bg-black/95 backdrop-blur-xl border-b border-white/10 overflow-hidden"
+                    >
+                        <div className="p-6 flex flex-col gap-6">
+                            {navLinks.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleNavClick(item.id)}
+                                    className={cn(
+                                        "text-lg font-medium hover:text-white hover:translate-x-2 transition-all duration-300 flex items-center gap-3 w-full text-left",
+                                        currentPage === item.id ? "text-white" : "text-gray-300"
+                                    )}
+                                >
+                                    <span className={cn(
+                                        "w-1 h-1 rounded-full bg-primary transition-opacity",
+                                        currentPage === item.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                    )} />
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.nav>
+    );
+};
+
+export default Navbar;
