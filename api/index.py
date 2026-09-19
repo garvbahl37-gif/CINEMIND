@@ -8,8 +8,14 @@ instance and reused across requests.
 from __future__ import annotations
 
 import os
+import sys
 import time
+from pathlib import Path
 from typing import List, Optional
+
+# Vercel imports this file with /var/task as the working directory, so the
+# function's own directory is not on sys.path by default.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
