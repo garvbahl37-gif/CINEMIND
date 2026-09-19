@@ -1,0 +1,7 @@
+# Offline artifact build only — never deployed.
+numpy>=2.2
+pandas>=2.2
+scipy>=1.14
+faiss-cpu>=1.8
+torch>=2.4
+requests>=2.32

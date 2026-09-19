@@ -6,15 +6,22 @@ build/
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 venv/
+.venv/
 env/
 .env
+*.egg-info/
 
-# Datasets (Too large for GitHub)
+# Vercel
+.vercel/
+
+# Raw datasets — download with pipelines/fetch_data.sh
+ml-20m/
 ml-32m/
 *.csv
-*.npy
+
+# Build scratch
+.cache/
 
 # OS
 .DS_Store

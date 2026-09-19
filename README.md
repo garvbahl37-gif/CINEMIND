@@ -1,109 +1,111 @@
-# CINEMIND - Advanced Recommender System
+# Cinemind
 
-CINEMIND is a production-grade movie recommendation engine designed to simulate high-scale, modern application architectures. It leverages a microservices approach, integrating a FastAPI backend, a React-based frontend, and robust data engineering pipelines powered by Apache Kafka, Redis, and MLflow.
+A film recommendation engine over **17,719 films** and **32 million ratings**.
+Item-item collaborative filtering and a two-tower neural network, reranked against
+what the films are actually about.
 
-## Project Overview
+Live: https://cinemind.vercel.app
 
-This system is built to provide personalized movie recommendations using a Two-Tower Neural Network architecture for candidate generation and FAISS for efficient vector similarity search. It features a modern, responsive user interface and a backend capable of handling real-time search, filtering, and user interactions.
+---
 
-## Technology Stack
+## Why the recommendations are different
 
-### Core Application
-- **Frontend**: React (TypeScript), TailwindCSS, Framer Motion, Vite
-- **Backend**: Python, FastAPI, Uvicorn
-- **Containerization**: Docker, Docker Compose
+Most recommenders drift toward "what else was popular that year". Cinemind blends several
+signals so the answer stays about the *film*:
 
-### Data & Machine Learning
-- **Vector Search**: FAISS (Facebook AI Similarity Search)
-- **Machine Learning**: PyTorch, Scikit-learn
-- **Embeddings**: Sentence-BERT (SBERT) for semantic text search
-- **Experiment Tracking**: MLflow
-- **Data Streaming**: Apache Kafka (User event tracking)
-- **Caching**: Redis (High-performance API caching)
+| Signal | Weight | What it contributes |
+|---|---|---|
+| Item-item CF over 32M ratings | 1.35 | People who rated this highly also rated that highly |
+| Two-tower embedding cosine | 0.75 | Learned 64-d taste geometry; finds non-obvious neighbours |
+| Genre overlap, IDF-weighted | 0.60 | Rare genres count more than "Drama" |
+| Tag overlap | 0.50 | Theme and subject matter |
+| Thin-data penalty | −0.70 | Holds back films with too few ratings to trust |
+| Franchise bonus | 0.40 | Sequels and series entries surface together |
 
-## Key Features
+Power users and blockbusters are damped when building the CF matrix, so neither a
+single prolific account nor sheer popularity can masquerade as similarity.
 
-1.  **Hybrid Search Engine**: Combines semantic vector search with traditional keyword matching (BM25 logic) to provide accurate search results for titles, genres, and metadata.
-2.  **Personalized Recommendations**: Utilizes user and item embeddings to suggest movies similar to user preferences or currently viewed items ("Also Liked" functionality).
-3.  **Real-Time Performance**: Implements Redis caching for frequently accessed data (Top 50, TV Shows), reducing API response times to single-digit milliseconds.
-4.  **Intelligent Intent Parsing**: Integrates with Large Language Models (LLM) to parse complex user queries (e.g., "90s action movies") into structured search filters.
-5.  **Reactive UI/UX**: Features a "Warm Luxe" aesthetic with glassmorphism effects, dynamic animations, and a fully responsive design.
-6.  **Event-Driven Architecture**: Captures user interactions such as searches and clicks via Kafka topics for future model retraining and analytics.
-
-## Project Structure
+Sample of what that produces:
 
 ```
-CINEMIND/
-├── deployment/                 # Production-ready backend configurations
-│   ├── app.py                  # Main FastAPI application entry point
-│   ├── llm_engine.py           # LLM integration for intent parsing
-│   ├── movies.json             # Core metadata dataset
-│   └── Dockerfile              # Backend container definition
-│
-├── frontend-app/               # React Frontend Application
-│   ├── src/                    # Source code
-│   │   ├── components/         # Reusable UI components
-│   │   ├── App.tsx             # Main application logic
-│   │   └── config.ts           # API configuration
-│   └── Dockerfile              # Frontend container definition
-│
-├── mlops/                      # Machine Learning Operations
-│   └── train.py                # Training pipelines and MLflow integration
-│
-├── candidate_generation/       # Recommendation Algorithms
-│   └── two_tower/              # Neural network architecture definition
-│
-├── data/                       # Data processing scripts and storage
-└── docker-compose.yml          # Container orchestration configuration
+Sense and Sensibility (1995)  ->  Emma · Persuasion · The Remains of the Day · Il Postino
+The Matrix (1999)             ->  Matrix Reloaded · Blade Runner · The Terminator · Total Recall
+Inception (2010)              ->  The Dark Knight · Shutter Island · Interstellar
+Toy Story (1995)              ->  Toy Story 2 · Aladdin · Monsters Inc. · The Lion King
 ```
 
-## Installation and Setup
+## Architecture
 
-### Prerequisites
-- Docker Desktop
-- Git
-- Node.js (Optional, for local frontend development)
-- Python 3.10+ (Optional, for local backend development)
+```
+MovieLens 20M ──> recover encoder ──┐
+                  (item_classes.npy)│
+MovieLens 32M ──> ratings / tags ───┼──> pipelines/build_artifacts.py
+TMDB          ──> posters, overview ┘              │
+                                                   v
+                              data/artifacts/  catalog.json
+                                               neighbors.npz
+                                               browse.json
+                                                   │
+                     Vercel Python Function  <─────┘   (NumPy only)
+                              api/index.py
+                                   │
+                     React + Vite static frontend
+```
 
-### Running with Docker (Recommended)
-The entire application stack can be launched using Docker Compose.
+Every ranking is computed offline. A request is an array lookup, not a search,
+which is why `/api/similar` returns in single-digit milliseconds.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/garvbahl37-gif/CINEMIND.git
-    cd CINEMIND
-    ```
+## The bug this project had
 
-2.  **Start the services:**
-    ```bash
-    docker-compose up --build
-    ```
+The training pipeline encoded `movieId` into contiguous indices with a
+`LabelEncoder`, but **never persisted the encoder's classes**. The serving layer
+then treated FAISS row numbers as MovieLens IDs, so every recommendation was
+mis-decoded:
 
-3.  **Access the application:**
-    - Frontend: http://localhost:5173
-    - Backend API Docs: http://localhost:7860/docs
+```
+/similar/17   "Sense and Sensibility"  ->  Die Hard, Die Hard 2, The Cable Guy
+```
 
-### Local Development Setup
+The mapping was recovered by reproducing the exact training sample
+(`ratings.sample(n=2_000_000, random_state=42)` over ml-20m) and verifying it
+yields precisely 135,697 users and 17,719 items. `build_artifacts.py` now writes
+`item_classes.npy` and refuses to emit artifacts if that check fails.
 
-**Backend:**
-1.  Navigate to the project root.
-2.  Install dependencies: `pip install -r requirements.txt`
-3.  Start the server:
-    ```bash
-    cd deployment
-    python -m uvicorn app:app --host 0.0.0.0 --port 8003
-    ```
+## Running it
 
-**Frontend:**
-1.  Navigate to `frontend-app`.
-2.  Install dependencies: `npm install`
-3.  Start the development server: `npm run dev`
+```bash
+# 1. raw data (~1.1 GB)
+./pipelines/fetch_data.sh data/raw
 
-## Deployment
+# 2. build artifacts
+python -m venv .venv && source .venv/bin/activate
+pip install -r pipelines/requirements-build.txt
+python pipelines/build_artifacts.py \
+  --ml20m data/raw/ml-20m --ml32m data/raw/ml-32m \
+  --index models/production.index
 
-The application is designed for cloud deployment:
-- **Frontend**: Deployed on Vercel (https://cinemind-theta.vercel.app/)
-- **Backend**: Hosted on Hugging Face Spaces (https://huggingface.co/spaces/bharatverse11/Movie_Recommender_System/tree/main)
+# 3. API
+pip install -r requirements.txt
+uvicorn api.index:app --reload --port 8000
 
-## License
-This project is licensed under the MIT License.
+# 4. frontend
+cd frontend-app && npm install && npm run dev
+```
+
+## API
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/browse` | Hero picks, top 50, series and every genre shelf in one response |
+| `GET /api/similar/{item_id}?k=12` | Ranked neighbours with match strength and shared genres/tags |
+| `GET /api/search?q=` | Title, genre, tag, language and decade search |
+| `GET /api/suggest?q=` | Typeahead |
+| `POST /api/blend` | Recommendations from several films at once |
+| `GET /api/movie/{item_id}` | Single film |
+| `GET /api/health` | Liveness and catalogue size |
+
+## Licence
+
+MIT. Ratings and tags from [MovieLens](https://grouplens.org/datasets/movielens/)
+(GroupLens Research). Artwork and synopses from [TMDB](https://www.themoviedb.org/);
+this product uses the TMDB API but is not endorsed or certified by TMDB.
