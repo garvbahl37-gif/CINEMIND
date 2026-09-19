@@ -79,7 +79,6 @@ const SearchResults = ({
                     onChange={onFilters}
                     facets={facets ?? null}
                     vocabulary={vocabulary ?? null}
-                    total={count}
                 />
             )}
 

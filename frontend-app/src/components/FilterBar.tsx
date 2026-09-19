@@ -11,8 +11,10 @@ interface Props {
     facets: Facets | null;
     /** The full vocabulary, so the bar keeps its shape while counts move. */
     vocabulary: Facets | null;
-    total: number;
 }
+
+/** How many genres to show before the rest go behind a disclosure. */
+const GENRE_HEAD = 10;
 
 const Chip = ({ label, count, on, disabled, onClick }: {
     label: string; count?: number; on: boolean; disabled?: boolean; onClick: () => void;
@@ -23,34 +25,38 @@ const Chip = ({ label, count, on, disabled, onClick }: {
         disabled={disabled}
         aria-pressed={on}
         className={cn(
-            'px-3.5 py-2.5 sm:py-2 rounded-full border text-[11px] font-bold uppercase',
-            'tracking-[0.1em] transition-colors focus:outline-none',
+            'px-2.5 py-2.5 sm:py-1.5 rounded-lg border text-[11px] font-bold uppercase',
+            'tracking-[0.06em] leading-none transition-colors focus:outline-none',
             'focus-visible:ring-1 focus-visible:ring-primary',
             on
-                ? 'bg-primary text-white border-primary shadow-[0_0_18px_-4px_rgba(220,38,38,0.7)]'
+                ? 'bg-primary text-white border-primary'
                 : disabled
-                    ? 'bg-white/[0.02] text-neutral-700 border-white/5 cursor-not-allowed'
-                    : 'bg-white/[0.04] text-neutral-400 border-white/10 hover:text-white hover:border-primary/40 hover:bg-primary/10',
+                    ? 'bg-transparent text-neutral-700 border-white/5 cursor-not-allowed'
+                    : 'bg-white/[0.03] text-neutral-300 border-white/10 hover:text-white hover:border-primary/50 hover:bg-primary/10',
         )}
     >
         {label}
-        {count !== undefined && (
-            <span className={cn('ml-1.5 tabular-nums font-medium',
-                on ? 'text-white/70' : 'text-neutral-600')}>
-                {count.toLocaleString()}
-            </span>
+        {/* A selected chip's count is the result total, already in the header. */}
+        {count !== undefined && !on && (
+            <span className="ml-1.5 tabular-nums font-medium text-neutral-500">{count}</span>
         )}
     </button>
 );
 
-const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4">
-        <span className="w-24 shrink-0 pt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-600">
+const Row = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 sm:gap-3">
+        <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-400">
             {title}
         </span>
-        <div className="flex flex-wrap gap-2">{children}</div>
+        <div className="flex flex-wrap items-center gap-1.5">{children}</div>
     </div>
 );
+
+const selectCls =
+    'bg-white/[0.03] border border-white/10 rounded-lg px-2.5 py-2.5 sm:py-[7px] ' +
+    'text-[11px] font-bold uppercase tracking-[0.06em] leading-none text-neutral-300 ' +
+    'focus:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer ' +
+    'hover:border-white/20 transition-colors';
 
 /**
  * The filter bar for a result set.
@@ -59,23 +65,29 @@ const Group = ({ title, children }: { title: string; children: React.ReactNode }
  * not everything that is either. Counts come from the server for the set you
  * are already looking at, so a chip reading 0 really is a dead end.
  */
-const FilterBar = ({ filters, onChange, facets, vocabulary, total }: Props) => {
-    // Nineteen genres plus decades and languages is most of a phone screen, so
-    // the panel starts collapsed there and the results stay the first thing seen.
+const FilterBar = ({ filters, onChange, facets, vocabulary }: Props) => {
+    // Nineteen genres, eleven decades and forty languages is most of a phone
+    // screen, so the panel starts collapsed there and the films stay first.
     const [open, setOpen] = useState(
         () => typeof window === 'undefined' || window.innerWidth >= 640);
+    const [allGenres, setAllGenres] = useState(false);
     const applied = filters.genres.length + (filters.lang ? 1 : 0) + (filters.yearMin ? 1 : 0);
 
     const counts = new Map((facets?.genres ?? []).map(g => [String(g.value), g.count]));
-    const genres = (vocabulary?.genres ?? facets?.genres ?? []).map(g => String(g.value));
     const decades = facets?.decades ?? vocabulary?.decades ?? [];
-    // The picked language leads, so it can't fall outside the visible chips and
-    // leave the bar looking as though nothing is selected.
-    const langs = facets?.languages ?? vocabulary?.languages ?? [];
-    const languages = filters.lang
-        ? [...langs.filter(l => l.value === filters.lang),
-           ...langs.filter(l => l.value !== filters.lang)]
-        : langs;
+    const languages = facets?.languages ?? vocabulary?.languages ?? [];
+
+    // Selected first, then by how much each would leave: the useful ones lead
+    // and the long tail (IMAX, Film-Noir) falls behind the disclosure.
+    const genres = (vocabulary?.genres ?? facets?.genres ?? [])
+        .map(g => String(g.value))
+        .sort((a, b) => {
+            const sa = filters.genres.includes(a), sb = filters.genres.includes(b);
+            if (sa !== sb) return sa ? -1 : 1;
+            return (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
+        });
+    const shown = allGenres ? genres : genres.slice(0, GENRE_HEAD);
+    const hidden = genres.length - shown.length;
 
     const toggleGenre = (g: string) => onChange({
         ...filters,
@@ -89,15 +101,13 @@ const FilterBar = ({ filters, onChange, facets, vocabulary, total }: Props) => {
             ? { ...filters, yearMin: undefined, yearMax: undefined }
             : { ...filters, yearMin: d, yearMax: d + 9 });
 
-    const langLabel = languages.find(l => l.value === filters.lang)?.label;
-
     return (
         <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
             className="bg-neutral-900/50 backdrop-blur-xl border border-white/10 rounded-2xl
-                       p-4 sm:p-5 mb-8 space-y-4"
+                       px-4 sm:px-5 py-3.5 mb-8"
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
@@ -105,32 +115,27 @@ const FilterBar = ({ filters, onChange, facets, vocabulary, total }: Props) => {
                     onClick={() => setOpen(o => !o)}
                     aria-expanded={open}
                     aria-controls="filter-groups"
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white
+                    className="flex items-center gap-2 text-neutral-300 hover:text-white
                                transition-colors focus:outline-none focus-visible:ring-1
-                               focus-visible:ring-primary rounded-full py-1 pr-2"
+                               focus-visible:ring-primary rounded-lg py-1 pr-1.5"
                 >
-                    <SlidersHorizontal className="w-4 h-4 text-primary" />
-                    <span className="text-[11px] font-bold uppercase tracking-[0.18em]">Refine</span>
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[11px] font-bold uppercase tracking-[0.16em]">Refine</span>
                     {applied > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-primary text-white
-                                         text-[10px] font-bold tabular-nums">{applied}</span>
+                        <span className="px-1.5 py-0.5 rounded-md bg-primary text-white
+                                         text-[10px] font-bold tabular-nums leading-none">{applied}</span>
                     )}
-                    <span className="text-[11px] text-neutral-600 tabular-nums">
-                        {total.toLocaleString()} {total === 1 ? 'film' : 'films'}
-                    </span>
-                    <ChevronDown className={cn('w-3.5 h-3.5 transition-transform',
+                    <ChevronDown className={cn('w-3.5 h-3.5 text-neutral-500 transition-transform',
                         open && 'rotate-180')} />
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                     <label htmlFor="sort" className="sr-only">Sort results</label>
                     <select
                         id="sort"
                         value={filters.sort}
                         onChange={(e) => onChange({ ...filters, sort: e.target.value as Sort })}
-                        className="bg-white/[0.04] border border-white/10 rounded-full px-3.5 py-2
-                                   text-[11px] font-bold uppercase tracking-[0.1em] text-neutral-300
-                                   focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                        className={selectCls}
                     >
                         {SORTS.map(s => (
                             <option key={s.value} value={s.value} className="bg-neutral-900 normal-case">
@@ -142,11 +147,11 @@ const FilterBar = ({ filters, onChange, facets, vocabulary, total }: Props) => {
                     {isActive(filters) && (
                         <button
                             onClick={() => onChange(EMPTY)}
-                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border
-                                       border-white/10 text-[11px] font-bold uppercase tracking-[0.1em]
-                                       text-neutral-400 hover:text-white hover:border-primary/40
-                                       focus:outline-none focus-visible:ring-1 focus-visible:ring-primary
-                                       transition-colors"
+                            className="flex items-center gap-1.5 px-2.5 py-2.5 sm:py-[7px] rounded-lg
+                                       border border-white/10 text-[11px] font-bold uppercase
+                                       leading-none tracking-[0.06em] text-neutral-400
+                                       hover:text-white hover:border-primary/50 transition-colors
+                                       focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                         >
                             <X className="w-3 h-3" /> Clear
                         </button>
@@ -155,76 +160,82 @@ const FilterBar = ({ filters, onChange, facets, vocabulary, total }: Props) => {
             </div>
 
             <AnimatePresence initial={false}>
-            {open && (
-            <motion.div
-                id="filter-groups"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="space-y-3 pt-1 border-t border-white/5 overflow-hidden">
-                <div className="pt-3">
-                    <Group title="Genre">
-                        {genres.map(g => {
-                            const on = filters.genres.includes(g);
-                            const n = counts.get(g) ?? 0;
-                            return (
-                                <Chip key={g} label={g} count={facets ? n : undefined} on={on}
-                                    disabled={!on && facets != null && n === 0}
-                                    onClick={() => toggleGenre(g)} />
-                            );
-                        })}
-                    </Group>
-                </div>
+                {open && (
+                    <motion.div
+                        id="filter-groups"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                    >
+                        <div className="mt-3.5 pt-3.5 border-t border-white/[0.07] space-y-3">
+                            <Row title="Genre">
+                                {shown.map(g => {
+                                    const on = filters.genres.includes(g);
+                                    const n = counts.get(g) ?? 0;
+                                    return (
+                                        <Chip key={g} label={g} count={facets ? n : undefined} on={on}
+                                            disabled={!on && facets != null && n === 0}
+                                            onClick={() => toggleGenre(g)} />
+                                    );
+                                })}
+                                {(hidden > 0 || allGenres) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllGenres(a => !a)}
+                                        className="px-2.5 py-2.5 sm:py-1.5 text-[11px] font-bold uppercase
+                                                   tracking-[0.06em] leading-none text-neutral-500
+                                                   hover:text-primary transition-colors focus:outline-none
+                                                   focus-visible:ring-1 focus-visible:ring-primary rounded-lg"
+                                    >
+                                        {allGenres ? 'Fewer' : `+${hidden} more`}
+                                    </button>
+                                )}
+                            </Row>
 
-                {decades.length > 0 && (
-                    <Group title="Decade">
-                        {decades.map(d => (
-                            <Chip key={d.value} label={d.label ?? `${d.value}s`} count={d.count}
-                                on={filters.yearMin === Number(d.value)}
-                                onClick={() => setDecade(Number(d.value))} />
-                        ))}
-                    </Group>
-                )}
+                            {(decades.length > 0 || languages.length > 1) && (
+                                <div className="flex flex-col lg:flex-row lg:items-baseline gap-3 lg:gap-8">
+                                    {decades.length > 0 && (
+                                        <Row title="Decade">
+                                            {decades.map(d => (
+                                                <Chip key={d.value} label={d.label ?? `${d.value}s`}
+                                                    count={d.count}
+                                                    on={filters.yearMin === Number(d.value)}
+                                                    onClick={() => setDecade(Number(d.value))} />
+                                            ))}
+                                        </Row>
+                                    )}
 
-                {languages.length > 1 && (
-                    <Group title="Language">
-                        {languages.slice(0, 7).map(l => (
-                            <Chip key={l.value} label={l.label ?? String(l.value)} count={l.count}
-                                on={filters.lang === l.value}
-                                onClick={() => onChange({
-                                    ...filters,
-                                    lang: filters.lang === l.value ? undefined : String(l.value),
-                                })} />
-                        ))}
-                        {languages.length > 7 && (
-                            <>
-                                <label htmlFor="lang" className="sr-only">More languages</label>
-                                <select
-                                    id="lang"
-                                    value={languages.slice(0, 7).some(l => l.value === filters.lang)
-                                        ? '' : (filters.lang ?? '')}
-                                    onChange={(e) => onChange({ ...filters, lang: e.target.value || undefined })}
-                                    className="bg-white/[0.04] border border-white/10 rounded-full px-3.5 py-2
-                                               text-[11px] font-bold uppercase tracking-[0.1em] text-neutral-400
-                                               focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                                >
-                                    <option value="" className="bg-neutral-900 normal-case">
-                                        {langLabel && !languages.slice(0, 7).some(l => l.value === filters.lang)
-                                            ? langLabel : 'More…'}
-                                    </option>
-                                    {languages.slice(7).map(l => (
-                                        <option key={l.value} value={l.value} className="bg-neutral-900 normal-case">
-                                            {l.label} ({l.count.toLocaleString()})
-                                        </option>
-                                    ))}
-                                </select>
-                            </>
-                        )}
-                    </Group>
+                                    {languages.length > 1 && (
+                                        <Row title="Language">
+                                            <label htmlFor="lang" className="sr-only">Language</label>
+                                            <select
+                                                id="lang"
+                                                value={filters.lang ?? ''}
+                                                onChange={(e) => onChange({
+                                                    ...filters, lang: e.target.value || undefined,
+                                                })}
+                                                className={cn(selectCls, filters.lang &&
+                                                    'bg-primary border-primary text-white')}
+                                            >
+                                                <option value="" className="bg-neutral-900 normal-case">
+                                                    Any language
+                                                </option>
+                                                {languages.map(l => (
+                                                    <option key={l.value} value={l.value}
+                                                        className="bg-neutral-900 normal-case">
+                                                        {l.label} ({l.count.toLocaleString()})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </Row>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
                 )}
-            </motion.div>
-            )}
             </AnimatePresence>
         </motion.div>
     );
