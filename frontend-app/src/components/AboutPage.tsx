@@ -74,6 +74,25 @@ const AboutPage = () => {
                     </motion.p>
                 </div>
 
+                {/* Animated pipeline — full width, six stages need the room */}
+                <div className="mb-24">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                    >
+                        <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                            <Brain className="text-primary" />
+                            System Pipeline
+                        </h2>
+                        <ProjectFlowchart />
+                        <p className="text-gray-500 text-sm mt-4 text-center">
+                            Every ranking is computed offline, so a request is an array lookup
+                            rather than a search.
+                        </p>
+                    </motion.div>
+                </div>
+
                 {/* Architecture & Workflow */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-32 items-start">
 
@@ -93,47 +112,54 @@ const AboutPage = () => {
                         <div className="space-y-8">
                             <ProcessStep
                                 number="01"
-                                title="Data Ingestion & Cleaning"
-                                desc="The system ingests raw metadata from TMDB. Scripts clean this data, normalizing genres, extracting keywords, and formatting it for the embedding model, ensuring high-quality input signals."
+                                title="Learn from 32 million ratings"
+                                desc="Every film is scored against every other by how often the same viewers rated both highly. Prolific accounts are damped so none dominates, and blockbusters are damped so popularity alone never counts as similarity."
                                 delay={0.1}
                             />
                             <ProcessStep
                                 number="02"
-                                title="Vector Embedding Generation"
-                                desc="We use sentence-transformers (all-MiniLM-L6-v2) to convert movie descriptions and tags into high-dimensional vector space (384 dimensions). This captures the semantic 'meaning' of a movie beyond simple keywords."
+                                title="Place each film in 64 dimensions"
+                                desc="A two-tower neural network, trained with InfoNCE and in-batch negatives, maps 17,719 films into a shared embedding space. Distance in that space is a learned measure of taste, and it surfaces neighbours co-occurrence alone would miss."
                                 delay={0.2}
                             />
                             <ProcessStep
                                 number="03"
-                                title="FAISS Indexing"
-                                desc="These vectors are indexed using FAISS (Facebook AI Similarity Search). We utilize an IVF (Inverted File) index structure to perform lightning-fast nearest neighbor searches across thousands of movies in milliseconds."
+                                title="Gather candidates from both signals"
+                                desc="The co-occurrence model and the embedding space each nominate their closest films. Taking the union keeps the precision of the first and the reach of the second, rather than trusting either on its own."
                                 delay={0.3}
                             />
                             <ProcessStep
                                 number="04"
-                                title="Diversity Reranking"
-                                desc="Raw similarity results can be repetitive. We apply a post-processing reranking algorithm (MMR - Maximal Marginal Relevance) to inject diversity, ensuring recommendations cover a mix of genres and styles while remaining relevant."
+                                title="Rerank against what the films are about"
+                                desc="Raw co-occurrence drifts toward whatever else was popular that year. Genre overlap pulls the ranking back toward the film itself — rare genres counting for more than common ones — alongside tag overlap, a penalty for titles with too few ratings to trust, and a bonus that keeps series entries together."
                                 delay={0.4}
                             />
                         </div>
                     </div>
 
-                    {/* Right: Animated System Architecture */}
-                    <div className="space-y-8 sticky top-32">
+                    {/* Right: what the numbers actually are */}
+                    <div className="space-y-6 lg:sticky lg:top-32">
                         <div className="bg-neutral-900/50 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-32 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
-
                             <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
                                 <Brain className="text-primary" />
-                                System Pipeline
+                                By the numbers
                             </h3>
-
-                            {/* Animated Diagram */}
-                            <ProjectFlowchart />
-
-                            <p className="text-gray-400 text-sm mt-4 italic text-center">
-                                Real-time visualization of the recommendation data flow.
-                            </p>
+                            <dl className="grid grid-cols-2 gap-x-6 gap-y-5 relative z-10">
+                                {[
+                                    ['Ratings', '32,000,204'],
+                                    ['Films indexed', '17,719'],
+                                    ['Embedding size', '64 dimensions'],
+                                    ['Neighbours stored', '24 per film'],
+                                    ['Ranking latency', '~1 ms'],
+                                    ['Artwork coverage', '99%'],
+                                ].map(([k, v]) => (
+                                    <div key={k}>
+                                        <dt className="text-[11px] text-gray-500 uppercase tracking-wider">{k}</dt>
+                                        <dd className="text-lg font-bold text-white mt-1">{v}</dd>
+                                    </div>
+                                ))}
+                            </dl>
                         </div>
                     </div>
                 </div>
