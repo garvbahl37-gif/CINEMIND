@@ -112,34 +112,40 @@ def _csv(v: Optional[str]) -> Optional[list]:
     return [x.strip() for x in v.split(",") if x.strip()]
 
 
-class Filters:
-    """The filter parameters every search surface accepts."""
+def filters(
+    q: str = Query("", description="Free text; may also carry structure like "
+                                   "'korean thrillers' or '90s sci-fi'"),
+    genres: Optional[str] = Query(None, description="Comma-separated genre names; "
+                                                    "overrides any the query implied"),
+    year_min: Optional[int] = Query(None, ge=1874, le=2100),
+    year_max: Optional[int] = Query(None, ge=1874, le=2100),
+    lang: Optional[str] = Query(None, min_length=2, max_length=3),
+    media: Optional[str] = Query(None, pattern="^(movie|tv)$"),
+    sort: str = Query("relevance"),
+    limit: int = Query(40, ge=1, le=120),
+    offset: int = Query(0, ge=0, le=5000),
+    facets: bool = Query(False),
+) -> dict:
+    """
+    The filter parameters every search surface accepts.
 
-    def __init__(self,
-                 q: str = Query("", description="Free text; may also carry structure "
-                                                "like 'korean thrillers' or '90s sci-fi'"),
-                 genres: Optional[str] = Query(None, description="Comma-separated genre "
-                                                                 "names; overrides any the query implied"),
-                 year_min: Optional[int] = Query(None, ge=1874, le=2100),
-                 year_max: Optional[int] = Query(None, ge=1874, le=2100),
-                 lang: Optional[str] = Query(None, min_length=2, max_length=3),
-                 media: Optional[str] = Query(None, pattern="^(movie|tv)$"),
-                 sort: str = Query("relevance"),
-                 limit: int = Query(40, ge=1, le=120),
-                 offset: int = Query(0, ge=0, le=5000),
-                 facets: bool = Query(False)):
-        self.kw = dict(q=q or "", genres=_csv(genres), year_min=year_min,
-                       year_max=year_max, lang=lang, media=media,
-                       sort=sort if sort in SORTS else "relevance",
-                       limit=limit, offset=offset, facets=facets)
+    A function rather than a class: this module uses postponed annotations, and
+    FastAPI resolves a class dependency's __init__ annotations against an empty
+    namespace, so `Optional[str]` never resolves and every request carrying one
+    of these parameters fails inside Pydantic.
+    """
+    return dict(q=q or "", genres=_csv(genres), year_min=year_min,
+                year_max=year_max, lang=lang, media=media,
+                sort=sort if sort in SORTS else "relevance",
+                limit=limit, offset=offset, facets=facets)
 
 
 @app.get("/api/search")
-async def search(response: Response, f: Filters = Depends()):
+async def search(response: Response, f: dict = Depends(filters)):
     t0 = time.perf_counter()
-    r = get_engine().search(**f.kw)
+    r = get_engine().search(**f)
     _cache(response, "public, max-age=120, s-maxage=3600")
-    return {"query": f.kw["q"], **r, "count": len(r["results"]),
+    return {"query": f["q"], **r, "count": len(r["results"]),
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
 
 
@@ -236,17 +242,17 @@ async def legacy_tv(response: Response):
 
 
 @app.get("/api/movies/search", tags=["Compat"])
-async def legacy_search(response: Response, f: Filters = Depends()):
+async def legacy_search(response: Response, f: dict = Depends(filters)):
     t0 = time.perf_counter()
     e = get_engine()
-    r = e.search(**f.kw)
+    r = e.search(**f)
     _cache(response, "public, max-age=120, s-maxage=3600")
     out = []
     for item in r["results"]:
         d = _legacy(e, item["item_id"])
         d["score"] = item.get("score")
         out.append(d)
-    return {"query": f.kw["q"], "filters": r["filters"], "facets": r["facets"],
+    return {"query": f["q"], "filters": r["filters"], "facets": r["facets"],
             "total": r["total"], "count": len(out), "results": out,
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
 
