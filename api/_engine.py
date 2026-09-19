@@ -48,6 +48,15 @@ _WORD_DECADE = {"twenties": 1920, "thirties": 1930, "forties": 1940, "fifties": 
                 "nineties": 1990, "noughties": 2000}
 
 
+def _singular(w: str) -> str:
+    """People type "thrillers" and "comedies"; the genre list is singular."""
+    if len(w) > 4 and w.endswith("ies"):
+        return w[:-3] + "y"
+    if len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")):
+        return w[:-1]
+    return w
+
+
 def _fold(s: str) -> str:
     """Lowercase + strip accents so 'Amelie' finds 'Amélie'."""
     s = unicodedata.normalize("NFKD", s.lower())
@@ -187,11 +196,15 @@ class Engine:
         words = [w for w in re.split(r"[^a-z0-9'-]+", f) if w]
         gs = set()
         for w in words:
-            w2 = _EXPAND.get(w, w)
-            if w2 in self.genres_all:
-                gs.add(w2)
-        if "sci" in f and "fi" in f:
+            for cand in (w, _singular(w)):
+                w2 = _EXPAND.get(cand, cand)
+                if w2 in self.genres_all:
+                    gs.add(w2)
+                    break
+        if ("sci" in words and "fi" in words) or "science fiction" in f or "scifi" in f:
             gs.add("sci-fi")
+        if "noir" in f:
+            gs.add("film-noir")
         if gs:
             out["genres"] = sorted(gs)
         return out
@@ -218,8 +231,23 @@ class Engine:
                 consumed.add(w)
         consumed |= {k for k in _LANGS if k in f and _LANGS[k] == lang}
         consumed |= set(_WORD_DECADE)
+        consumed |= {"movie", "movies", "film", "films", "show", "shows"}
+        if "sci-fi" in want_g:
+            # "sci-fi" splits into two tokens; a stray "fi" otherwise matches
+            # every title containing those letters (Final Fantasy, First Men...)
+            consumed |= {"sci", "fi", "scifi", "science", "fiction"}
+        if "film-noir" in want_g:
+            consumed |= {"noir"}
+
+        def _structural(w: str) -> bool:
+            """True when this word was already used as a genre, language or date."""
+            if w in consumed:
+                return True
+            cand = _singular(w)
+            return _EXPAND.get(cand, cand) in want_g or cand in consumed
+
         free = [w for w in re.split(r"[^a-z0-9']+", f)
-                if len(w) > 1 and w not in _STOP and w not in consumed
+                if len(w) > 1 and w not in _STOP and not _structural(w)
                 and not re.fullmatch(r"(19|20)?\d0s|(19|20)\d{2}", w)]
         free_text = " ".join(free)
 

@@ -254,7 +254,12 @@ async def chat(req: ChatRequest):
                             "a director, or a title.",
                 "recommendations": []}
 
+    LANG_NAMES = {"en": "English", "hi": "Hindi", "fr": "French", "es": "Spanish",
+                  "ko": "Korean", "ja": "Japanese", "de": "German", "it": "Italian",
+                  "zh": "Chinese", "ru": "Russian", "sv": "Swedish", "da": "Danish"}
     bits = []
+    if filters.get("lang"):
+        bits.append(LANG_NAMES.get(filters["lang"], ""))
     if filters.get("genres"):
         bits.append(" and ".join(filters["genres"]))
     if filters.get("year_min"):
