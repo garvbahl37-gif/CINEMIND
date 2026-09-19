@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Loader2, Video, Bot } from 'lucide-react';
+import { X, Send, Loader2, Video, MessageCircle } from 'lucide-react';
 import { API_BASE, TMDB_IMAGE_BASE } from '../config';
 import { cn } from '../lib/utils';
 import MovieCard from './MovieCard';
@@ -148,8 +148,9 @@ export const ChatInterface: React.FC = () => {
                         {/* Header */}
                         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-neutral-900/80 to-black/80">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-rose-900 flex items-center justify-center shadow-lg ring-1 ring-white/10">
-                                    <Bot className="w-6 h-6 text-white" />
+                                <div className="w-10 h-10 rounded-full bg-primary flex items-center
+                                                justify-center ring-1 ring-white/15">
+                                    <MessageCircle className="w-[18px] h-[18px] text-white" strokeWidth={2} />
                                 </div>
                                 <div>
                                     <h3 className="font-['Orbitron'] font-bold text-white tracking-wider flex items-center gap-2">
@@ -252,37 +253,45 @@ export const ChatInterface: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* Premium Launcher Button */}
+            {/*
+              The launcher. Round and flat, to sit with the nav pills and the
+              back button rather than announce itself: the previous one was a
+              three-stop gradient square with a 30px scarlet glow and a robot
+              glyph sized to its own edges, which read as a sticker dropped on
+              top of the page.
+            */}
             <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setIsOpen(!isOpen)}
-                className="pointer-events-auto w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-primary via-red-600 to-rose-900 shadow-[0_0_30px_rgba(229,9,20,0.5)] flex items-center justify-center border border-white/20 z-50 hover:shadow-[0_0_50px_rgba(229,9,20,0.8)] transition-all duration-500 group relative overflow-hidden"
+                aria-label={isOpen ? 'Close the film assistant' : 'Ask the film assistant'}
+                className="pointer-events-auto w-14 h-14 rounded-full bg-primary
+                           flex items-center justify-center border border-white/15
+                           shadow-[0_8px_24px_-6px_rgba(0,0,0,0.8)] z-50
+                           hover:bg-red-600 transition-colors duration-300
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
-                {/* Shine Effect */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="wait" initial={false}>
                     {isOpen ? (
-                        <motion.div
+                        <motion.span
                             key="close"
                             initial={{ rotate: -90, opacity: 0 }}
                             animate={{ rotate: 0, opacity: 1 }}
                             exit={{ rotate: 90, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
+                            transition={{ duration: 0.18 }}
                         >
-                            <X className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-md" />
-                        </motion.div>
+                            <X className="w-5 h-5 text-white" strokeWidth={2.25} />
+                        </motion.span>
                     ) : (
-                        <motion.div
+                        <motion.span
                             key="chat"
-                            initial={{ scale: 0.5, opacity: 0 }}
+                            initial={{ scale: 0.6, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.5, opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                            exit={{ scale: 0.6, opacity: 0 }}
+                            transition={{ duration: 0.18 }}
                         >
-                            <Bot className="w-8 h-8 md:w-10 md:h-10 text-white fill-white/10 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]" />
-                        </motion.div>
+                            <MessageCircle className="w-[22px] h-[22px] text-white" strokeWidth={2} />
+                        </motion.span>
                     )}
                 </AnimatePresence>
             </motion.button>
