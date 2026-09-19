@@ -139,7 +139,7 @@ export default function CinematicLoader({ ready, onDone }: { ready: boolean; onD
                     fontFamily: 'var(--serif)', fontWeight: 400,
                     fontSize: 'min(34vw, 176px)', lineHeight: 1,
                     color: 'var(--halide)',
-                    textShadow: '0 0 50px rgba(232,181,75,.4), 0 0 14px rgba(0,0,0,.6)',
+                    textShadow: '0 0 55px rgba(232,53,74,.45), 0 0 14px rgba(0,0,0,.7)',
                     fontVariantNumeric: 'lining-nums',
                   }}
                 >

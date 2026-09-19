@@ -1,32 +1,36 @@
 /* ==========================================================================
    CINEMIND — cinematic design system
 
-   Built from the language of projection: deep theatre black lit by a xenon
-   lamp, silver-gelatin whites, film grain, vignette, and the amber bloom of
-   light through a lens. Cyan is reserved for the machine's own voice so the
-   interface never confuses "what the film is" with "what the model thinks".
+   Built from the language of projection: the black of a darkened auditorium,
+   scarlet from the curtain and the exit light, film grain and vignette.
+   Cyan answers that scarlet the way anaglyph 3D does, and is reserved for the
+   machine's own voice — so the interface never confuses "what the film is"
+   with "what the model thinks".
+
+   Contrast against --ink: scarlet 4.81:1, halide-dim 5.57:1, emulsion 12:1.
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Geist:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* surfaces — chromatic, never pure #000 (OLED smear) */
-  --ink:        #08090F;
-  --ink-deep:   #050609;
-  --ink-raise:  #10121C;
-  --ink-lift:   #171A27;
-  --ink-edge:   #24283A;
+  /* surfaces — a black with the faintest red cast, never pure #000 */
+  --ink:        #0A0709;
+  --ink-deep:   #060405;
+  --ink-raise:  #140F12;
+  --ink-lift:   #1D1519;
+  --ink-edge:   #2E2228;
 
   /* type */
-  --halide:     #F2F0E9;
-  --halide-mid: #A8ADC0;
-  --halide-dim: #6B7186;
+  --halide:     #F4F0F1;
+  --halide-mid: #B0A5A9;
+  --halide-dim: #8F8489;
 
-  /* xenon lamp — the films, the human side */
-  --lamp:       #E8B54B;
-  --lamp-warm:  #F6D083;
-  --lamp-deep:  #A3761C;
-  --lamp-glow:  rgba(232, 181, 75, .32);
+  /* exit light — the films, the human side */
+  --lamp:       #E8354A;
+  --lamp-warm:  #FF6B7A;
+  --lamp-hi:    #FF5C6B;   /* for small text, where scarlet is too dark */
+  --lamp-deep:  #8E1526;
+  --lamp-glow:  rgba(232, 53, 74, .34);
 
   /* the model's voice, and nothing else */
   --emulsion:   #7FE3D4;
@@ -49,7 +53,7 @@
   --lift-1: 0 1px 2px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.3);
   --lift-2: 0 2px 6px rgba(0,0,0,.45), 0 12px 32px rgba(0,0,0,.45);
   --lift-3: 0 8px 20px rgba(0,0,0,.5), 0 32px 72px rgba(0,0,0,.6);
-  --bloom:  0 0 0 1px rgba(232,181,75,.5), 0 8px 30px var(--lamp-glow);
+  --bloom:  0 0 0 1px rgba(232,53,74,.55), 0 10px 34px var(--lamp-glow);
 
   --ease: cubic-bezier(.16, 1, .3, 1);          /* expo.out */
   --ease-soft: cubic-bezier(.32, .72, 0, 1);

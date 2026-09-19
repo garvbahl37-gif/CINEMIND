@@ -50,7 +50,7 @@ export default function FilmCard({
         {film.rating_avg && (
           <div className="pointer-events-none absolute bottom-2.5 left-2.5 flex items-center gap-1
                           opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <span className="text-[.78rem] font-semibold" style={{ color: 'var(--lamp)' }}>
+            <span className="text-[.78rem] font-semibold" style={{ color: 'var(--lamp-hi)' }}>
               {film.rating_avg.toFixed(1)}
             </span>
             <span className="text-[.68rem]" style={{ color: 'var(--halide-dim)' }}>
@@ -62,7 +62,7 @@ export default function FilmCard({
 
       <div className="mt-3 leading-tight">
         <div className="truncate text-[.9rem] font-medium transition-colors
-                        group-hover:text-[var(--lamp)]">
+                        group-hover:text-[var(--lamp-hi)]">
           {film.title}
         </div>
         <div className="mt-1 text-[.75rem]" style={{ color: 'var(--halide-dim)' }}>

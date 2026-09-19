@@ -86,7 +86,7 @@ export default function FilmSheet({
               </div>
               {full.rating_avg && (
                 <p className="mt-4 text-[0.85rem]" style={{ color: 'var(--halide-mid)' }}>
-                  <span style={{ color: 'var(--lamp)', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--lamp-hi)', fontWeight: 600 }}>
                     {full.rating_avg.toFixed(2)}
                   </span>{' '}
                   average from {full.rating_count.toLocaleString()} MovieLens viewers
@@ -130,7 +130,7 @@ export default function FilmSheet({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[0.9rem] font-medium transition-colors
-                                        group-hover:text-[var(--lamp)]">{f.title}</div>
+                                        group-hover:text-[var(--lamp-hi)]">{f.title}</div>
                         <div className="mt-0.5 truncate text-[0.75rem]"
                              style={{ color: 'var(--halide-dim)' }}>
                           {f.year}

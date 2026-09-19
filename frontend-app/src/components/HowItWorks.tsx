@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import Pipeline from './Pipeline';
 /**
  * The pipeline really is a sequence, so numbering it is information rather than
  * decoration. Numbers are set as frame counts, in the machine's colour.
@@ -42,7 +43,9 @@ export default function HowItWorks() {
           is where the interesting films live.
         </p>
 
-        <ol className="mt-16 space-y-12">
+        <Pipeline />
+
+        <ol className="mt-12 space-y-12">
           {STAGES.map((s, i) => (
             <motion.li key={s.n} className="grid gap-5 sm:grid-cols-[62px_1fr]"
               initial={{ opacity: 0, y: 26 }} whileInView={{ opacity: 1, y: 0 }}

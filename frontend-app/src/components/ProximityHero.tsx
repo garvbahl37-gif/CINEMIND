@@ -74,7 +74,7 @@ export default function ProximityHero({
                 {film.year && <Chip>{film.year}</Chip>}
                 {film.genres.slice(0, 3).map((g) => <Chip key={g}>{g}</Chip>)}
                 {film.rating_avg && (
-                  <span className="pl-1 text-[.8rem] font-medium" style={{ color: 'var(--lamp)' }}>
+                  <span className="pl-1 text-[.8rem] font-medium" style={{ color: 'var(--lamp-hi)' }}>
                     {film.rating_avg.toFixed(1)}
                     <span style={{ color: 'var(--halide-dim)', fontWeight: 400 }}>
                       {' '}/ 5 · {film.rating_count.toLocaleString()} viewers
@@ -145,7 +145,7 @@ export default function ProximityHero({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[.875rem] font-medium transition-colors
-                                      group-hover:text-[var(--lamp)]">{f.title}</div>
+                                      group-hover:text-[var(--lamp-hi)]">{f.title}</div>
                       <div className="mt-1.5">
                         <Perforation score={f.score ?? 0}
                           label={f.shared_genres?.length
