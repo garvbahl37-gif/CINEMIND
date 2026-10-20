@@ -74,6 +74,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
     const w = useCardWidth();
     const reduce = useReducedMotion();
     const dialog = useRef<HTMLDivElement>(null);
+    const details = useRef<HTMLElement>(null);
 
     // A new pick from outside starts a new trail.
     useEffect(() => { setTrail([pick]); }, [pick]);
@@ -103,16 +104,21 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
 
     const dive = useCallback((m: Movie) => {
         setTrail(t => [...t, m]);
-        dialog.current?.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+        details.current?.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     }, [reduce]);
 
     // Lock the page behind, take focus, and give it back on close.
     useEffect(() => {
         const before = document.activeElement as HTMLElement | null;
-        const overflow = document.body.style.overflow;
+        const root = document.documentElement;
+        const was = [root.style.overflow, document.body.style.overflow];
+        root.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
         dialog.current?.focus();
-        return () => { document.body.style.overflow = overflow; before?.focus?.(); };
+        return () => {
+            [root.style.overflow, document.body.style.overflow] = was;
+            before?.focus?.();
+        };
     }, []);
 
     useEffect(() => {
@@ -130,7 +136,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
 
     // Swipe and trackpad. A drag beyond a few pixels is a move, not a click.
     const drag = useRef<{ x: number; moved: boolean } | null>(null);
-    const wheel = useRef({ acc: 0, t: 0 });
+    const wheel = useRef({ acc: 0, t: 0, lock: 0 });
     const onPointerDown = (e: React.PointerEvent) => { drag.current = { x: e.clientX, moved: false }; };
     const onPointerMove = (e: React.PointerEvent) => {
         if (drag.current && Math.abs(e.clientX - drag.current.x) > 8) drag.current.moved = true;
@@ -140,19 +146,27 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
         if (d?.moved) move(-Math.round((e.clientX - d.x) / (w * 0.55)) || (e.clientX < d.x ? 1 : -1));
         window.setTimeout(() => { drag.current = null; }, 0);
     };
+    // Nothing on the stage scrolls, so a wheel or trackpad gesture over it in
+    // either direction steps through the matches instead. The cooldown keeps a
+    // trackpad fling to a few cards rather than racing to the end.
     const onWheel = (e: React.WheelEvent) => {
-        if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-        const now = performance.now();
-        if (now - wheel.current.t > 220) wheel.current.acc = 0;
-        wheel.current.t = now;
-        wheel.current.acc += e.deltaX;
-        if (Math.abs(wheel.current.acc) > 70) { move(wheel.current.acc > 0 ? 1 : -1); wheel.current.acc = 0; }
+        const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        const now = performance.now(), wh = wheel.current;
+        if (now < wh.lock) return;
+        if (now - wh.t > 220) wh.acc = 0;
+        wh.t = now;
+        wh.acc += delta;
+        if (Math.abs(wh.acc) > 60) { move(wh.acc > 0 ? 1 : -1); wh.acc = 0; wh.lock = now + 260; }
     };
 
     const h = Math.round(w * 1.5);
     const isMatch = focused.rank > 0;
     const inBlend = blend.has(focused.m);
     const source = slots[0].m;
+    // Tags often repeat a genre ("action" beside Action); show each idea once.
+    const sharedGenres = focused.m.shared_genres ?? [];
+    const sharedTags = (focused.m.shared_tags ?? [])
+        .filter(t => !sharedGenres.some(g => g.toLowerCase() === t.toLowerCase()));
 
     return (
         <motion.div
@@ -167,8 +181,10 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
             transition={{ duration: reduce ? 0 : 0.25 }}
             // The spread shadow paints the ultramarine frame around the stage,
             // so the page behind never shows at its edges.
-            className="fixed inset-1.5 md:inset-4 z-[120] rounded-[28px] bg-black overflow-y-auto overflow-x-hidden outline-none
-                       shadow-[0_0_0_100vmax_#2B1FBB]"
+            // It never scrolls as a whole: the header, the stage and the ticks hold
+            // still, and only the details beneath scroll when they run long.
+            className="fixed inset-1.5 md:inset-4 z-[120] rounded-[28px] bg-black overflow-hidden outline-none
+                       flex flex-col shadow-[0_0_0_100vmax_#2B1FBB]"
         >
             {/* The glow the cards stand in. */}
             <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0"
@@ -178,7 +194,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
                         #d40003 0%, #b80002 34%, rgba(130,0,0,.78) 58%, rgba(45,0,0,.4) 80%, rgba(0,0,0,0) 100%)`,
                 }} />
 
-            <header className="relative z-20 flex flex-wrap md:flex-nowrap items-center gap-3 px-4 md:px-6 pt-4">
+            <header className="relative z-20 shrink-0 flex flex-wrap md:flex-nowrap items-center gap-3 px-4 md:px-6 pt-4">
                 <button type="button" onClick={onClose} className="round-btn w-10 h-10" aria-label="Close matches">
                     <X className="w-4 h-4" />
                 </button>
@@ -206,7 +222,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
 
             {/* The stage. */}
             <div
-                className="relative z-0 mt-6 select-none touch-pan-y"
+                className="relative z-0 shrink-0 mt-6 select-none touch-none"
                 style={{ height: h + 24 }}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
@@ -277,7 +293,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
             </div>
 
             {/* One tick per film, laid out as they sit on the stage. */}
-            <div className="relative z-10 mt-5 flex justify-center items-end gap-[5px] h-6" role="group" aria-label="Jump to a match">
+            <div className="relative z-10 shrink-0 mt-5 flex justify-center items-end gap-[5px] h-6" role="group" aria-label="Jump to a match">
                 {Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).map(p => {
                     const s = slots.find(x => x.p === p);
                     return (
@@ -292,7 +308,11 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
             </div>
 
             {/* What the focused card is, and why it is here. */}
-            <section aria-live="polite" className="relative z-10 grid lg:grid-cols-[1.15fr_1fr] gap-x-12 gap-y-8 px-5 md:px-10 pt-8 pb-12">
+            <section ref={details} aria-live="polite"
+                // The fade at the foot says there is more below when the details run long.
+                className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain
+                           [mask-image:linear-gradient(to_bottom,#000_calc(100%-48px),transparent)]
+                           grid lg:grid-cols-[1.15fr_1fr] content-start gap-x-12 gap-y-8 px-5 md:px-10 pt-8 pb-12">
                 <div className="min-w-0">
                     <p className="text-[13px] text-white/60">
                         {isMatch ? `Match ${focused.rank} of ${data?.matches.length ?? 24}` : 'Your pick'}
@@ -333,12 +353,12 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
                                     match with <span className="text-white">{short(source.title)}</span>. Scores are relative: the closest film is 100.
                                 </p>
                             </div>
-                            {(focused.m.shared_genres?.length || focused.m.shared_tags?.length) ? (
+                            {(sharedGenres.length || sharedTags.length) ? (
                                 <>
                                     <h3 className="mt-7 text-[14px] text-white/60">What the two share</h3>
                                     <div className="mt-3 flex flex-wrap gap-1.5">
-                                        {focused.m.shared_genres?.map(g => <span key={g} className="pill h-8 px-3.5 bg-white text-black normal-case text-[13px]">{cap(g)}</span>)}
-                                        {focused.m.shared_tags?.map(t => <span key={t} className="pill h-8 px-3.5 border border-white/35 normal-case text-[13px]">{t}</span>)}
+                                        {sharedGenres.map(g => <span key={g} className="pill h-8 px-3.5 bg-white text-black normal-case text-[13px]">{cap(g)}</span>)}
+                                        {sharedTags.map(t => <span key={t} className="pill h-8 px-3.5 border border-white/35 normal-case text-[13px]">{t}</span>)}
                                     </div>
                                 </>
                             ) : (
