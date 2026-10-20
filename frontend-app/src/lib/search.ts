@@ -5,8 +5,9 @@
  * request, so they build the same URL through here rather than each assembling
  * their own — which is how the two ends of a faceted search usually drift apart.
  */
-import { API_BASE, TMDB_IMAGE_BASE } from '../config';
+import { API_BASE } from '../config';
 import { Movie } from '../types';
+import { toMovie } from './api';
 
 export type Sort = 'relevance' | 'rating' | 'newest' | 'oldest' | 'title';
 
@@ -52,12 +53,6 @@ export const fromCategory = (c: Category, base: Filters = EMPTY): Filters => ({
     yearMax: c.filters.year_max,
 });
 
-const poster = (m: any): string | null => {
-    const p = m.poster ?? m.poster_path;
-    if (!p) return null;
-    return p.startsWith('http') ? p : `${TMDB_IMAGE_BASE}/w500${p}`;
-};
-
 export interface SearchResponse {
     results: Movie[];
     /** What the server applied — the query's own structure when none was sent. */
@@ -89,12 +84,12 @@ export async function searchFilms(
         if (filters.sort !== 'relevance') p.set('sort', filters.sort);
     }
 
-    const res = await fetch(`${API_BASE}/api/movies/search?${p}`, { signal: opts.signal });
+    const res = await fetch(`${API_BASE}/api/search?${p}`, { signal: opts.signal });
     if (!res.ok) throw new Error(`Search failed: ${res.status}`);
     const d = await res.json();
 
     return {
-        results: (d.results ?? []).map((m: any) => ({ ...m, poster: poster(m), id: m.tmdbId ?? m.item_id })),
+        results: (d.results ?? []).map(toMovie),
         filters: {
             genres: d.filters?.genres ?? [],
             yearMin: d.filters?.year_min,
@@ -119,6 +114,6 @@ export async function fetchSuggestions(q: string, signal?: AbortSignal) {
     const d = await res.json();
     return {
         categories: (d.categories ?? []) as Category[],
-        titles: (d.results ?? []).map((m: any) => ({ ...m, poster: poster(m), id: m.tmdbId })) as Movie[],
+        titles: (d.results ?? []).map(toMovie) as Movie[],
     };
 }

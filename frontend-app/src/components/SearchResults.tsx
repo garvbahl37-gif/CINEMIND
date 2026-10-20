@@ -1,12 +1,18 @@
-import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 import { Movie } from '../types';
-import MovieCard from './MovieCard';
+import PosterCard from './PosterCard';
 import FilterBar from './FilterBar';
-import { ArrowLeft, SearchX } from 'lucide-react';
+import { Ground, Look } from './Collections';
 import { Facets, Filters, EMPTY } from '../lib/search';
+import { cn } from '../lib/utils';
 
 interface SearchResultsProps {
     query: string;
+    /** Set when the page has a name of its own — a collection, the Top 50. */
+    title?: string;
+    look?: Look;
+    backdrop?: string;
+    note?: string;
     results: Movie[];
     loading: boolean;
     onBack: () => void;
@@ -17,9 +23,11 @@ interface SearchResultsProps {
     facets?: Facets | null;
     vocabulary?: Facets | null;
     total?: number;
+    /** Number the cards: the list is a ranking. */
+    ranked?: boolean;
 }
 
-/** What this result set is, in words, whether it came from text or from chips. */
+/** What this result set is, in words, whether it came from text or from the filters. */
 const describe = (query: string, f?: Filters, langLabel?: string) => {
     if (query) return query;
     const bits: string[] = [];
@@ -30,106 +38,79 @@ const describe = (query: string, f?: Filters, langLabel?: string) => {
 };
 
 const SearchResults = ({
-    query, results, loading, onBack, onSelectMovie,
-    filters, onFilters, facets, vocabulary, total,
+    query, title, look = 'ultra', backdrop, note, results, loading, onBack, onSelectMovie,
+    filters, onFilters, facets, vocabulary, total, ranked,
 }: SearchResultsProps) => {
     const langLabel = (vocabulary?.languages ?? facets?.languages ?? [])
         .find(l => l.value === filters?.lang)?.label;
-    const heading = describe(query, filters, langLabel);
+    const heading = title ?? describe(query, filters, langLabel);
     const count = total ?? results.length;
-
-    // Container animation
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
-            }
-        }
-    };
+    const ink = look === 'paper' ? 'text-black' : 'text-white';
 
     return (
-        <div className="min-h-screen pt-32 pb-20 px-4 md:px-12 relative z-10">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-8">
-                <button
-                    onClick={onBack}
-                    className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors group"
-                >
-                    <ArrowLeft className="w-6 h-6 text-neutral-400 group-hover:text-white transition-colors" />
+        <div className="space-y-3">
+            {/* The banner wears the same ground as the collection tiles. */}
+            <section className="relative overflow-hidden rounded-[24px] min-h-[260px] md:min-h-[320px] p-5 md:p-8 flex flex-col">
+                <Ground look={look} backdrop={backdrop} />
+                <button type="button" onClick={onBack} aria-label="Back to browse"
+                    className={cn('relative round-btn w-10 h-10', look === 'paper' ? 'border-black/30 text-black hover:border-black' : 'bg-black/20')}>
+                    <ArrowLeft className="w-4 h-4" />
                 </button>
-                <div className="min-w-0">
-                    <h2 className="text-3xl font-display font-bold text-white truncate">
-                        {query
-                            ? <>Results for <span className="text-primary">"{query}"</span></>
-                            : <span className="text-primary">{heading}</span>}
-                    </h2>
-                    <p className="text-neutral-400 mt-1">
-                        {loading ? 'Searching…'
-                            : `${count.toLocaleString()} ${count === 1 ? 'film' : 'films'}`}
-                        {!loading && count > results.length && ` · showing the top ${results.length}`}
+                <div className={cn('relative mt-auto pt-10 flex flex-wrap items-end justify-between gap-4', ink, look === 'paper' && 'mb-[min(12%,90px)]')}>
+                    <h1 className="display text-[clamp(44px,8vw,120px)] max-w-[14ch] break-words">
+                        {heading}
+                    </h1>
+                    <p className="text-[14px] pb-1.5 tabular-nums" aria-live="polite">
+                        {loading ? 'Searching…' : `${count.toLocaleString()} ${count === 1 ? 'film' : 'films'}`}
+                        {!loading && count > results.length && <span className="opacity-70">, showing the top {results.length}</span>}
+                        {note && <span className="block opacity-70 mt-0.5">{note}</span>}
                     </p>
                 </div>
-            </div>
+            </section>
 
-            {onFilters && (
-                <FilterBar
-                    filters={filters ?? EMPTY}
-                    onChange={onFilters}
-                    facets={facets ?? null}
-                    vocabulary={vocabulary ?? null}
-                />
-            )}
+            <section className="bg-panel rounded-[24px] p-4 md:p-7">
+                {onFilters && (
+                    <FilterBar
+                        filters={filters ?? EMPTY}
+                        onChange={onFilters}
+                        facets={facets ?? null}
+                        vocabulary={vocabulary ?? null}
+                    />
+                )}
 
-            {/* Loading State */}
-            {loading && (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                    {[...Array(10)].map((_, i) => (
-                        <div key={i} className="aspect-[2/3] rounded-xl bg-white/5 animate-pulse" />
-                    ))}
-                </div>
-            )}
-
-            {/* Empty State */}
-            {!loading && results.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                        <SearchX className="w-10 h-10 text-neutral-500" />
+                {loading && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        {Array.from({ length: 12 }, (_, i) => (
+                            <div key={i} className="aspect-[2/3] rounded-[18px] bg-panel-hi animate-pulse" />
+                        ))}
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">No matches found</h3>
-                    <p className="text-neutral-400 max-w-md">
-                        Nothing matches {query ? `"${query}"` : 'those filters'}. The catalogue
-                        covers 17,719 films — try removing a filter, or search a genre,
-                        a decade like "90s", a director, or a title.
-                    </p>
-                    <button
-                        onClick={onBack}
-                        className="mt-8 px-6 py-3 bg-primary hover:bg-red-700 text-white rounded-full font-medium transition-colors"
-                    >
-                        Back to Browse
-                    </button>
-                </div>
-            )}
+                )}
 
-            {/* Results Grid */}
-            {!loading && results.length > 0 && (
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"
-                >
-                    {results.map((movie) => (
-                        <MovieCard
-                            key={movie.item_id ?? movie.tmdbId}
-                            movie={movie}
-                            onSelect={onSelectMovie}
-                            className="w-full md:w-full"
-                        />
-                    ))}
-                </motion.div>
-            )}
+                {!loading && results.length === 0 && (
+                    <div className="py-16 text-center">
+                        <h2 className="text-[24px] font-medium">Nothing matches {query ? `“${query}”` : 'those filters'}</h2>
+                        <p className="mt-2 text-white/60 max-w-[48ch] mx-auto">
+                            The catalogue covers 17,719 films. Remove a filter, or search a genre, a decade like “90s”,
+                            a director or a title.
+                        </p>
+                        <button type="button" onClick={onBack} className="pill pill-white mt-6">Back to browse</button>
+                    </div>
+                )}
+
+                {!loading && results.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        {results.map((movie, i) => (
+                            <PosterCard
+                                key={movie.item_id ?? movie.tmdbId ?? i}
+                                movie={movie}
+                                onSelect={onSelectMovie}
+                                size="lg"
+                                badge={ranked ? i + 1 : undefined}
+                            />
+                        ))}
+                    </div>
+                )}
+            </section>
         </div>
     );
 };
