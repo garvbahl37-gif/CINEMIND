@@ -1,434 +1,97 @@
-import { useState, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import MovieRow from './components/MovieRow'
-import DetailsOverlay from './components/DetailsOverlay'
-import { Movie } from './types'
-import GlassLoader from './components/GlassLoader'
-import AnimatedBackground from './components/AnimatedBackground'
-
-// ============================================
-// API Configuration
-// ============================================
-import { API_BASE, TMDB_API_KEY, TMDB_IMAGE_BASE } from './config';
-
-/** Accepts either a bare TMDB path or an already-absolute URL. */
-const posterUrl = (p?: string | null, size = 'w342') =>
-  !p ? null : p.startsWith('http') ? p : `${TMDB_IMAGE_BASE}/${size}${p}`;
-
-
-// Components
-import Navbar from './components/Navbar';
-import AboutPage from './components/AboutPage';
-import SearchResults from './components/SearchResults';
-import SearchCommand from './components/SearchCommand';
-import { ChatInterface } from './components/ChatInterface';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Movie } from './types';
+import { Browse, fetchBlend, fetchBrowse } from './lib/api';
 import {
   Category, Facets, Filters, EMPTY, isActive, fromCategory, searchFilms, fetchCategories,
 } from './lib/search';
+import { useBlend } from './lib/blend';
+import TopBar, { View } from './components/TopBar';
+import HeroRail from './components/HeroRail';
+import Shelf, { Toggle } from './components/Shelf';
+import PosterCard from './components/PosterCard';
+import Collections, { Collection, Look, filtersOf, title as collectionTitle } from './components/Collections';
+import SearchResults from './components/SearchResults';
+import MatchStage from './components/MatchStage';
+import MatchSearch from './components/MatchSearch';
+import Loader from './components/Loader';
+import AboutPage from './components/AboutPage';
+import { ChatInterface } from './components/ChatInterface';
+
+/** What the results banner wears: a collection's name and ground, or nothing. */
+interface Banner { title?: string; look?: Look; backdrop?: string }
+
+const RowSkeleton = () => (
+  <>
+    {Array.from({ length: 8 }, (_, i) => (
+      <div key={i} className="shrink-0 w-[150px] sm:w-[172px] lg:w-[196px] aspect-[2/3] rounded-[18px] bg-panel-hi animate-pulse" />
+    ))}
+  </>
+);
 
 function App() {
-  // Navigation State
-  const [currentView, setCurrentView] = useState('home');
+  const [view, setView] = useState<View>('home');
+  const [booted, setBooted] = useState(false);
 
-  // State
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
-  const [movieDetails, setMovieDetails] = useState<Movie | null>(null)
-  const [recommendations, setRecommendations] = useState<Movie[]>([])
-  const [franchiseMovies, setFranchiseMovies] = useState<Movie[]>([])
-  const [top50Movies, setTop50Movies] = useState<Movie[]>([]);
-  const [tvShows, setTvShows] = useState<Movie[]>([]);
-  const [failedPosters, setFailedPosters] = useState<Set<number>>(new Set());
+  // The whole home page arrives in one prebuilt response.
+  const [browse, setBrowse] = useState<Browse | null>(null);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [loadingTop50, setLoadingTop50] = useState(true)
-  const [loadingTv, setLoadingTv] = useState(true)
+  // Search: the text in the box, and the query the results on screen came from.
+  const [query, setQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [banner, setBanner] = useState<Banner>({});
+  const [filters, setFilters] = useState<Filters>(EMPTY);
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const [vocabulary, setVocabulary] = useState<Facets | null>(null);
+  const [results, setResults] = useState<Movie[]>([]);
+  const [total, setTotal] = useState(0);
+  const [searching, setSearching] = useState(false);
+  const latest = useRef(0);
 
-  // Search Results State
-  const [searchResults, setSearchResults] = useState<Movie[]>([])
-  const [isSearching, setIsSearching] = useState(false)
+  // The film on the match stage, if any.
+  const [pick, setPick] = useState<Movie | null>(null);
 
-  // Data State
-  const [moviesCache, setMoviesCache] = useState<Record<string, Movie>>({})
-  const [processedGenres, setProcessedGenres] = useState<string[]>([])
-  const [moviesByGenre, setMoviesByGenre] = useState<Record<string, Movie[]>>({})
-  // Search + filtering
-  const [filters, setFilters] = useState<Filters>(EMPTY)
-  const [facets, setFacets] = useState<Facets | null>(null)
-  const [vocabulary, setVocabulary] = useState<Facets | null>(null)
-  const [totalResults, setTotalResults] = useState(0)
+  const blend = useBlend();
+  const [fromBlend, setFromBlend] = useState(false);
+  const [blendRecs, setBlendRecs] = useState<Movie[] | null>(null);
 
-  // Load Movies
   useEffect(() => {
-    // Safety timer: Enforce max loading time
-    const safetyTimer = setTimeout(() => {
-      console.warn("Safety timer triggered: Force exiting loading state");
-      setInitialLoading(false);
-    }, 5000);
+    setBrowseError(null);
+    fetchBrowse()
+      .then(setBrowse)
+      .catch(e => setBrowseError(e instanceof Error ? e.message : String(e)));
+  }, [attempt]);
 
-    const loadData = async () => {
-      // Start minimum timer (2500ms)
-      const minLoadTime = new Promise(resolve => setTimeout(resolve, 2500));
+  // Genre / decade / language vocabulary, fetched once.
+  useEffect(() => { fetchCategories().then(setVocabulary).catch(() => { }); }, []);
 
-      try {
-        // Wrap fetch in a catch so it doesn't fail Promise.all immediately
-        const fetchPromise = loadMoviesFromAPI().catch(err => {
-          console.error("API Fetch failed:", err);
-          return null;
-        });
-
-        // Wait for BOTH (now safe from failing early)
-        await Promise.all([fetchPromise, minLoadTime]);
-      } catch (e) {
-        console.error("Load data failed:", e);
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-
-    loadData();
-
-    return () => clearTimeout(safetyTimer);
-  }, []);
-
-  const loadMoviesFromAPI = async () => {
-    try {
-      const controller = new AbortController();
-      const signal = controller.signal;
-      const fetchTimeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-      console.log("Fetching movies from:", `${API_BASE}/api/movies`);
-
-      // Parallelize fetches
-      const [moviesRes, top50Res, tvRes] = await Promise.all([
-        fetch(`${API_BASE}/api/movies`, { signal }),
-        fetch(`${API_BASE}/api/movies/top50`, { signal }),
-        fetch(`${API_BASE}/api/movies/tv`, { signal })
-      ]);
-
-      clearTimeout(fetchTimeout);
-
-      // Process Movies
-      if (moviesRes.ok) {
-        const data = await moviesRes.json();
-        if (data.movies) {
-          setMoviesCache(data.movies);
-          processGenres(data.movies);
-        }
-      } else {
-        console.error(`HTTP error! status: ${moviesRes.status}`);
-      }
-
-      // Process Top 50
-      if (top50Res.ok) {
-        const top50Data = await top50Res.json();
-        if (top50Data.results) {
-          setTop50Movies(top50Data.results.map((m: any) => ({
-            ...m,
-            poster: m.poster_path ? `${TMDB_IMAGE_BASE}/w500${m.poster_path}` : m.poster,
-            id: m.tmdbId
-          })));
-        }
-      }
-      setLoadingTop50(false);
-
-      // Process TV Shows
-      if (tvRes.ok) {
-        const tvData = await tvRes.json();
-        if (tvData.results) {
-          setTvShows(tvData.results.map((m: any) => ({
-            ...m,
-            poster: m.poster_path ? `${TMDB_IMAGE_BASE}/w500${m.poster_path}` : m.poster,
-            id: m.tmdbId
-          })));
-        }
-      }
-      setLoadingTv(false);
-
-    } catch (err) {
-      console.error("Failed to load movies:", err);
-      // Ensure loading states are cleared on error
-      setLoadingTop50(false);
-      setLoadingTv(false);
-    }
-  }
-
-  // Fetch missing posters for Top 50 movies
+  const seeds = blend.films.map(f => f.item_id).join(',');
   useEffect(() => {
-    if (top50Movies.length === 0) return;
-
-    const fetchTop50Posters = async () => {
-      // Find movies that need updating: have TMDB ID, no/placeholder poster, and haven't failed yet
-      const moviesToUpdate = top50Movies.filter(m =>
-        m.tmdbId &&
-        (!m.poster || m.poster.includes('via.placeholder')) &&
-        !failedPosters.has(m.tmdbId)
-      );
-
-      if (moviesToUpdate.length === 0) return;
-
-      const newFailed = new Set(failedPosters);
-      let hasChanges = false;
-      const updatedMoviesMap = new Map(); // Store updates to apply
-
-      await Promise.all(moviesToUpdate.map(async (movie) => {
-        try {
-          const isTv = movie.media_type === 'tv';
-          let response = null;
-
-          try {
-            if (isTv) {
-              response = await fetch(`https://api.themoviedb.org/3/tv/${movie.tmdbId}?api_key=${TMDB_API_KEY}`);
-            } else {
-              response = await fetch(`https://api.themoviedb.org/3/movie/${movie.tmdbId}?api_key=${TMDB_API_KEY}`);
-              // Fallback to TV if movie fails (only if no media_type)
-              if (!response.ok && !movie.media_type) {
-                response = await fetch(`https://api.themoviedb.org/3/tv/${movie.tmdbId}?api_key=${TMDB_API_KEY}`);
-              }
-            }
-
-            if (response && response.ok) {
-              const data = await response.json();
-              if (data.poster_path) {
-                const newPoster = `${TMDB_IMAGE_BASE}/w500${data.poster_path}`;
-                updatedMoviesMap.set(movie.tmdbId, { poster: newPoster, poster_path: data.poster_path });
-                hasChanges = true;
-              }
-            } else {
-              newFailed.add(movie.tmdbId!);
-            }
-          } catch (error) {
-            if (movie.tmdbId) newFailed.add(movie.tmdbId);
-          }
-        } catch (e) {
-          if (movie.tmdbId) newFailed.add(movie.tmdbId);
-        }
-      }));
-
-      if (newFailed.size > failedPosters.size) {
-        setFailedPosters(newFailed);
-      }
-
-      if (hasChanges) {
-        setTop50Movies(prevMovies => prevMovies.map(m => {
-          if (m.tmdbId && updatedMoviesMap.has(m.tmdbId)) {
-            return { ...m, ...updatedMoviesMap.get(m.tmdbId) };
-          }
-          return m;
-        }));
-      }
-    };
-
-    fetchTop50Posters();
-    fetchTop50Posters();
-  }, [top50Movies, failedPosters]);
-
-  // Fetch missing posters for TV Shows (reusing similar logic if needed, or rely on correct data)
+    if (!seeds) setFromBlend(false);
+  }, [seeds]);
   useEffect(() => {
-    if (tvShows.length === 0) return;
+    if (!fromBlend || !seeds) { setBlendRecs(null); return; }
+    const ctrl = new AbortController();
+    setBlendRecs(null);
+    fetchBlend(seeds.split(',').map(Number), 24, ctrl.signal)
+      .then(setBlendRecs)
+      .catch(e => { if (e.name !== 'AbortError') setBlendRecs([]); });
+    return () => ctrl.abort();
+  }, [fromBlend, seeds]);
 
-    // Logic to fetch missing TV posters if needed. 
-    // Since we hardcoded/fixed them in backend, strictly speaking unnecessary, BUT good for robustness.
-    // For now, let's rely on the IDs being correct and fallback fetching in the UI component if we had one.
-    // Actually, let's add the safe fetcher here too just in case.
+  // Largest genres first, once their sizes are known.
+  const genreRows = useMemo(() => {
+    const size = new Map((vocabulary?.genres ?? []).map(g => [String(g.value), g.count]));
+    return [...(browse?.rows ?? [])].sort((a, b) => (size.get(b.genre) ?? 0) - (size.get(a.genre) ?? 0));
+  }, [browse, vocabulary]);
+  const genreCount = (g: string) => vocabulary?.genres.find(x => x.value === g)?.count;
 
-    const fetchTVPosters = async () => {
-      const moviesToUpdate = tvShows.filter(m =>
-        m.tmdbId &&
-        (!m.poster || m.poster.includes('via.placeholder')) &&
-        !failedPosters.has(m.tmdbId)
-      );
-
-      if (moviesToUpdate.length === 0) return;
-
-      const newFailed = new Set(failedPosters);
-      let hasChanges = false;
-      const updatedMap = new Map();
-
-      await Promise.all(moviesToUpdate.map(async (movie) => {
-        try {
-          // Tv endpoint primarily
-          let response = await fetch(`https://api.themoviedb.org/3/tv/${movie.tmdbId}?api_key=${TMDB_API_KEY}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.poster_path) {
-              const newPoster = `${TMDB_IMAGE_BASE}/w500${data.poster_path}`;
-              updatedMap.set(movie.tmdbId, { poster: newPoster });
-              hasChanges = true;
-            }
-          } else {
-            newFailed.add(movie.tmdbId!);
-          }
-        } catch (e) {
-          if (movie.tmdbId) newFailed.add(movie.tmdbId);
-        }
-      }));
-
-      if (newFailed.size > failedPosters.size) setFailedPosters(newFailed);
-
-      if (hasChanges) {
-        setTvShows(prev => prev.map(m => {
-          if (m.tmdbId && updatedMap.has(m.tmdbId)) {
-            return { ...m, ...updatedMap.get(m.tmdbId) };
-          }
-          return m;
-        }));
-      }
-    };
-
-    fetchTVPosters();
-  }, [tvShows, failedPosters]);
-
-  const processGenres = (movies: Record<string, any>) => {
-    const genres: Record<string, Movie[]> = {}
-
-    Object.values(movies).forEach((movie: any) => {
-
-      // Robust Poster Logic
-      let fullPoster = null;
-
-      // 1. Check if backend provided a valid http link
-      if (movie.poster && movie.poster.startsWith('http')) {
-        fullPoster = movie.poster;
-      }
-      // 2. Check if backend provided a TMDB path (starts with /)
-      else if (movie.poster && movie.poster.startsWith('/')) {
-        fullPoster = `${TMDB_IMAGE_BASE}/w500${movie.poster}`;
-      }
-      // 3. Fallback to poster_path if available
-      else if (movie.poster_path) {
-        fullPoster = `${TMDB_IMAGE_BASE}/w500${movie.poster_path}`;
-      }
-
-      const processedMovie = {
-        ...movie,
-        id: movie.tmdbId,
-        item_id: movie.item_id,
-        poster: fullPoster
-      };
-
-      if (movie.genres) {
-        movie.genres.forEach((genre: string) => {
-          if (!genres[genre]) genres[genre] = []
-          genres[genre].push(processedMovie)
-        })
-      }
-    })
-
-    const sortedGenres = Object.keys(genres).sort((a, b) => genres[b].length - genres[a].length)
-    setMoviesByGenre(genres)
-    setProcessedGenres(sortedGenres)
-  }
-
-  // Genre / decade / language vocabulary for the chips, fetched once.
-  useEffect(() => {
-    fetchCategories().then(setVocabulary).catch(() => { });
-  }, []);
-
-  const handleSelectMovie = async (movie: Movie) => {
-    setSelectedMovie(movie)
-    setFranchiseMovies([]); // Reset franchise
-    if (movie.tmdbId) {
-      try {
-        const isTv = movie.media_type === 'tv';
-        const endpoint = isTv ? `tv` : `movie`;
-        const response = await fetch(`https://api.themoviedb.org/3/${endpoint}/${movie.tmdbId}?api_key=${TMDB_API_KEY}`)
-        const data = await response.json()
-
-        const details: Movie = {
-          ...movie,
-          title: isTv ? data.name : data.title,
-          overview: data.overview,
-          vote_average: data.vote_average,
-          releaseDate: isTv ? data.first_air_date : data.release_date,
-          runtime: isTv ? (data.episode_run_time?.[0] || 0) : data.runtime,
-          genres: data.genres?.map((g: any) => g.name) || [],
-          backdrop: data.backdrop_path ? `${TMDB_IMAGE_BASE}/original${data.backdrop_path}` : undefined,
-          poster: data.poster_path ? `${TMDB_IMAGE_BASE}/w500${data.poster_path}` : movie.poster,
-          media_type: isTv ? 'tv' : 'movie'
-        }
-
-
-
-        setMovieDetails(details)
-        fetchRecommendations(movie)
-
-        // Fetch Collection/Franchise
-        if (data.belongs_to_collection) {
-          try {
-            const collectionRes = await fetch(`https://api.themoviedb.org/3/collection/${data.belongs_to_collection.id}?api_key=${TMDB_API_KEY}`)
-            const collectionData = await collectionRes.json()
-
-            if (collectionData.parts) {
-              const parts = collectionData.parts
-                .filter((p: any) => p.id !== movie.tmdbId) // Exclude current movie
-                .map((p: any) => ({
-                  ...p,
-                  tmdbId: p.id,
-                  poster: p.poster_path ? `${TMDB_IMAGE_BASE}/w342${p.poster_path}` : null,
-                  backdrop: p.backdrop_path ? `${TMDB_IMAGE_BASE}/original${p.backdrop_path}` : null,
-                  releaseDate: p.release_date,
-                  vote_average: p.vote_average
-                }))
-                .sort((a: any, b: any) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime()) // Sort by release date
-
-              setFranchiseMovies(parts)
-            }
-          } catch (err) {
-            console.error("Failed to fetch collection:", err)
-          }
-        }
-      } catch (error) {
-        console.error("Fetch details error", error)
-      }
-    }
-  }
-
-  const fetchRecommendations = async (movie: Movie) => {
-    // The catalogue call only carries the browsable subset, so a neighbour may
-    // not be in it. /api/similar returns whole films — use those directly and
-    // fall back to the cache only for anything it leaves out.
-    const backendId = movie.item_id !== undefined
-      ? String(movie.item_id)
-      : Object.keys(moviesCache).find(key => moviesCache[key].tmdbId === movie.tmdbId)
-    if (backendId) {
-      try {
-        const response = await fetch(`${API_BASE}/api/similar/${backendId}?k=6`)
-        const data = await response.json()
-        const recs = (data.similar_items || []).map((item: any) => {
-          const m = moviesCache[String(item.item_id)] ?? {}
-          const merged = { ...m, ...item }
-          return {
-            ...merged,
-            id: merged.tmdbId,
-            poster: posterUrl(merged.poster) ?? posterUrl(merged.poster_path),
-          } as Movie
-        }).filter(Boolean) as Movie[]
-
-        const recsWithPosters = await Promise.all(recs.map(async (rec) => {
-          if ((!rec.poster || rec.poster.includes("via.placeholder")) && rec.tmdbId) {
-            try {
-              const res = await fetch(`https://api.themoviedb.org/3/movie/${rec.tmdbId}?api_key=${TMDB_API_KEY}`)
-              const d = await res.json()
-              if (d.poster_path) return { ...rec, poster: `${TMDB_IMAGE_BASE}/w342${d.poster_path}`, backdrop: `${TMDB_IMAGE_BASE}/w780${d.backdrop_path}` }
-            } catch (e) { }
-          }
-          return rec
-        }))
-
-        setRecommendations(recsWithPosters)
-      } catch (err) {
-        console.error(err)
-      }
-    }
-  }
-
-  const handleNavigation = (view: string) => {
-    setCurrentView(view);
-    if (view === 'home') {
-      setSelectedMovie(null);
-      setSearchQuery('');
-    }
+  const navigate = (v: View) => {
+    setView(v);
+    window.scrollTo({ top: 0 });
+    if (v === 'home') { setQuery(''); setFilters(EMPTY); }
   };
 
   /**
@@ -436,189 +99,181 @@ function App() {
    *
    * Passing `null` for the filters lets the query speak for itself — the server
    * parses "korean thrillers" into Korean + Thriller and tells us what it
-   * applied, which we then show as selected chips. Passing an object means the
-   * user has touched the filter bar, and it wins over anything the text implied.
+   * applied, which the filter bar then shows as selected. Passing an object
+   * means the filters were chosen, and they win over anything the text implied.
    */
-  const runSearch = async (query: string, f: Filters | null) => {
+  const runSearch = async (q: string, f: Filters | null, meta: Banner = {}) => {
     // Clearing the last filter with nothing typed leaves no request to make —
     // go back to browsing rather than showing an empty result page.
-    if (!query.trim() && f && !isActive(f)) {
-      setCurrentView('home');
-      setFilters(EMPTY);
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    setCurrentView('results');
-    setSearchQuery(query);
+    if (!q.trim() && f && !isActive(f)) { navigate('home'); setResults([]); return; }
+    const id = ++latest.current;
+    setSearching(true);
+    if (view !== 'results') window.scrollTo({ top: 0 });
+    setView('results');
+    setSearchQuery(q);
+    setBanner(meta);
     if (f) setFilters(f);
 
     try {
-      const d = await searchFilms(query, f, { limit: 60, facets: true });
-      setSearchResults(d.results);
+      const d = await searchFilms(q, f, { limit: 60, facets: true });
+      if (id !== latest.current) return;   // a newer search has already answered
+      setResults(d.results);
       setFacets(d.facets);
-      setTotalResults(d.total);
-      if (!f) setFilters(d.filters);      // adopt whatever the query itself meant
+      setTotal(d.total);
+      if (!f) setFilters(d.filters);       // adopt whatever the query itself meant
     } catch (e) {
+      if (id !== latest.current) return;
       console.error('Search failed', e);
-      setSearchResults([]);
-      setFacets(null);
-      setTotalResults(0);
+      setResults([]); setFacets(null); setTotal(0);
     } finally {
-      setIsSearching(false);
+      if (id === latest.current) setSearching(false);
     }
   };
 
-  /** A category row or a genre chip: its filters replace the current set. */
+  /** A category suggestion or a genre shelf: its filters replace the current set. */
   const runCategory = (c: Category) => {
     if (c.filters.q) { runSearch(c.filters.q, EMPTY); return; }
-    const next = fromCategory(c, EMPTY);
-    setSearchQuery('');
-    runSearch('', next);
+    setQuery('');
+    runSearch('', fromCategory(c, EMPTY));
   };
 
-  if (initialLoading) {
-    return <GlassLoader />;
-  }
+  const openCollection = (c: Collection, backdrop?: string) =>
+    runSearch(c.q ?? '', filtersOf(c), { title: collectionTitle(c), look: c.look, backdrop });
+
+  const recs = fromBlend ? blendRecs : browse?.top50.slice(0, 24) ?? null;
 
   return (
-    <div className="min-h-screen text-white font-sans selection:bg-primary selection:text-white pb-20 overflow-x-hidden relative">
-      <Navbar onNavigate={handleNavigation} currentPage={currentView} />
+    <div className="min-h-screen p-1.5 md:p-4">
+      <div className="min-h-[calc(100vh-12px)] md:min-h-[calc(100vh-32px)] rounded-[28px] bg-ink p-1.5 md:p-2.5 overflow-clip">
+        <TopBar
+          view={view}
+          onNavigate={navigate}
+          query={query}
+          onQuery={setQuery}
+          onSearch={(q) => runSearch(q, null)}
+          onCategory={runCategory}
+          onMovie={setPick}
+          blend={blend}
+          onUseBlend={() => { navigate('home'); setFromBlend(true); }}
+        />
 
-      <AnimatedBackground />
-      {currentView === 'home' && (
-        <>
+        <main className="space-y-1.5 md:space-y-2.5">
+          {view === 'home' && (
+            browseError ? (
+              <section className="bg-panel rounded-[24px] p-6 md:p-10">
+                <h1 className="display text-[40px] md:text-[64px]">Can't reach the catalogue</h1>
+                <p className="mt-4 max-w-[56ch] text-white/70">
+                  The recommendation API didn't answer ({browseError}). If you're running locally, start it
+                  with uvicorn on port 8000, or point the dev server at the deployed one.
+                </p>
+                <button type="button" className="pill pill-white mt-6" onClick={() => setAttempt(a => a + 1)}>Try again</button>
+              </section>
+            ) : (
+              <>
+                <MatchSearch onPick={setPick} />
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            className="relative z-10" // Added z-index to ensure content is above background
-          >
-            {/* Hero Search Section */}
-            <div className="relative z-20 pt-32 md:pt-44 pb-8 px-4 flex flex-col items-center justify-center space-y-4 md:space-y-6">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="relative group cursor-default"
-              >
-                {/* Enhanced Title - Metallic Chrome Effect */}
-                <div className="relative">
-                  <h1 className="text-5xl sm:text-7xl md:text-9xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-200 to-gray-500 drop-shadow-2xl select-none relative z-10 text-center">
-                    <span className="bg-gradient-to-b from-white via-gray-300 to-gray-500 bg-clip-text text-transparent filter drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">CINE</span>
-                    <span className="bg-gradient-to-b from-primary via-red-500 to-red-900 bg-clip-text text-transparent filter drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]">MIND</span>
-                  </h1>
-                  {/* Glow effect underneath */}
-                  <div className="absolute inset-0 bg-primary/20 blur-[60px] opacity-40 rounded-full z-0 scale-75 group-hover:scale-100 transition-transform duration-700 pointer-events-none" />
-                </div>
-              </motion.div>
+                {browse
+                  ? <HeroRail films={browse.hero} onMatches={setPick} blend={blend} />
+                  : <div className="h-[min(76vh,640px)] min-h-[440px] rounded-[24px] bg-panel animate-pulse" aria-label="Loading" />}
 
-              {/* Welcome Phrase */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.8 }}
-                className="relative z-20 pb-2 text-center"
-              >
-                <h2 className="text-lg md:text-3xl font-medium tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 drop-shadow-sm px-4">
-                  What are you in the mood for?
-                </h2>
-              </motion.div>
+                <Shelf
+                  title={fromBlend ? 'From your blend' : 'Recommended'}
+                  aside={fromBlend
+                    ? `${blend.films.length} ${blend.films.length === 1 ? 'film' : 'films'} as one taste`
+                    : 'Highest rated across 32M ratings'}
+                  controls={<Toggle label="My blend" on={fromBlend} onChange={setFromBlend}
+                    disabled={!blend.films.length} hint="Add films to your blend first" />}
+                  onShowAll={fromBlend ? undefined : () => navigate('top50')}
+                >
+                  {recs ? recs.map((m, i) => (
+                    <PosterCard key={m.item_id ?? i} movie={m} onSelect={setPick}
+                      figure={fromBlend ? 'match' : 'rating'} />
+                  )) : <RowSkeleton />}
+                </Shelf>
 
+                <Collections onOpen={openCollection} />
 
-              <SearchCommand
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={(q) => runSearch(q, null)}
-                onCategory={runCategory}
-                onMovie={handleSelectMovie}
-                quickGenres={(vocabulary?.genres ?? []).slice(0, 8).map(g => String(g.value))}
-              />
-            </div>
+                {genreRows.map(r => {
+                  const n = genreCount(r.genre);
+                  return (
+                    <Shelf key={r.genre} title={r.genre} aside={n ? `${n.toLocaleString()} films` : undefined}
+                      onShowAll={() => runCategory({ kind: 'genre', label: r.genre, sublabel: '', filters: { genres: [r.genre] } })}
+                      className="[content-visibility:auto] [contain-intrinsic-size:auto_420px]">
+                      {r.items.map(m => <PosterCard key={m.item_id} movie={m} onSelect={setPick} />)}
+                    </Shelf>
+                  );
+                })}
+              </>
+            )
+          )}
 
-            <main className="relative z-10 space-y-8">
-              {/* Genre Rows */}
-              <div className="relative z-20 pb-10 space-y-2">
-                <div className="relative z-30 space-y-12">
+          {view === 'results' && (
+            <SearchResults
+              query={searchQuery}
+              title={banner.title}
+              look={banner.look}
+              backdrop={banner.backdrop}
+              results={results}
+              loading={searching}
+              onBack={() => navigate('home')}
+              onSelectMovie={setPick}
+              filters={filters}
+              // Changing filters keeps the collection's colours but not its
+              // name, which would no longer describe what is shown.
+              onFilters={(f) => runSearch(searchQuery, f, { look: banner.look, backdrop: banner.backdrop })}
+              facets={facets}
+              vocabulary={vocabulary}
+              total={total}
+            />
+          )}
 
-                  {processedGenres.map((genre) => {
-                    const movies = moviesByGenre[genre]
-                    if (!movies || movies.length === 0) return null
+          {view === 'top50' && (
+            <SearchResults
+              query=""
+              title="Top 50"
+              look="blood"
+              note="Bayesian average, so a few perfect scores can't outrank The Godfather"
+              results={browse?.top50 ?? []}
+              loading={!browse && !browseError}
+              onBack={() => navigate('home')}
+              onSelectMovie={setPick}
+              ranked
+            />
+          )}
 
-                    return (
-                      <MovieRow
-                        key={genre}
-                        title={`${genre}`}
-                        movies={movies}
-                        onSelectMovie={handleSelectMovie}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            </main>
-          </motion.div>
-        </>
-      )}
+          {view === 'tv' && (
+            <SearchResults
+              query=""
+              title="Series"
+              look="violet"
+              results={browse?.tv ?? []}
+              loading={!browse && !browseError}
+              onBack={() => navigate('home')}
+              onSelectMovie={setPick}
+            />
+          )}
 
-      {currentView === 'about' && <AboutPage />}
+          {view === 'about' && (
+            <AboutPage onSelect={setPick} />
+          )}
+        </main>
 
-      {currentView === 'results' && (
-        <div className="pt-24 px-4 md:px-12">
-          <SearchResults
-            query={searchQuery}
-            results={searchResults}
-            loading={isSearching}
-            onBack={() => { setCurrentView('home'); setFilters(EMPTY); }}
-            onSelectMovie={handleSelectMovie}
-            filters={filters}
-            onFilters={(f) => runSearch(searchQuery, f)}
-            facets={facets}
-            vocabulary={vocabulary}
-            total={totalResults}
-          />
-        </div>
-      )}
+        <footer className="px-4 md:px-6 py-8 flex flex-wrap gap-x-8 gap-y-2 text-[12px] text-white/50">
+          <span>Ratings and tags from MovieLens, GroupLens Research.</span>
+          <span>Artwork, synopses and credits from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+        </footer>
+      </div>
 
-      {currentView === 'top50' && (
-        <div className="pt-24 px-4 md:px-12">
-          <SearchResults
-            query="All-Time Top 50"
-            results={top50Movies}
-            loading={loadingTop50}
-            onBack={() => setCurrentView('home')}
-            onSelectMovie={handleSelectMovie}
-          />
-        </div>
-      )}
-
-      {currentView === 'tvshows' && (
-        <div className="pt-24 px-4 md:px-12">
-          <SearchResults
-            query="Popular TV Shows"
-            results={tvShows}
-            loading={loadingTv}
-            onBack={() => setCurrentView('home')}
-            onSelectMovie={handleSelectMovie}
-          />
-        </div>
-      )}
+      {/* The frame stays put while the page scrolls inside it. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-1.5 md:inset-4 z-[45] rounded-[28px] shadow-[0_0_0_100vmax_#2B1FBB]" />
 
       <AnimatePresence>
-        {selectedMovie && (
-          <DetailsOverlay
-            movie={movieDetails || selectedMovie}
-            onClose={() => setSelectedMovie(null)}
-            similarMovies={recommendations}
-            franchiseMovies={franchiseMovies}
-            onSelectSimilar={handleSelectMovie}
-          />
-        )}
+        {pick && <MatchStage key="stage" pick={pick} onClose={() => setPick(null)} blend={blend} />}
       </AnimatePresence>
-      <ChatInterface />
-    </div >
-  )
+      <ChatInterface onSelect={setPick} />
+      {!booted && <Loader ready={!!browse || !!browseError} onDone={() => setBooted(true)} />}
+    </div>
+  );
 }
 
-export default App
+export default App;

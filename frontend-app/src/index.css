@@ -1,93 +1,107 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 72.2% 50.6%;
-    --primary-foreground: 0 85.7% 97.5%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 72.2% 50.6%;
-    --radius: 0.5rem;
+    --ultra: #2B1FBB;
+    --violet: #8A16D4;
+    --blood: #BB0001;
+    --panel: #161616;
+
+    /* Read by the About page through Tailwind's shadcn-style tokens. */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --primary: 245 72% 58%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 0 0% 61%;
+    --border: 0 0% 100% / 0.12;
+    --radius: 1rem;
+
+    color-scheme: dark;
   }
 
-  .dark {
-    --background: 0 0% 3.9%;
-    /* Rich black #0a0a0a */
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 355 85% 55%;
-    /* Premium Red */
-    --primary-foreground: 0 85.7% 97.5%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 355 85% 55%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary;
-    background-color: #050505;
-    /* Deep fallback */
+    @apply font-sans antialiased text-white;
+    background: var(--ultra);
   }
 
-  /* Custom Scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
+  ::selection {
+    background: var(--ultra);
+    color: #fff;
   }
 
-  ::-webkit-scrollbar-track {
-    background: #0a0a0a;
+  /* One focus treatment everywhere: white, offset, impossible to miss on
+     black or on the ultramarine frame. */
+  :focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
   }
 
-  ::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 4px;
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 99px; border: 2px solid #000; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Section and collection titles: big, upper case, set tight. */
+  .display {
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: -0.04em;
+    line-height: 0.88;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+  /* Ratings and match strengths, struck large and light. */
+  .numeral {
+    font-weight: 300;
+    letter-spacing: -0.05em;
+    line-height: 0.8;
+    font-variant-numeric: tabular-nums;
   }
 
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+  .pill {
+    @apply inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full shrink-0
+           text-[12px] font-medium uppercase tracking-[0.02em] whitespace-nowrap
+           transition-colors;
+  }
+  .pill-sm {
+    @apply inline-flex items-center h-6 px-2.5 rounded-full shrink-0
+           text-[11px] font-medium whitespace-nowrap;
+  }
+  .pill-ghost { @apply border border-white/25 text-white hover:border-white/60; }
+  .pill-white { @apply bg-white text-black hover:bg-white/85; }
+  .pill-ultra { @apply bg-ultra text-white hover:bg-ultra-hi; }
+  .pill-violet { @apply bg-violet text-white hover:bg-violet-hi; }
+
+  .round-btn {
+    @apply inline-flex items-center justify-center w-9 h-9 rounded-full shrink-0
+           border border-white/25 text-white hover:border-white/60 transition-colors
+           disabled:opacity-30 disabled:hover:border-white/25;
   }
 
-  .scrollbar-hide {
-    -ms-overflow-style: none;
+  .scroller {
+    @apply flex overflow-x-auto overscroll-x-contain snap-x snap-mandatory;
     scrollbar-width: none;
   }
+  .scroller::-webkit-scrollbar { display: none; }
 }

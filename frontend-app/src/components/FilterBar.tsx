@@ -71,22 +71,16 @@ const Menu = ({ label, summary, active, options, onPick, align = 'left' }: {
                 aria-expanded={open}
                 aria-haspopup="true"
                 className={cn(
-                    'group flex items-center gap-2.5 h-10 pl-3 pr-2.5 rounded-lg border',
-                    'transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+                    'group flex items-center gap-2 h-10 pl-4 pr-3 rounded-full border text-[13px] transition-colors',
                     active
-                        ? 'bg-primary/12 border-primary/60'
-                        : 'bg-white/[0.03] border-white/10 hover:border-white/25',
+                        ? 'bg-white text-black border-white'
+                        : 'border-white/25 text-white hover:border-white/60',
                 )}
             >
-                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-neutral-500">
-                    {label}
-                </span>
-                <span className={cn('text-[12px] font-bold max-w-[13rem] truncate',
-                    active ? 'text-white' : 'text-neutral-400')}>
-                    {summary}
-                </span>
-                <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 text-neutral-500 transition-transform',
-                    open && 'rotate-180')} />
+                <span className={active ? 'text-black/55' : 'text-white/55'}>{label}</span>
+                <span className="font-medium max-w-[13rem] truncate">{summary}</span>
+                <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 transition-transform',
+                    active ? 'text-black/60' : 'text-white/60', open && 'rotate-180')} />
             </button>
 
             <AnimatePresence>
@@ -99,8 +93,8 @@ const Menu = ({ label, summary, active, options, onPick, align = 'left' }: {
                         transition={{ duration: 0.14 }}
                         className={cn(
                             'absolute top-full mt-2 z-50 min-w-[15rem] max-h-[19rem] overflow-y-auto',
-                            'bg-neutral-950/[0.98] backdrop-blur-xl border border-white/10',
-                            'rounded-xl shadow-2xl py-1.5',
+                            'bg-black border border-white/12',
+                            'rounded-[18px] shadow-[0_24px_60px_-12px_rgba(0,0,0,.9)] py-2',
                             'max-w-[calc(100vw-2rem)]',
                             align === 'right' || flip ? 'right-0' : 'left-0',
                         )}
@@ -113,22 +107,22 @@ const Menu = ({ label, summary, active, options, onPick, align = 'left' }: {
                                 disabled={o.disabled}
                                 onClick={() => onPick(o.value)}
                                 className={cn(
-                                    'w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors',
+                                    'w-full flex items-center gap-2.5 px-4 py-2 text-left transition-colors',
                                     o.disabled ? 'cursor-not-allowed opacity-35' : 'hover:bg-white/[0.06]',
                                 )}
                             >
                                 <span className={cn(
-                                    'w-4 h-4 shrink-0 rounded border flex items-center justify-center',
-                                    o.on ? 'bg-primary border-primary' : 'border-white/20',
+                                    'w-4 h-4 shrink-0 rounded-full border flex items-center justify-center',
+                                    o.on ? 'bg-ultra border-ultra' : 'border-white/30',
                                 )}>
                                     {o.on && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                                 </span>
-                                <span className={cn('flex-1 text-[12.5px] font-medium truncate',
-                                    o.on ? 'text-white' : 'text-neutral-300')}>
+                                <span className={cn('flex-1 text-[13.5px] truncate',
+                                    o.on ? 'text-white font-medium' : 'text-white/80')}>
                                     {o.label}
                                 </span>
                                 {o.count !== undefined && (
-                                    <span className="text-[11px] tabular-nums text-neutral-500 shrink-0">
+                                    <span className="text-[12px] tabular-nums text-white/45 shrink-0">
                                         {o.count.toLocaleString()}
                                     </span>
                                 )}
@@ -210,7 +204,7 @@ const FilterBar = ({ filters, onChange, facets, vocabulary }: Props) => {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex flex-wrap items-center gap-2 mb-8"
+            className="flex flex-wrap items-center gap-2 mb-6"
         >
             <Menu
                 label="Genre"
@@ -257,10 +251,7 @@ const FilterBar = ({ filters, onChange, facets, vocabulary }: Props) => {
             {isActive(filters) && (
                 <button
                     onClick={() => onChange(EMPTY)}
-                    className="h-10 flex items-center gap-1.5 px-3 rounded-lg border border-white/10
-                               text-[11px] font-bold uppercase tracking-[0.08em] text-neutral-400
-                               hover:text-white hover:border-primary/50 transition-colors
-                               focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    className="pill pill-ghost h-10"
                 >
                     <X className="w-3.5 h-3.5" /> Clear
                 </button>
