@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 
+from _chat import Assistant
 from _engine import get_engine
 
 app = FastAPI(
@@ -260,57 +262,25 @@ async def legacy_search(response: Response, f: dict = Depends(filters)):
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    # The film the conversation is about, as the last reply's `focus` named it,
+    # so "who directed it?" knows what "it" is. The server keeps no sessions.
+    context: Optional[int] = None
 
 
-@app.post("/api/chat/message", tags=["Compat"])
+@lru_cache(maxsize=1)
+def get_assistant() -> Assistant:
+    return Assistant(get_engine())
+
+
+@app.post("/api/chat/message", tags=["Chat"])
 async def chat(req: ChatRequest):
     """
-    Conversational search. Intent parsing is deterministic rather than a call
-    out to a hosted LLM, so it costs nothing, cannot rate-limit, and answers in
-    milliseconds instead of seconds.
+    The film assistant: questions about a film, films like one (or between
+    several), a person's films, or a category. Answers come from the catalogue
+    and the recommendation graph rather than a hosted LLM, so every fact it
+    states is one this API would return, and it answers in milliseconds.
     """
-    e = get_engine()
-    msg = (req.message or "").strip()
-    if not msg:
-        return {"response": "Tell me a film you liked, or a genre and a decade.",
-                "recommendations": []}
-
-    r = e.search(msg, limit=8)
-    res, filters = r["results"], r["filters"]
-
-    # "more like X" — if the query names one film, answer with its neighbours
-    if res and (res[0].get("score") or 0) > 150 and len(res) < 4:
-        src = res[0]
-        near = e.similar(src["item_id"], 8)
-        body = ", ".join(f"{f['title']} ({f['year']})" for f in near[:3])
-        return {
-            "response": f"If you liked {src['title']}, the closest films in the "
-                        f"model's space are {body}. They share "
-                        f"{', '.join(near[0].get('shared_genres') or ['a lot']) }.",
-            "recommendations": [_legacy(e, f["item_id"]) | {"score": f.get("score")}
-                                for f in near],
-        }
-
-    if not res:
-        return {"response": "Nothing in the catalogue matches that. It covers 17,719 "
-                            "films from MovieLens — try a genre, a decade like “90s”, "
-                            "a director, or a title.",
-                "recommendations": []}
-
-    LANG_NAMES = {"en": "English", "hi": "Hindi", "fr": "French", "es": "Spanish",
-                  "ko": "Korean", "ja": "Japanese", "de": "German", "it": "Italian",
-                  "zh": "Chinese", "ru": "Russian", "sv": "Swedish", "da": "Danish"}
-    bits = []
-    if filters.get("lang"):
-        bits.append(LANG_NAMES.get(filters["lang"], ""))
-    if filters.get("genres"):
-        bits.append(" and ".join(filters["genres"]))
-    if filters.get("year_min"):
-        lo, hi = filters["year_min"], filters.get("year_max", filters["year_min"])
-        bits.append(f"from {lo}" if lo == hi else f"between {lo} and {hi}")
-    lead = f"Here are the best {' '.join(bits)} films I have" if bits \
-        else f"Here's what matches “{msg}”"
-    top = ", ".join(f"{f['title']} ({f['year']})" for f in res[:3])
-    return {"response": f"{lead}. Start with {top}.",
-            "recommendations": [_legacy(e, f["item_id"]) | {"score": f.get("score")}
-                                for f in res]}
+    t0 = time.perf_counter()
+    out = get_assistant().reply((req.message or "")[:500], req.context)
+    out["latency_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+    return out

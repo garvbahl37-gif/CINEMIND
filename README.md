@@ -20,6 +20,7 @@ Alien (1979)                  →  Aliens · Alien³ · Alien: Resurrection · T
 - [What it does](#what-it-does)
 - [How recommendations are built](#how-recommendations-are-built)
 - [Search and filtering](#search-and-filtering)
+- [The film assistant](#the-film-assistant)
 - [Architecture](#architecture)
 - [The ID-mapping bug](#the-id-mapping-bug)
 - [Performance](#performance)
@@ -123,6 +124,15 @@ Search resolves to **categories as well as titles**. Typing `rom` offers *Romanc
 
 Structural terms are stripped from the query before the free-text match runs,
 which is what stops `80s horror` returning *The Rocky Horror Picture Show*.
+
+The reverse also holds: a query of two or more words that names a title, or
+begins one, is searched as a title and none of its words become filters. Without
+that, `star wars` applied the *War* genre and returned *Starship Troopers*,
+`children of men` became the *Children* genre, and `the french connection`
+became a French-language filter with no results. Titles are matched in every
+form MovieLens files them under — article-last (`Good, the Bad and the Ugly,
+The`), with alternates in brackets (`Seven (a.k.a. Se7en)`, `Postman, The
+(Postino, Il)`), and with or without a leading article.
 Queries are singularised (`thrillers` → `thriller`), and hyphenated genres are
 handled as units — `sci-fi` splits into two tokens, and a stray `fi` used to match
 *Final Fantasy VII*.
@@ -138,6 +148,31 @@ clearing Korean.
 Typed structure and the filter menus are the same state: `90s sci-fi` arrives on
 the results page with *Sci-Fi* and *1990s* already selected, and deselecting one
 really removes it — an explicit parameter overrides whatever the query implied.
+
+## The film assistant
+
+`POST /api/chat/message` answers questions about films from the catalogue and
+the recommendation graph, not from a hosted language model — so every fact it
+states is one the API itself would return, and a reply takes milliseconds.
+
+| Ask | It answers with |
+|---|---|
+| `tell me about heat` | Director, cast, genres, runtime, synopsis, rating and the three closest films |
+| `who directed it?` · `who's in it` · `how long is it` · `is it any good` | The fact, about the film already under discussion |
+| `is alien a horror movie` | Yes or no, from its genres and tags |
+| `films like inception but funnier` · `older ones` · `darker ones` | The film's neighbours, then their neighbours, filtered by the mood |
+| `films between heat and drive` | A blend of both films' neighbourhoods |
+| `tom hanks movies` · `films by miyazaki` | A person's films, best rated first |
+| `90s horror` · `recommend me something funny` | A category, best rated first |
+| `tell me about la la land` | That it isn't here — the catalogue ends in 2015 — and the nearest titles it has |
+
+The server keeps no sessions: each reply names the film it was about as
+`focus`, and the client sends it back as `context`, which is how "it" resolves.
+Titles resolve exactly first, then by prefix — but only to a well-known film, so
+`get out` does not quietly become *Get Out Your Handkerchiefs* (1978) — then by
+spelling (`incepshun` → *Inception*). When a title the query begins is ten times
+better known than an exact match, it wins: `lord of the rings` means Peter
+Jackson's, not the 1978 animated film.
 
 ## Architecture
 
@@ -232,6 +267,7 @@ Interactive schema at [`/docs`](https://cinemind-theta.vercel.app/docs).
 | `GET /api/categories` | The filter vocabulary: genres, decades, languages with counts |
 | `GET /api/top50` | Bayesian-ranked top 50 |
 | `POST /api/blend` | Recommendations from several films at once — a taste profile |
+| `POST /api/chat/message` | The film assistant: `{message, context?}` → `{response, recommendations, focus, follow_ups}` |
 
 ### Search parameters
 
@@ -263,10 +299,13 @@ film with nine 5-star ratings does not outrank *The Godfather*.
 api/
   index.py            FastAPI app — every endpoint
   _engine.py          NumPy serving engine: search, filters, facets, neighbours
+  _chat.py            The film assistant
 pipelines/
   build_artifacts.py  The whole offline build, including encoder recovery
+  repair_tv_metadata.py  Fixes items whose TMDB data belonged to another title
   fetch_data.sh       Downloads MovieLens 20M + 32M
   requirements-build.txt
+tests/                Search and assistant behaviour, run against the artifacts
 data/artifacts/       Generated — committed so the deploy needs no build step
 models/
   best_model.pt       Two-tower checkpoint (75 MB, excluded from deploys)
@@ -274,7 +313,8 @@ models/
 notebooks/
   kaggle_training.ipynb   Two-tower training
 frontend-app/
-  src/components/     SearchCommand, FilterBar, MovieRow, DetailsOverlay, …
+  src/components/     MatchStage, HeroRail, Collections, Shelf, MatchSearch, …
+  src/lib/api.ts      One normaliser for every endpoint's films
   src/lib/search.ts   Single client for the search API
 requirements.txt      Serving dependencies only — fastapi, pydantic, numpy
 vercel.json           Build, function config and /api rewrites
@@ -309,7 +349,10 @@ uvicorn index:app --app-dir api --reload --port 8000
 
 # 4. frontend on :5173
 cd frontend-app && npm install
-VITE_API_BASE=http://localhost:8000 npm run dev
+API_PROXY=http://localhost:8000 npm run dev    # proxies /api; defaults to the deployed API
+
+# 5. tests, from the repo root, against the pinned serving dependencies
+cd .. && pip install pytest && pytest tests/
 ```
 
 > **Pin your serving dependencies.** `requirements.txt` pins

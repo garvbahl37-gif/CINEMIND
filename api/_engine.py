@@ -11,6 +11,7 @@ across all requests the instance serves.
 """
 from __future__ import annotations
 
+import bisect
 import json
 import re
 import unicodedata
@@ -75,6 +76,42 @@ def _fold(s: str) -> str:
     return "".join(c for c in s if not unicodedata.combining(c))
 
 
+def _key(s: str) -> str:
+    """A title or query reduced for matching: folded, punctuation as spaces."""
+    return re.sub(r"[^a-z0-9]+", " ", _fold(s)).strip()
+
+
+_ARTICLE_LAST = re.compile(r"^(.*), (the|a|an|les|la|le|il|el|der|die|das|los|las|lo|gli|i)$")
+
+
+def title_variants(title: str) -> set[str]:
+    """
+    Every form a person might type a MovieLens title in.
+
+    MovieLens files many titles article-last with alternates in brackets:
+    "Good, the Bad and the Ugly, The (Buono, il brutto, il cattivo, Il)" is
+    "the good the bad and the ugly", and "Seven (a.k.a. Se7en)" is also "se7en".
+    A leading English article is optional, so "french connection" still finds
+    "The French Connection".
+    """
+    f = _fold(title)
+    main = re.sub(r"\s*\(.*\)\s*$", "", f).strip() or f
+    alts = [re.sub(r"^a\.k\.a\.\s*", "", a).strip() for a in re.findall(r"\(([^()]*)\)", f)]
+    out: set[str] = set()
+    for base in [main, *alts]:
+        m = _ARTICLE_LAST.match(base)
+        if m:
+            base = f"{m.group(2)} {m.group(1)}"
+        k = _key(base)
+        if not k:
+            continue
+        out.add(k)
+        m = re.match(r"^(?:the|a|an) (.+)$", k)
+        if m:
+            out.add(m.group(1))
+    return out
+
+
 class Engine:
     def __init__(self, root: Path = ART):
         self.c = json.loads((root / "catalog.json").read_text())
@@ -85,6 +122,12 @@ class Engine:
 
         # Search structures, built once per instance.
         self.fold = [_fold(t) for t in self.c["title"]]
+        self.keys = [title_variants(t) for t in self.c["title"]]
+        self.key_index: dict[str, list[int]] = {}
+        for i, ks in enumerate(self.keys):
+            for k in ks:
+                self.key_index.setdefault(k, []).append(i)
+        self._key_sorted = sorted(self.key_index)
         self.bayes = np.array(self.browse["bayes"], np.float32)
         self.tokens: dict[str, set[int]] = {}
         for i, t in enumerate(self.fold):
@@ -183,6 +226,23 @@ class Engine:
         return [self.item(i, s / hi) for i, s in top]
 
     # -- search -----------------------------------------------------------
+    def names_title(self, q: str) -> bool:
+        """
+        True when a query of two or more words is a film's title, or the start
+        of one. Such a query is a title search, and none of its words may turn
+        into a filter: "star wars" is not the War genre, "children of men" is not
+        Children, and "the french connection" is not a French-language film.
+        Single words ("horror") and real category phrases ("korean thrillers")
+        are unaffected — no title starts with them.
+        """
+        k = _key(q)
+        if len(k.split()) < 2:
+            return False
+        if k in self.key_index:
+            return True
+        j = bisect.bisect_left(self._key_sorted, k + " ")
+        return j < len(self._key_sorted) and self._key_sorted[j].startswith(k + " ")
+
     def parse(self, q: str) -> dict:
         """Deterministic intent parsing. No network call in the request path."""
         f = _fold(q)
@@ -271,12 +331,16 @@ class Engine:
         def bump(i: int, v: float):
             scores[i] = scores.get(i, 0.0) + v
 
-        for i, t in enumerate(self.fold):
-            if t == free_text:
+        # Title match on the whole phrase. With no structure consumed that is the
+        # query as typed, stop words and all, so "war of the worlds" can match
+        # its title exactly rather than as "war worlds".
+        phrase = _key(q) if not filt else _key(free_text)
+        for i, ks in enumerate(self.keys):
+            if phrase in ks:
                 bump(i, 300)
-            elif t.startswith(free_text):
+            elif any(k.startswith(phrase) for k in ks):
                 bump(i, 190)
-            elif free_text in t:
+            elif any(phrase in k for k in ks):
                 bump(i, 130)
         for w in free:
             for i in self.tokens.get(w, ()):
@@ -330,7 +394,7 @@ class Engine:
         unticking a genre the query implied actually removes it — otherwise the
         filter bar and the search box would fight each other.
         """
-        parsed = self.parse(q) if q.strip() else {}
+        parsed = self.parse(q) if q.strip() and not self.names_title(q) else {}
         eff = dict(parsed)
         if genres is not None:
             eff["genres"] = list(genres)
@@ -436,14 +500,14 @@ class Engine:
 
     # -- autosuggest ------------------------------------------------------
     def suggest(self, q: str, limit: int = 6) -> list[dict]:
-        f = _fold(q).strip()
+        f = _key(q)
         if len(f) < 2:
             return []
         pre, sub = [], []
-        for i, t in enumerate(self.fold):
-            if t.startswith(f):
+        for i, ks in enumerate(self.keys):
+            if any(k.startswith(f) for k in ks):
                 pre.append(i)
-            elif f in t:
+            elif any(f in k for k in ks):
                 sub.append(i)
         pre.sort(key=lambda i: -self.bayes[i])
         sub.sort(key=lambda i: -self.bayes[i])

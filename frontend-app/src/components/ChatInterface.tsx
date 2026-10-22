@@ -11,13 +11,17 @@ interface Message {
     role: 'user' | 'assistant';
     content: string;
     recommendations?: Movie[];
+    /** Questions worth asking next, offered as one-tap chips. */
+    followUps?: string[];
 }
 
-const PROMPTS = ['90s horror', 'Korean thrillers', 'Christopher Nolan', 'Studio Ghibli'];
+const PROMPTS = ['Tell me about Heat', 'Who directed Spirited Away?', 'Films like Alien but funnier', '90s horror'];
 
 /**
- * The film assistant. Intent parsing is deterministic on the server, so it
- * answers in milliseconds; the films it names open on the match stage.
+ * The film assistant. It answers from the catalogue on the server, so every
+ * fact is the API's own and replies take milliseconds; the films it names open
+ * on the match stage. The film under discussion travels back with each message
+ * as `context`, which is how "who directed it?" knows what "it" is.
  */
 export const ChatInterface = ({ onSelect }: { onSelect: (m: Movie) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -25,6 +29,7 @@ export const ChatInterface = ({ onSelect }: { onSelect: (m: Movie) => void }) =>
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId] = useState(() => Math.random().toString(36).substring(7));
+    const [focus, setFocus] = useState<number | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -42,15 +47,17 @@ export const ChatInterface = ({ onSelect }: { onSelect: (m: Movie) => void }) =>
             const res = await fetch(`${API_BASE}/api/chat/message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg, session_id: sessionId })
+                body: JSON.stringify({ message: userMsg, session_id: sessionId, context: focus })
             });
             if (!res.ok) throw new Error(`the API returned ${res.status}`);
             const data = await res.json();
             const recommendations: Movie[] = (data.recommendations || []).map(toMovie);
+            if (typeof data.focus === 'number') setFocus(data.focus);
             setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: data.response,
-                recommendations: recommendations.length > 0 ? recommendations : undefined
+                recommendations: recommendations.length > 0 ? recommendations : undefined,
+                followUps: Array.isArray(data.follow_ups) ? data.follow_ups : undefined,
             }]);
         } catch (error) {
             const why = error instanceof Error ? error.message : 'no response';
@@ -83,7 +90,7 @@ export const ChatInterface = ({ onSelect }: { onSelect: (m: Movie) => void }) =>
                         <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
                             <div>
                                 <h3 className="display text-[30px]">Ask</h3>
-                                <p className="mt-1 text-[13px] text-white/55">Name a genre, a decade, a language or a director.</p>
+                                <p className="mt-1 text-[13px] text-white/55">About any film, who made it, or what to watch next.</p>
                             </div>
                             <button onClick={() => setIsOpen(false)} className="round-btn" aria-label="Close the assistant">
                                 <X className="w-4 h-4" />
@@ -117,6 +124,16 @@ export const ChatInterface = ({ onSelect }: { onSelect: (m: Movie) => void }) =>
                                             ))}
                                         </div>
                                     )}
+                                    {msg.followUps && i === messages.length - 1 && !isLoading && (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {msg.followUps.map(q => (
+                                                <button key={q} type="button" onClick={() => send(q)}
+                                                    className="pill h-8 px-3 border border-white/25 normal-case text-[12.5px] hover:border-white/60">
+                                                    {q}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                             {isLoading && (
@@ -134,7 +151,7 @@ export const ChatInterface = ({ onSelect }: { onSelect: (m: Movie) => void }) =>
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     aria-label="Ask for a film"
-                                    placeholder="A genre, a decade, a director…"
+                                    placeholder="Who directed Alien? Films like Heat but shorter…"
                                     className="w-full h-12 bg-white/[0.08] rounded-full pl-5 pr-14 text-[14px] text-white
                                                placeholder:text-white/40 outline-none focus-visible:outline-2 focus-visible:outline-white"
                                 />
