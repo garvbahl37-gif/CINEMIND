@@ -7,7 +7,7 @@ import { names, pct, runtime, short, stars } from '../lib/format';
 import { Blend } from '../lib/blend';
 import { cn } from '../lib/utils';
 import { Figure } from './PosterCard';
-import { Asterisk } from './Marks';
+import { Star } from './Marks';
 import MatchSearch from './MatchSearch';
 
 interface Props {
@@ -325,7 +325,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
                         {focused.m.runtime && <span className="pill h-8 px-3.5 border border-white/35 normal-case text-[13px]">{runtime(focused.m.runtime)}</span>}
                         {focused.m.rating != null && (
                             <span className="pill h-8 px-3.5 border border-white/35 normal-case text-[13px]">
-                                {stars(focused.m.rating)} <Asterisk className="w-2.5 h-2.5" /> from {focused.m.rating_count?.toLocaleString() ?? 'MovieLens'} ratings
+                                {stars(focused.m.rating)} <Star className="w-3 h-3" /> from {focused.m.rating_count?.toLocaleString() ?? 'MovieLens'} ratings
                             </span>
                         )}
                     </div>
@@ -333,7 +333,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
                         <p className="mt-5 max-w-[62ch] text-[15px] leading-[1.55] text-white/75">{focused.m.overview}</p>
                     )}
                     <p className="mt-4 text-[14px] text-white/60 max-w-[62ch]">
-                        {focused.m.directors?.length ? <>Directed by <span className="text-white/90">{names(focused.m.directors, 2)}</span>. </> : null}
+                        {focused.m.directors?.length ? <>{focused.m.media_type === 'tv' ? 'Created' : 'Directed'} by <span className="text-white/90">{names(focused.m.directors, 2)}</span>. </> : null}
                         {focused.m.cast?.length ? <>With <span className="text-white/90">{names(focused.m.cast, 4)}</span>.</> : null}
                     </p>
                 </div>

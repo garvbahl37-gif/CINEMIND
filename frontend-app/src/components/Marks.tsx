@@ -1,8 +1,7 @@
-/** The small superscript asterisk that follows a rating. */
-export const Asterisk = ({ className }: { className?: string }) => (
-    <svg viewBox="0 0 12 12" aria-hidden="true" className={className} fill="none"
-        stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-        <path d="M6 1v10M1.7 3.5l8.6 5M1.7 8.5l8.6-5" />
+/** The small solid star that follows a rating, set at cap height like a "%". */
+export const Star = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+        <path d="M12 2.6l2.82 5.92 6.5.83-4.78 4.5 1.22 6.45L12 17.17l-5.76 3.13 1.22-6.45-4.78-4.5 6.5-.83z" />
     </svg>
 );
 

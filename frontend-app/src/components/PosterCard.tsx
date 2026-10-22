@@ -3,7 +3,7 @@ import { Movie } from '../types';
 import { img } from '../lib/api';
 import { pct, runtime, short, stars } from '../lib/format';
 import { cn } from '../lib/utils';
-import { Asterisk } from './Marks';
+import { Star } from './Marks';
 
 interface Props {
     movie: Movie;
@@ -31,11 +31,12 @@ export const Figure = ({ movie, kind, className }: {
     const v = kind === 'match' ? pct(movie.score) : stars(movie.rating);
     if (v == null) return null;
     return (
-        <span className={cn('numeral inline-flex items-start text-white', className)}>
+        // The soft shadow keeps a thin numeral readable on a pale poster.
+        <span className={cn('numeral inline-flex items-start text-white [text-shadow:0_1px_14px_rgba(0,0,0,.5)]', className)}>
             {v}
             {kind === 'match'
                 ? <span className="text-[0.36em] font-normal tracking-normal ml-[0.06em] mt-[0.02em]">%</span>
-                : <Asterisk className="w-[0.24em] h-[0.24em] ml-[0.1em] mt-[0.02em]" />}
+                : <Star className="w-[0.3em] h-[0.3em] ml-[0.07em] mt-[0.05em] drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]" />}
         </span>
     );
 };
@@ -79,8 +80,12 @@ const PosterCard = ({ movie, onSelect, figure = 'rating', badge, size = 'md', cl
                     className="absolute inset-0 w-full h-full object-cover" />
                 : <NoArt title={movie.title} />}
 
-            {/* Scrims: the top for the number, the foot for the title. */}
+            {/* Scrims: the top for the number, the foot for the title — and a
+                darker corner behind the number, so a pale poster can't wash it out. */}
             <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,.55)_0%,rgba(0,0,0,0)_24%,rgba(0,0,0,0)_44%,rgba(0,0,0,.82)_68%,rgba(0,0,0,.96)_100%)]" />
+            {figure !== 'none' && (
+                <span aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(85%_45%_at_100%_0%,rgba(0,0,0,.6)_0%,rgba(0,0,0,0)_75%)]" />
+            )}
 
             {badge != null && (
                 <span className={cn(
