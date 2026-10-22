@@ -101,6 +101,9 @@ def test_follow_ups_use_the_film_in_hand(bot):
     assert "Al Pacino" in ask(bot, "whos in it", ctx)["response"]
     assert "but older" in ask(bot, "older ones", ctx)["response"]
     assert "Which film" in ask(bot, "who directed it?")["response"]   # no context
+    # "it" is the film in hand, never a title: no note about films called "It".
+    for q in ("who directed it?", "is it any good", "how long is it"):
+        assert "There's also" not in ask(bot, q, ctx)["response"], q
 
 
 @pytest.mark.parametrize("msg, needle", [

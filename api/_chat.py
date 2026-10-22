@@ -449,6 +449,9 @@ class Assistant:
         return sorted(same, key=lambda i: -(self.e.c["rc"][i] or 0))[:2]
 
     def _note_namesakes(self, out: dict, span: str, chosen: int):
+        k = _key(_clean(span))
+        if not k or _PRONOUN.match(k):
+            return                      # "it" means the film in hand, not films titled "It"
         others = self.namesakes(span, chosen)
         if others:
             out["response"] += (f" (There's also {_join([self.name(i) for i in others], 'and')}; "
