@@ -123,6 +123,10 @@ _GENRE_WORD = {"romantic": "romance", "science fiction": "sci-fi", "animated": "
                "scary": "horror", "funny": "comedy", "for kids": "children", "kids": "children",
                "family": "children"}
 
+# Words that mark a message as a description of what to watch.
+_DESCRIBE = re.compile(r"\b(?:movies?|films?|something|anything|stories|story|about|where|vibes?|mood|feels?|"
+                       r"set in|with an?|with some|watch|tonight|kind of|type of|that are|that is)\b")
+
 # Words that show free text is a request, not a title or a theme.
 _CHATTER = _STOP | {"tell", "give", "show", "want", "need", "find", "can", "could", "would",
                     "you", "your", "what", "which", "who", "how", "why", "please", "joke",
@@ -182,6 +186,7 @@ class Assistant:
                 self.acted.setdefault(_fold(nm), set()).add(i)
                 self.person_name[_fold(nm)] = nm
         self._all_keys = list(e.key_index)
+        self._discover = None
         self._people = list(self.person_name)
 
     # -- resolving what is meant ------------------------------------------
@@ -368,7 +373,7 @@ class Assistant:
         # The questions, most specific first. A pattern whose film doesn't
         # resolve hands over to the next: "some like it hot" contains "like",
         # but it is a title, which the "about" patterns then find.
-        unresolved = None
+        unresolved = unresolved_intent = None
         for intent, pat in _ASK:
             m = pat.search(main)
             if not m:
@@ -403,15 +408,7 @@ class Assistant:
                 if who:
                     return self._person(who, mods)
             if unresolved is None:
-                unresolved = span
-
-        # "What should I watch?", with or without a mood. Only the mood counts:
-        # the rest of the sentence is not a title to search for.
-        if _OPEN.search(f):
-            if self._structured(f):
-                return self._browse(self.e.parse(f))
-            moods = mods or self._mods_in(f)
-            return self._mood(moods) if moods else self._picks()
+                unresolved, unresolved_intent = span, intent
 
         # A short follow-up — "but funnier", "older ones", "more" — is about the
         # film in hand when it compares; a plain mood ("something scary") is not.
@@ -422,8 +419,24 @@ class Assistant:
             return self._similar(ctx, [], skip=4)
         if ctx is not None and short and (f in ("similar", "similar ones") or (moods and _COMPARATIVE.search(f))):
             return self._similar(ctx, moods)
+
+        # A description rather than a question: "something uplifting under two
+        # hours", "like Interstellar but more emotional".
+        described = self._describe(raw, f, main, unresolved_intent)
+        if described:
+            return described
+
+        # "What should I watch?", with or without a mood. Only the mood counts:
+        # the rest of the sentence is not a title to search for.
+        if _OPEN.search(f):
+            if self._structured(f):
+                return self._browse(self.e.parse(f))
+            moods = mods or self._mods_in(f)
+            return self._mood(moods) if moods else self._picks()
+
         if moods and (not main or short) and not self._film_in(main):
-            return self._mood(moods)
+            # "90s horror" is a mood *and* a decade: keep every constraint it names.
+            return self._browse(self.e.parse(f)) if self._structured(f) else self._mood(moods)
 
         # The whole message might just be a title, or a person.
         if not mods and not _PERSON_ASK.match(main):
@@ -438,6 +451,51 @@ class Assistant:
         if unresolved is not None and not self._structured(unresolved):
             return self._not_found(unresolved)
         return self._category(raw)
+
+    @property
+    def discover(self):
+        """Natural-language discovery, built on first use (it loads the sentence model)."""
+        if self._discover is None:
+            from _discover import Discover
+            self._discover = Discover(self.e)
+        return self._discover
+
+    def _describe(self, raw: str, f: str, main: str, unresolved_intent: str | None) -> dict | None:
+        """
+        Answer with discovery when the message describes what to watch. Not for
+        a question about one film ("tell me about la la land" must still say it
+        isn't here), a bare title or person, or a plain category, which keep
+        their own answers.
+        """
+        if unresolved_intent in ("about", "director", "cast", "year", "runtime", "rating", "genre", "is_genre"):
+            return None
+        if self._film_in(main) or (not unresolved_intent and self.find_person(main)):
+            return None
+        d = self.discover
+        r = d.read(raw)
+        direct, related = d._mood_tags(r.mood)
+        cue = _DESCRIBE.search(f)
+        useful = (r.runtime_min or r.runtime_max
+                  # "something that isn't scary": a category answer would serve Horror.
+                  or r.avoid_genres or r.avoid
+                  or (r.mood and (direct or related or cue))
+                  or (r.anchors and (r.mood or r.constrained or unresolved_intent == "similar")))
+        if not useful:
+            return None
+        out = d.search(raw, 8)
+        res = out["results"]
+        if not res:
+            note = out["notes"][-1] if out["notes"] else "Nothing in the catalogue fits all of that."
+            return self._out(note + " Try loosening one part of it.")
+        read = ", ".join(c["label"] for c in out["understood"]["chips"])
+        text = f"Here's what fits: {_join([self.name(x['item_id']) for x in res[:4]], 'and')}."
+        if read:
+            text += f" I read that as: {read}."
+        if out["notes"]:
+            text += " " + " ".join(out["notes"])
+        first = _display(res[0]["title"])
+        return self._out(text, [x["item_id"] for x in res], scores=[x.get("score") for x in res],
+                         follow=[f"Tell me about {first}", f"Films like {first}", "Something shorter"])
 
     def namesakes(self, span: str, chosen: int) -> list[int]:
         """Other films filed under the same title, unless the span gave a year."""

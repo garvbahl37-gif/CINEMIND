@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Movie } from '../types';
 import { img } from '../lib/api';
 import { names, runtime, short } from '../lib/format';
-import { Blend } from '../lib/blend';
+import { Taste } from '../lib/taste';
 import { cn } from '../lib/utils';
 import { Figure } from './PosterCard';
+import TasteActions from './TasteActions';
 
 interface Props {
     films: Movie[];
     onMatches: (m: Movie) => void;
-    blend: Blend;
+    taste: Taste;
 }
 
 /**
@@ -18,7 +19,7 @@ interface Props {
  * it is obvious the rail moves. Scroll-snap does the work, so trackpads,
  * touch and the arrow buttons all land on a whole slide.
  */
-const HeroRail = ({ films, onMatches, blend }: Props) => {
+const HeroRail = ({ films, onMatches, taste }: Props) => {
     const rail = useRef<HTMLDivElement>(null);
     const [index, setIndex] = useState(0);
 
@@ -41,7 +42,6 @@ const HeroRail = ({ films, onMatches, blend }: Props) => {
         <section aria-roledescription="carousel" aria-label="Featured films" className="relative">
             <div ref={rail} onScroll={onScroll} className="scroller gap-3">
                 {films.map((m, i) => {
-                    const inBlend = blend.has(m);
                     const active = i === index;
                     return (
                         <article
@@ -88,7 +88,8 @@ const HeroRail = ({ films, onMatches, blend }: Props) => {
                                     </div>
                                 </div>
 
-                                <div className="flex md:flex-col items-end md:items-end justify-between gap-5 shrink-0">
+                                {/* On a phone the actions wrap under the rating rather than run off the slide. */}
+                                <div className="flex flex-wrap md:flex-nowrap md:flex-col items-end justify-between gap-x-5 gap-y-4 md:shrink-0">
                                     <div className="text-right">
                                         <Figure movie={m} kind="rating" className="text-[64px] md:text-[96px]" />
                                         {m.rating_count ? (
@@ -97,18 +98,13 @@ const HeroRail = ({ films, onMatches, blend }: Props) => {
                                             </p>
                                         ) : null}
                                     </div>
-                                    <div className="flex gap-1.5">
+                                    <div className="flex flex-wrap md:justify-end gap-1.5 max-w-full">
                                         <button type="button" tabIndex={active ? 0 : -1}
                                             onClick={(e) => { e.stopPropagation(); onMatches(m); }}
                                             className="pill pill-ultra h-10">
                                             24 matches <ArrowUpRight className="w-4 h-4" />
                                         </button>
-                                        <button type="button" tabIndex={active ? 0 : -1}
-                                            aria-pressed={inBlend}
-                                            onClick={(e) => { e.stopPropagation(); blend.toggle(m); }}
-                                            className={cn('pill h-10', inBlend ? 'pill-white' : 'pill-violet')}>
-                                            {inBlend ? <>In your blend <Check className="w-4 h-4" /></> : <>Add to blend <Plus className="w-4 h-4" /></>}
-                                        </button>
+                                        <TasteActions movie={m} taste={taste} tabIndex={active ? 0 : -1} stop />
                                     </div>
                                 </div>
                             </div>

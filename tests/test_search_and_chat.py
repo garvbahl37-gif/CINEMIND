@@ -133,3 +133,31 @@ def test_films_after_2015_are_not_invented(bot):
 
 def test_off_topic_gets_help_not_a_film_list(bot):
     assert "not sure what you're after" in ask(bot, "tell me a joke")["response"]
+
+
+@pytest.mark.parametrize("msg, needle", [
+    ("90s horror", "from the 1990s"),            # the decade must survive the mood shortcut
+    ("korean thrillers", "Korean Thriller"),
+    ("recommend me something funny", "Comedy"),
+])
+def test_chat_categories_keep_every_constraint(bot, msg, needle):
+    assert needle in ask(bot, msg)["response"]
+
+
+def test_chat_answers_descriptions_with_discovery(bot):
+    r = ask(bot, "Movies that feel like Interstellar but are more emotional")
+    assert "Like Interstellar" in r["response"] and "Interstellar (2014)" not in r["response"].split("I read")[0]
+    r = ask(bot, "Something uplifting under two hours for tonight")
+    assert "Under 2 hours" in r["response"]
+    assert all((x["runtime"] or 0) <= 120 for x in r["recommendations"])
+
+
+@pytest.mark.parametrize("msg", ["something that isn't scary", "something that isn\u2019t scary",
+                                 "nothing scary please", "a comedy but not a romance"])
+def test_chat_keeps_what_was_ruled_out(bot, e, msg):
+    """These were answered with the best-rated films of the excluded genre."""
+    out = bot.reply(msg)
+    ids = [r["item_id"] for r in out["recommendations"]]
+    assert ids
+    banned = "romance" if "romance" in msg else "horror"
+    assert not any(banned in e.genre_of[i] for i in ids), out["response"]

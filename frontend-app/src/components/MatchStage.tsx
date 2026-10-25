@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Movie } from '../types';
 import { fetchSimilar, img } from '../lib/api';
 import { names, pct, runtime, short, stars } from '../lib/format';
-import { Blend } from '../lib/blend';
+import { Taste } from '../lib/taste';
 import { cn } from '../lib/utils';
 import { Figure } from './PosterCard';
 import { Star } from './Marks';
 import MatchSearch from './MatchSearch';
+import TasteActions from './TasteActions';
 
 interface Props {
     pick: Movie;
     onClose: () => void;
-    blend: Blend;
+    taste: Taste;
 }
 
 interface Slot {
@@ -62,7 +63,7 @@ const useCardWidth = () => {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const MatchStage = ({ pick, onClose, blend }: Props) => {
+const MatchStage = ({ pick, onClose, taste }: Props) => {
     const [trail, setTrail] = useState<Movie[]>([pick]);
     const current = trail[trail.length - 1];
     const [data, setData] = useState<{ source: Movie; matches: Movie[] } | null>(null);
@@ -161,7 +162,6 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
 
     const h = Math.round(w * 1.5);
     const isMatch = focused.rank > 0;
-    const inBlend = blend.has(focused.m);
     const source = slots[0].m;
     // Tags often repeat a genre ("action" beside Action); show each idea once.
     const sharedGenres = focused.m.shared_genres ?? [];
@@ -391,10 +391,7 @@ const MatchStage = ({ pick, onClose, blend }: Props) => {
                                 Find its matches <ArrowUpRight className="w-4 h-4" />
                             </button>
                         )}
-                        <button type="button" aria-pressed={inBlend} onClick={() => blend.toggle(focused.m)}
-                            className={cn('pill h-10', inBlend ? 'pill-white' : 'pill-violet')}>
-                            {inBlend ? <>In your blend <Check className="w-4 h-4" /></> : <>Add to blend <Plus className="w-4 h-4" /></>}
-                        </button>
+                        <TasteActions movie={focused.m} taste={taste} />
                     </div>
                 </div>
             </section>

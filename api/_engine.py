@@ -70,9 +70,14 @@ def _singular(w: str) -> str:
     return w
 
 
+# Phones type curly quotes: "isn’t" must read as "isn't", or the negation is missed.
+_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u02bc": "'", "\u2032": "'", "`": "'",
+                         "\u201c": '"', "\u201d": '"'})
+
+
 def _fold(s: str) -> str:
-    """Lowercase + strip accents so 'Amelie' finds 'Amélie'."""
-    s = unicodedata.normalize("NFKD", s.lower())
+    """Lowercase, straighten quotes and strip accents, so 'Amelie' finds 'Amélie'."""
+    s = unicodedata.normalize("NFKD", s.lower().translate(_QUOTES))
     return "".join(c for c in s if not unicodedata.combining(c))
 
 

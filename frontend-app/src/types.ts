@@ -24,4 +24,25 @@ export interface Movie {
     score?: number;
     shared_genres?: string[];
     shared_tags?: string[];
+
+    /** Set on discovery results: why the film fits the description. */
+    why?: string[];
+    /** Set on personal recommendations by the adaptive engine. */
+    reason?: string;
+    evidence?: Evidence[];
+    confidence?: number;
+    confidence_label?: 'High' | 'Medium' | 'Low';
+    /** An exploration slot, and the probability it was shown with. */
+    exploring?: boolean;
+    propensity?: number;
+}
+
+/** One piece of evidence behind a recommendation. */
+export interface Evidence {
+    kind: 'liked' | 'search' | 'drift' | 'explore' | 'quality';
+    text: string;
+    strength: number;
+    item_id?: number;
+    title?: string;
+    query?: string;
 }

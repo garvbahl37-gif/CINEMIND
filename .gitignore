@@ -16,6 +16,7 @@ env/
 .vercel/
 
 # Raw datasets — download with pipelines/fetch_data.sh
+data/raw/
 ml-20m/
 ml-32m/
 *.csv

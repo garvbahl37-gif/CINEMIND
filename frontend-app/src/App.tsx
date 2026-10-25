@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Movie } from './types';
-import { Browse, fetchBlend, fetchBrowse } from './lib/api';
+import { Browse, fetchBrowse } from './lib/api';
 import {
   Category, Facets, Filters, EMPTY, isActive, fromCategory, searchFilms, fetchCategories,
 } from './lib/search';
-import { useBlend } from './lib/blend';
+import { useTaste } from './lib/taste';
+import { useProfiles } from './lib/profiles';
 import TopBar, { View } from './components/TopBar';
 import HeroRail from './components/HeroRail';
-import Shelf, { Toggle } from './components/Shelf';
+import Shelf from './components/Shelf';
 import PosterCard from './components/PosterCard';
 import Collections, { Collection, Look, filtersOf, title as collectionTitle } from './components/Collections';
 import SearchResults from './components/SearchResults';
@@ -16,6 +17,8 @@ import MatchStage from './components/MatchStage';
 import MatchSearch from './components/MatchSearch';
 import Loader from './components/Loader';
 import AboutPage from './components/AboutPage';
+import ForYou from './components/ForYou';
+import DiscoverPage from './components/DiscoverPage';
 import { ChatInterface } from './components/ChatInterface';
 
 /** What the results banner wears: a collection's name and ground, or nothing. */
@@ -53,9 +56,25 @@ function App() {
   // The film on the match stage, if any.
   const [pick, setPick] = useState<Movie | null>(null);
 
-  const blend = useBlend();
-  const [fromBlend, setFromBlend] = useState(false);
-  const [blendRecs, setBlendRecs] = useState<Movie[] | null>(null);
+  // Who is watching, their taste, and the description on the Discover page.
+  const profiles = useProfiles();
+  const who = profiles.active.id;
+  const taste = useTaste(who);
+  const [describe, setDescribe] = useState('');
+
+  // A new profile starts clean: nothing the last person typed, opened or
+  // searched for stays on screen. (Picks, chat and Discover remount by key.)
+  const [shownFor, setShownFor] = useState(who);
+  if (shownFor !== who) {
+    setShownFor(who);
+    setDescribe('');
+    setQuery('');
+    setPick(null);
+  }
+
+  // Opening a film is a weak signal of interest.
+  const { view: viewed } = taste;
+  useEffect(() => { if (pick) viewed(pick); }, [pick, viewed]);
 
   useEffect(() => {
     setBrowseError(null);
@@ -66,20 +85,6 @@ function App() {
 
   // Genre / decade / language vocabulary, fetched once.
   useEffect(() => { fetchCategories().then(setVocabulary).catch(() => { }); }, []);
-
-  const seeds = blend.films.map(f => f.item_id).join(',');
-  useEffect(() => {
-    if (!seeds) setFromBlend(false);
-  }, [seeds]);
-  useEffect(() => {
-    if (!fromBlend || !seeds) { setBlendRecs(null); return; }
-    const ctrl = new AbortController();
-    setBlendRecs(null);
-    fetchBlend(seeds.split(',').map(Number), 24, ctrl.signal)
-      .then(setBlendRecs)
-      .catch(e => { if (e.name !== 'AbortError') setBlendRecs([]); });
-    return () => ctrl.abort();
-  }, [fromBlend, seeds]);
 
   // Largest genres first, once their sizes are known.
   const genreRows = useMemo(() => {
@@ -140,7 +145,15 @@ function App() {
   const openCollection = (c: Collection, backdrop?: string) =>
     runSearch(c.q ?? '', filtersOf(c), { title: collectionTitle(c), look: c.look, backdrop });
 
-  const recs = fromBlend ? blendRecs : browse?.top50.slice(0, 24) ?? null;
+  const recs = browse?.top50.slice(0, 24) ?? null;
+
+  const discover = (q: string) => { setQuery(''); setDescribe(q.trim()); navigate('discover'); };
+
+  /** The tray's "See your picks": home, then down to the shelf once it has rendered. */
+  const toForYou = () => {
+    navigate('home');
+    requestAnimationFrame(() => document.getElementById('for-you')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   return (
     <div className="min-h-screen p-1.5 md:p-4">
@@ -153,8 +166,10 @@ function App() {
           onSearch={(q) => runSearch(q, null)}
           onCategory={runCategory}
           onMovie={setPick}
-          blend={blend}
-          onUseBlend={() => { navigate('home'); setFromBlend(true); }}
+          onDiscover={discover}
+          taste={taste}
+          profiles={profiles}
+          onForYou={toForYou}
         />
 
         <main className="space-y-1.5 md:space-y-2.5">
@@ -173,23 +188,22 @@ function App() {
                 <MatchSearch onPick={setPick} />
 
                 {browse
-                  ? <HeroRail films={browse.hero} onMatches={setPick} blend={blend} />
+                  ? <HeroRail films={browse.hero} onMatches={setPick} taste={taste} />
                   : <div className="h-[min(76vh,640px)] min-h-[440px] rounded-[24px] bg-panel animate-pulse" aria-label="Loading" />}
 
-                <Shelf
-                  title={fromBlend ? 'From your blend' : 'Recommended'}
-                  aside={fromBlend
-                    ? `${blend.films.length} ${blend.films.length === 1 ? 'film' : 'films'} as one taste`
-                    : 'Highest rated across 32M ratings'}
-                  controls={<Toggle label="My blend" on={fromBlend} onChange={setFromBlend}
-                    disabled={!blend.films.length} hint="Add films to your blend first" />}
-                  onShowAll={fromBlend ? undefined : () => navigate('top50')}
-                >
-                  {recs ? recs.map((m, i) => (
-                    <PosterCard key={m.item_id ?? i} movie={m} onSelect={setPick}
-                      figure={fromBlend ? 'match' : 'rating'} />
-                  )) : <RowSkeleton />}
-                </Shelf>
+                {taste.active ? <ForYou key={who} taste={taste} onSelect={setPick} /> : (
+                  <Shelf
+                    id="for-you"
+                    title="Recommended"
+                    aside="Highest rated across 32M ratings"
+                    controls={<span className="hidden lg:inline mr-2 text-[13px] text-white/60">Like a few films and this shelf becomes yours</span>}
+                    onShowAll={() => navigate('top50')}
+                  >
+                    {recs ? recs.map((m, i) => (
+                      <PosterCard key={m.item_id ?? i} movie={m} onSelect={setPick} />
+                    )) : <RowSkeleton />}
+                  </Shelf>
+                )}
 
                 <Collections onOpen={openCollection} />
 
@@ -205,6 +219,10 @@ function App() {
                 })}
               </>
             )
+          )}
+
+          {view === 'discover' && (
+            <DiscoverPage key={who} query={describe} onQuery={setDescribe} onSelect={setPick} onSearched={taste.search} />
           )}
 
           {view === 'results' && (
@@ -254,7 +272,7 @@ function App() {
           )}
 
           {view === 'about' && (
-            <AboutPage onSelect={setPick} />
+            <AboutPage onSelect={setPick} onDiscover={discover} />
           )}
         </main>
 
@@ -268,9 +286,9 @@ function App() {
       <div aria-hidden="true" className="pointer-events-none fixed inset-1.5 md:inset-4 z-[45] rounded-[28px] shadow-[0_0_0_100vmax_#2B1FBB]" />
 
       <AnimatePresence>
-        {pick && <MatchStage key="stage" pick={pick} onClose={() => setPick(null)} blend={blend} />}
+        {pick && <MatchStage key="stage" pick={pick} onClose={() => setPick(null)} taste={taste} />}
       </AnimatePresence>
-      <ChatInterface onSelect={setPick} />
+      <ChatInterface key={who} onSelect={setPick} />
       {!booted && <Loader ready={!!browse || !!browseError} onDone={() => setBooted(true)} />}
     </div>
   );

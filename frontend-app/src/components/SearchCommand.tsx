@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Globe, Tags, User, SlidersHorizontal, Clapperboard, CornerDownLeft } from 'lucide-react';
+import { Search, Globe, Tags, User, SlidersHorizontal, Clapperboard, CornerDownLeft, Sparkles } from 'lucide-react';
 import { Movie } from '../types';
 import { Category, fetchSuggestions } from '../lib/search';
 import { cn } from '../lib/utils';
@@ -15,8 +15,16 @@ interface Props {
     /** A category row: apply its filters instead of searching for its letters. */
     onCategory: (c: Category) => void;
     onMovie: (m: Movie) => void;
+    /** A description rather than a name: send it to Discover. */
+    onDiscover?: (q: string) => void;
     className?: string;
 }
+
+/** Words that mark a description — "something like…", "films with…", "under two hours". */
+const CUE = /\b(like|feels?|something|movies?|films?|shows?|with|about|under|over|than|but|more|less|tonight|where|who|set in|based on)\b/i;
+const words = (q: string) => q.trim().split(/\s+/).filter(Boolean).length;
+/** Whether to offer Discover, and whether it is the likelier meaning. */
+const describes = (q: string) => ({ offer: words(q) >= 3 || (words(q) >= 2 && CUE.test(q)), prefer: words(q) >= 3 && CUE.test(q) });
 
 const KIND_ICON = {
     genre: Clapperboard,
@@ -38,7 +46,7 @@ const KIND_LABEL = {
  * titles, which open a film. Typing "rom" should be able to mean *Romance* —
  * matching only against titles is what made a genre impossible to search for.
  */
-const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, className }: Props) => {
+const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, onDiscover, className }: Props) => {
     const [cats, setCats] = useState<Category[]>([]);
     const [titles, setTitles] = useState<Movie[]>([]);
     const [open, setOpen] = useState(false);
@@ -46,11 +54,18 @@ const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, classNa
     const boxRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // One flat list, so the arrow keys walk both groups without special cases.
+    const desc = onDiscover ? describes(value) : { offer: false, prefer: false };
+    const lead = desc.offer ? 1 : 0;
+
+    // One flat list, so the arrow keys walk every group without special cases.
     const rows = useMemo(
-        () => [...cats.map(c => ({ kind: 'cat' as const, c })),
+        () => [...(desc.offer ? [{ kind: 'discover' as const, q: value.trim() }] : []),
+        ...cats.map(c => ({ kind: 'cat' as const, c })),
         ...titles.map(m => ({ kind: 'title' as const, m }))],
-        [cats, titles]);
+        [desc.offer, value, cats, titles]);
+
+    // A description puts Discover under the cursor, so Enter goes there.
+    useEffect(() => { setCursor(desc.prefer ? 0 : -1); }, [desc.prefer, cats, titles]);
 
     useEffect(() => {
         const q = value.trim();
@@ -58,7 +73,7 @@ const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, classNa
         const ctrl = new AbortController();
         const t = setTimeout(() => {
             fetchSuggestions(q, ctrl.signal)
-                .then(d => { setCats(d.categories); setTitles(d.titles.slice(0, 6)); setCursor(-1); })
+                .then(d => { setCats(d.categories); setTitles(d.titles.slice(0, 6)); })
                 .catch(() => { });
         }, 140);
         return () => { clearTimeout(t); ctrl.abort(); };
@@ -76,7 +91,9 @@ const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, classNa
         const r = rows[i];
         if (!r) return;
         setOpen(false);
-        if (r.kind === 'cat') onCategory(r.c); else onMovie(r.m);
+        if (r.kind === 'discover') onDiscover?.(r.q);
+        else if (r.kind === 'cat') onCategory(r.c);
+        else onMovie(r.m);
     };
 
     const onKey = (e: React.KeyboardEvent) => {
@@ -136,10 +153,34 @@ const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, classNa
                         className="absolute top-full mt-2 left-0 right-0 min-w-[min(100%,22rem)] z-50 max-h-[26rem] overflow-y-auto
                                    bg-black border border-white/12 rounded-[20px] shadow-[0_24px_60px_-12px_rgba(0,0,0,.9)] py-2"
                     >
-                        {cats.length > 0 && (
-                            <div className="px-4 pt-1.5 pb-1 text-[12px] text-white/50">Categories</div>
+                        {desc.offer && (
+                            <button
+                                role="option"
+                                aria-selected={cursor === 0}
+                                onMouseEnter={() => setCursor(0)}
+                                onClick={() => choose(0)}
+                                className={cn(
+                                    'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                                    cursor === 0 ? 'bg-white/[0.08]' : 'hover:bg-white/[0.05]',
+                                )}
+                            >
+                                <span className="w-9 h-9 shrink-0 rounded-full bg-violet grid place-items-center text-white">
+                                    <Sparkles className="w-4 h-4" />
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                    <span className="block text-white font-medium text-[14px] truncate">Discover “{value.trim()}”</span>
+                                    <span className="block text-[12px] text-white/50 truncate">Find films that fit the description</span>
+                                </span>
+                                {cursor === 0 && <CornerDownLeft className="w-3.5 h-3.5 text-white/50 shrink-0" />}
+                            </button>
                         )}
-                        {cats.map((c, i) => {
+
+                        {cats.length > 0 && (
+                            <div className={cn('px-4 pt-1.5 pb-1 text-[12px] text-white/50',
+                                desc.offer && 'border-t border-white/10 mt-1.5 pt-2.5')}>Categories</div>
+                        )}
+                        {cats.map((c, k) => {
+                            const i = lead + k;
                             const Icon = KIND_ICON[c.kind] ?? Tags;
                             return (
                                 <button
@@ -169,12 +210,12 @@ const SearchCommand = ({ value, onChange, onSearch, onCategory, onMovie, classNa
 
                         {titles.length > 0 && (
                             <div className={cn('px-4 pt-2.5 pb-1 text-[12px] text-white/50',
-                                cats.length > 0 && 'border-t border-white/10 mt-1.5')}>
+                                (cats.length > 0 || desc.offer) && 'border-t border-white/10 mt-1.5')}>
                                 Films
                             </div>
                         )}
                         {titles.map((m, j) => {
-                            const i = cats.length + j;
+                            const i = lead + cats.length + j;
                             return (
                                 <button
                                     key={m.item_id ?? m.tmdbId}

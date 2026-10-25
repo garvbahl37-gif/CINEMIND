@@ -2,7 +2,9 @@
 
 A film recommendation engine over **17,719 films** and **32 million ratings**.
 Item-item collaborative filtering blended with a two-tower neural network, then
-reranked against what the films are actually about.
+reranked against what the films are actually about. Describe a film in plain
+words and it finds the ones that fit; like a few and an adaptive engine learns
+your taste — measured against the baselines on held-out ratings, not assumed.
 
 **Live:** https://cinemind-theta.vercel.app
 
@@ -21,6 +23,10 @@ Alien (1979)                  →  Aliens · Alien³ · Alien: Resurrection · T
 - [How recommendations are built](#how-recommendations-are-built)
 - [Search and filtering](#search-and-filtering)
 - [The film assistant](#the-film-assistant)
+- [Describing a film](#describing-a-film)
+- [For you: the adaptive engine](#for-you-the-adaptive-engine)
+- [Evaluation](#evaluation)
+- [Profiles and privacy](#profiles-and-privacy)
 - [Architecture](#architecture)
 - [The ID-mapping bug](#the-id-mapping-bug)
 - [Performance](#performance)
@@ -161,6 +167,7 @@ states is one the API itself would return, and a reply takes milliseconds.
 | `who directed it?` · `who's in it` · `how long is it` · `is it any good` | The fact, about the film already under discussion |
 | `is alien a horror movie` | Yes or no, from its genres and tags |
 | `films like inception but funnier` · `older ones` · `darker ones` | The film's neighbours, then their neighbours, filtered by the mood |
+| `something uplifting under two hours` · `a heist that isn't too violent` | Discovery — see [Describing a film](#describing-a-film) |
 | `films between heat and drive` | A blend of both films' neighbourhoods |
 | `tom hanks movies` · `films by miyazaki` | A person's films, best rated first |
 | `90s horror` · `recommend me something funny` | A category, best rated first |
@@ -174,6 +181,176 @@ spelling (`incepshun` → *Inception*). When a title the query begins is ten tim
 better known than an exact match, it wins: `lord of the rings` means Peter
 Jackson's, not the 1978 animated film.
 
+## Describing a film
+
+`GET /api/discover?q=` takes a sentence instead of a title:
+
+```
+Movies that feel like Interstellar but are more emotional
+  → Like Interstellar · more emotional
+  → Her · The Theory of Everything · Up · Intouchables · Gravity
+
+Psychological thrillers with unreliable narrators and a shocking ending
+  → Thriller · psychological unreliable narrators shocking ending
+  → The Game · Shutter Island · Memento · The Prestige
+
+Something uplifting under two hours for tonight
+  → Under 2 hours · uplifting
+  → Intouchables · August Rush · Life Is Beautiful · About a Boy
+
+A heist movie that isn't too violent
+  → Less violent · heist
+  → Rififi · Heist · Bandits · Out of Sight · Thief · The Town
+```
+
+1. **Read the sentence.** Runtime (`under two hours`, `not too long`), era
+   (`from the 2000s`, `classics`), language (`korean`, `in french`) and genre
+   become filters. Exclusions are read before inclusions, so `nothing scary`
+   removes Horror instead of adding it, and `isn't too violent` steers away
+   from violence instead of towards it. A film after `like`, `feels like` or
+   `than` becomes an anchor — but `longer than two hours` stays a runtime.
+   Curly apostrophes are straightened first, because phones type them.
+2. **Embed the mood.** What is left is encoded by
+   [Model2Vec](https://github.com/MinishLab/model2vec) `potion-base-8M`, a
+   256-dimension static sentence model distilled from a transformer. It is
+   reimplemented in NumPy in `api/_semantic.py` — BERT normalisation,
+   WordPiece, mean pooling — and verified against the library at build time
+   (identical token ids, cosine ≥ 0.9995). Words it spells badly, like *heist*
+   (`he` + `##ist`), are also read through the films viewers tagged with them.
+3. **Rank by meaning.** Every film's genres, tags and synopsis sit in the same
+   space. Anchors add what their audience also loved (two-tower and the
+   co-rating graph); the mood leans the ranking towards it; a quality prior
+   breaks ties. When genres leave fewer than twelve films, genre turns into a
+   preference and the response says so.
+
+Each result carries `why` — the anchor it shares an audience with, the tags that
+match, its runtime — and the response returns `understood`, the reading as
+chips, so the interface can show *I read that as …*. The film assistant hands
+descriptive messages to the same code.
+
+## For you: the adaptive engine
+
+`POST /api/foryou` turns what one browser has done into a ranked shelf:
+
+```
+signals ─▶ taste ─▶ candidates ─▶ rerank ─▶ picks + evidence ─▶ feedback log
+```
+
+| Stage | What happens |
+|---|---|
+| **Signals** | Like 1.0 · watchlist 0.6 · opened 0.25 · rating (r−3)/2 · not for me −1, plus searches from Discover. The latest stance on a film wins. |
+| **Taste** | The two-tower user tower reads your likes twice: decayed over a year (long-run) and over three days (lately). Recent activity gets up to 40% of the say, reached at about five fresh likes — that is preference drift. |
+| **Candidates** | Nearest films in the two-tower space, co-rating neighbours of what you liked, films that fit your Discover searches, and a pool of well-rated films. |
+| **Rerank** | z-scored blend of those sources, a quality prior, a penalty for resembling films you passed on, and maximal marginal relevance so one niche can't fill the row. |
+| **Exploration** | `explore` (0–1, the *Adventurousness* slider, default 0.3) spends round(k · 0.35 · explore) slots on relevant, well-rated films outside your usual genres or far from your likes. They are *sampled*, not ranked, and each carries the probability it was shown with. |
+| **Evidence** | Every pick says why (`Because you liked …` cites only films you liked), with a confidence built from where it ranks among the candidates, how many of your likes support it and how many ratings it has — scaled down for exploration. |
+| **Feedback** | The browser logs what was shown, where, whether it was exploration, its propensity, and whether it was opened or liked — the record counterfactual evaluation needs. |
+
+The two-tower model is retrained for this (`pipelines/train_two_tower.py`): the
+user tower is a mean over liked films plus a residual MLP, so it needs no
+per-user parameters; the item tower adds a projection of each film's sentence
+embedding to its ID embedding. In-batch softmax at τ = 0.07 with a logQ
+correction, trained on pre-2016 likes only. Half the examples use a 1–10 film
+history, because that is what a browser has: trained on long histories alone, a
+single like of *The Dark Knight* landed among *2 Fast 2 Furious* and
+*Police Academy 2*; now it lands on *Batman Begins*, *The Dark Knight Rises*
+and *Inception*. Validation recall@20 (inside the training period): 0.170 from a
+full history, 0.208 from the last three likes.
+
+Same inputs on the same day give the same list, so a reload doesn't reshuffle.
+Serving is NumPy: about 6 ms per request.
+
+## Evaluation
+
+`pipelines/evaluate.py` compares the recommenders on the same held-out data and
+writes `data/artifacts/eval.json`, which the *How it works* page draws from.
+
+**Split.** Temporal, at 2016-01-01: 20.8M MovieLens ratings before it to learn
+from, 8.9M after it to test on. 3,000 people drawn from the 5,983 with ten or
+more likes before the cutoff and three or more new ones after. A later rating of
+4★ or more on a film they hadn't rated is a hit. The co-rating graph is rebuilt
+from training ratings with the production formula, because the shipped graph
+saw all 32M.
+
+| Policy | Recall@20 (95% CI) | NDCG@20 | Hit rate@10 | Coverage | Beyond top 1,000 |
+|---|---|---|---|---|---|
+| Most popular | 0.139 (0.134–0.145) | 0.144 | 54.1% | 1.8% | 0.0% |
+| Item-item CF | 0.201 (0.194–0.207) | 0.204 | 67.0% | 4.6% | 1.8% |
+| Two-tower alone | 0.133 (0.127–0.138) | 0.129 | 53.9% | 26.3% | 67.9% |
+| **Adaptive engine** | **0.224 (0.216–0.230)** | **0.227** | **72.8%** | 14.3% | 19.8% |
+
+The adaptive engine beats item-item CF by **+2.3 recall points** (paired 95%
+interval +1.9 to +2.7) while recommending three times as much of the catalogue.
+The two-tower model alone ranks worse than CF but reaches far more of the long
+tail; combined, each covers the other's weakness.
+
+**Ablations** — each part switched off for the same 3,000 people, compared
+person by person:
+
+| Switched off | Recall change (paired 95% CI) | Reading |
+|---|---|---|
+| Diversity pass | −0.30 pts (−0.48 to −0.10) | helps |
+| Passes and low ratings | −0.28 pts (−0.43 to −0.15) | helps |
+| Drift | +0.15 pts (−0.03 to +0.34) | no measurable effect |
+| Exploration | +1.08 pts (+0.93 to +1.27) | costs recall offline, by design |
+
+Drift shows nothing here, and this split can't really test it: the test period
+runs to 2023 and recency is measured from each person's last rating before
+2016. Exploration costs a point because offline recall only rewards films people
+already went on to rate — it counts the slots exploration spends and none of
+what it learns. That is the case for logging propensities.
+
+**Counterfactual evaluation.** 30,000 simulated impressions from a
+popularity-leaning logging policy with known probabilities, ten per person over
+a candidate set of each policy's top 100 plus random films. Each estimator
+predicts how often a policy's single pick (from its own top 10, rank-weighted,
+with 5% spread for overlap) would be a later favourite; the truth is computed
+exactly.
+
+| Policy | Truth | IPS | SNIPS | DM | DR (95% CI) | Effective logs |
+|---|---|---|---|---|---|---|
+| Most popular | 0.144 | 0.157 | 0.153 | 0.127 | 0.153 (0.139–0.168) | 3,032 |
+| Item-item CF | 0.201 | 0.229 | 0.222 | 0.186 | 0.223 (0.206–0.242) | 2,176 |
+| Two-tower alone | 0.122 | 0.126 | 0.115 | 0.076 | 0.130 (0.102–0.160) | 27 |
+| Adaptive engine | 0.221 | 0.238 | 0.232 | 0.149 | 0.233 (0.210–0.259) | 1,252 |
+
+IPS, SNIPS and doubly robust put the four policies in their true order (Kendall
+τ = 1), though they mostly read high, by up to 14%; the direct method, which trusts a reward
+model alone, reads every policy low and swaps two of them (τ = 0.67). Overlap
+decides everything: the two-tower policy picks films the logging policy rarely
+showed, so its estimate rests on 27 effective logs.
+
+**What these numbers can't tell you.** A film not rated after the cutoff counts
+as a miss, though the person may never have seen it — MovieLens ratings are
+missing not at random. The logging policy is simulated; slates and position
+effects are not modelled. Viewer tags were collected up to 2023, a small
+content-side leak into the test period. These are comparisons between methods on
+the same data, not predictions of live click-through.
+
+```bash
+python pipelines/evaluate.py --ml32m data/raw/ml-32m --users 3000   # ~2 min
+```
+
+## Profiles and privacy
+
+There are no accounts, and the server stores nothing about anyone.
+
+- **Per browser.** Taste lives in `localStorage`, so another browser, device or
+  private window starts empty. Only the active profile's signals are sent, with
+  no name, id or cookie attached.
+- **Per person.** People sharing a browser each get a profile (the + in the
+  taste tray), stored under its own key, `cinemind.taste.v1.<id>`. Switching remounts
+  the picks, Discover and the assistant, so nothing from the last person stays
+  on screen; deleting a profile deletes its data.
+- **Per tab.** Two tabs of the same profile merge through `storage` events
+  instead of overwriting each other.
+- **No shared caches.** `/api/foryou` and `/api/chat/message` answer with
+  `Cache-Control: private, no-store`. Discovery stays publicly cacheable,
+  because its answer depends on the words alone.
+- **Tested.** `tests/test_discovery_and_adaptive.py` checks that one person's
+  request cannot change what the next person gets, and that non-finite numbers
+  are refused with a 422 rather than quietly erasing a signal.
+
 ## Architecture
 
 ```
@@ -186,6 +363,9 @@ TMDB          ──> posters, credits ─┘         (offline, ~20 min)
                                                neighbors.npz  1.5 MB
                                                item_vectors.npy
                                                browse.json
+potion-base-8M ─> build_semantic.py ──────────>  semantic_*.npy  24 MB
+ML-32M < 2016 ──> train_two_tower.py ─────────>  tower_*.npy/npz 4.4 MB
+ML-32M split ───> evaluate.py ────────────────>  eval.json
                                                    │
                      Vercel Python Function  <─────┘   NumPy only — no torch,
                               api/index.py             no FAISS at request time
@@ -244,6 +424,8 @@ Measured against production:
 | `GET /api/search` | **2–16 ms** |
 | `GET /api/suggest` | **~9 ms** |
 | `GET /api/browse` | **~22 ms** |
+| `GET /api/discover` | **2–6 ms** (measured locally) |
+| `POST /api/foryou` | **~6 ms** (measured locally) |
 
 Every ranking is precomputed, so a similar-items request is an array slice. The
 previous implementation ran an O(n) scan plus a blocking call to a hosted LLM on
@@ -266,7 +448,10 @@ Interactive schema at [`/docs`](https://cinemind-theta.vercel.app/docs).
 | `GET /api/suggest?q=` | Typeahead — categories and titles |
 | `GET /api/categories` | The filter vocabulary: genres, decades, languages with counts |
 | `GET /api/top50` | Bayesian-ranked top 50 |
-| `POST /api/blend` | Recommendations from several films at once — a taste profile |
+| `POST /api/blend` | Recommendations from several films at once |
+| `GET /api/discover?q=&limit=` | Films that fit a description, each with `why`, plus the reading as `understood` |
+| `POST /api/foryou` | The adaptive engine: `{signals, searches, explore, k}` → picks with `reason`, `evidence`, `confidence`, `exploring`, `propensity` |
+| `GET /api/evaluation` | The offline comparison in `eval.json` |
 | `POST /api/chat/message` | The film assistant: `{message, context?}` → `{response, recommendations, focus, follow_ups}` |
 
 ### Search parameters
@@ -300,12 +485,19 @@ api/
   index.py            FastAPI app — every endpoint
   _engine.py          NumPy serving engine: search, filters, facets, neighbours
   _chat.py            The film assistant
+  _semantic.py        Model2Vec sentence encoder, in NumPy
+  _discover.py        Natural-language discovery
+  _tower.py           The two-tower user tower, in NumPy
+  _adaptive.py        The adaptive engine: profile, drift, candidates, rerank, exploration
 pipelines/
   build_artifacts.py  The whole offline build, including encoder recovery
   repair_tv_metadata.py  Fixes items whose TMDB data belonged to another title
+  build_semantic.py   Converts and verifies the sentence model; embeds every film
+  train_two_tower.py  Retrains the two-tower model on pre-2016 likes
+  evaluate.py         Baselines vs two-tower vs adaptive on held-out ratings
   fetch_data.sh       Downloads MovieLens 20M + 32M
   requirements-build.txt
-tests/                Search and assistant behaviour, run against the artifacts
+tests/                Search, assistant, discovery, adaptive and API behaviour
 data/artifacts/       Generated — committed so the deploy needs no build step
 models/
   best_model.pt       Two-tower checkpoint (75 MB, excluded from deploys)
@@ -316,6 +508,8 @@ frontend-app/
   src/components/     MatchStage, HeroRail, Collections, Shelf, MatchSearch, …
   src/lib/api.ts      One normaliser for every endpoint's films
   src/lib/search.ts   Single client for the search API
+  src/lib/taste.ts    Likes, passes, watchlist, searches and the feedback log
+  src/lib/profiles.ts Who is watching: one storage slot per profile
 requirements.txt      Serving dependencies only — fastapi, pydantic, numpy
 vercel.json           Build, function config and /api rewrites
 ```
@@ -343,6 +537,12 @@ python pipelines/build_artifacts.py \
   --ml20m data/raw/ml-20m --ml32m data/raw/ml-32m \
   --index models/production.index
 
+# 2b. the semantic layer, two-tower model and evaluation (optional)
+huggingface-cli download minishlab/potion-base-8M --local-dir data/raw/potion-base-8M
+python pipelines/build_semantic.py --model-dir data/raw/potion-base-8M
+python pipelines/train_two_tower.py --ml32m data/raw/ml-32m          # ~3 min on a laptop CPU
+python pipelines/evaluate.py --ml32m data/raw/ml-32m --users 3000    # ~2 min
+
 # 3. API on :8000
 pip install -r requirements.txt
 uvicorn index:app --app-dir api --reload --port 8000
@@ -352,7 +552,7 @@ cd frontend-app && npm install
 API_PROXY=http://localhost:8000 npm run dev    # proxies /api; defaults to the deployed API
 
 # 5. tests, from the repo root, against the pinned serving dependencies
-cd .. && pip install pytest && pytest tests/
+cd .. && pip install pytest httpx && pytest tests/
 ```
 
 > **Pin your serving dependencies.** `requirements.txt` pins

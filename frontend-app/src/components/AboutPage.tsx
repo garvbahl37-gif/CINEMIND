@@ -7,6 +7,7 @@ import ProjectFlowchart from './ProjectFlowchart';
 import PosterCard from './PosterCard';
 import { Ground } from './Collections';
 import { Rays } from './Marks';
+import { AdaptiveNote, DiscoveryNote, EvaluationNote } from './EngineNotes';
 
 /** Sense and Sensibility — the film the ID-mapping bug was caught on. */
 const CASE_ITEM = 16;
@@ -80,11 +81,11 @@ const STACK = [
     {
         where: 'On every request',
         tools: ['FastAPI', 'NumPy'],
-        note: 'Artifacts load once per warm instance. A match lookup is an array slice — no PyTorch, no FAISS and no search at request time.',
+        note: 'Artifacts load once per warm instance. A match lookup is an array slice; a description runs a sentence encoder rewritten in NumPy; your picks take about 6 ms. No PyTorch or FAISS at request time.',
     },
     {
         where: 'At build time only',
-        tools: ['PyTorch', 'FAISS', 'pandas', 'SciPy'],
+        tools: ['PyTorch', 'FAISS', 'Model2Vec', 'pandas', 'SciPy'],
         note: 'About twenty minutes, offline. The build checks its own output across the whole catalogue and refuses to write artifacts that fail.',
     },
     {
@@ -133,7 +134,7 @@ const WeightsChart = () => {
     );
 };
 
-const AboutPage = ({ onSelect }: { onSelect: (m: Movie) => void }) => {
+const AboutPage = ({ onSelect, onDiscover }: { onSelect: (m: Movie) => void; onDiscover?: (q: string) => void }) => {
     const [caseFilm, setCaseFilm] = useState<{ source: Movie; matches: Movie[] } | null>(null);
 
     useEffect(() => {
@@ -148,8 +149,9 @@ const AboutPage = ({ onSelect }: { onSelect: (m: Movie) => void }) => {
                 <Ground look="ultra" />
                 <h1 className="relative display text-[clamp(52px,10vw,148px)] max-w-[11ch]">Inside the system</h1>
                 <p className="relative mt-6 max-w-[54ch] text-[17px] md:text-[19px] leading-[1.5] text-white/85">
-                    How 32 million ratings become 24 matches for every film. All of it is worked out ahead of time,
-                    so asking for a film's matches costs about a millisecond.
+                    How 32 million ratings become 24 matches for every film, picks that learn from what you like,
+                    and answers to a film described in plain words. The heavy lifting happens ahead of time, so
+                    each request takes milliseconds.
                 </p>
                 <dl className="relative mt-auto pt-10 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-6">
                     {FIGURES.map(([v, k]) => (
@@ -181,6 +183,18 @@ const AboutPage = ({ onSelect }: { onSelect: (m: Movie) => void }) => {
 
             <Panel title="How the rerank weighs it" aside="Six signals, one weighted sum">
                 <WeightsChart />
+            </Panel>
+
+            <Panel title="Describe it" aside="Search by feeling, not just by title">
+                <DiscoveryNote onDiscover={onDiscover} />
+            </Panel>
+
+            <Panel title="Learns as you go" aside="The adaptive engine behind For you">
+                <AdaptiveNote />
+            </Panel>
+
+            <Panel title="Measured, not assumed" aside="Four recommenders, one held-out test">
+                <EvaluationNote />
             </Panel>
 
             <Panel title="Checked before it ships" aside="The build verifies all 17,719 films before it writes anything">

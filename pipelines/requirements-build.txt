@@ -5,3 +5,7 @@ scipy>=1.14
 faiss-cpu>=1.8
 torch>=2.4
 requests>=2.32
+# The semantic layer: converting and verifying the sentence model.
+model2vec>=0.6
+safetensors>=0.4
+huggingface_hub>=0.24

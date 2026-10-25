@@ -11,8 +11,8 @@ export default {
             colors: {
                 // The frame: the electric ultramarine the whole app sits inside.
                 ultra: { DEFAULT: "#2B1FBB", hi: "#4636F0", deep: "#170E78" },
-                // Second action colour — adding a film to your blend.
-                violet: { DEFAULT: "#8A16D4", hi: "#A23BEA" },
+                // Second action colour — your taste: likes, and picks made from them.
+                violet: { DEFAULT: "#8A16D4", hi: "#A23BEA", soft: "#C9A2F2" },
                 // Only the match stage glows red.
                 blood: { DEFAULT: "#BB0001", deep: "#4A0000" },
                 ink: "#000000",

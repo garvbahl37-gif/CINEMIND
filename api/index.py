@@ -7,6 +7,7 @@ instance and reused across requests.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 import time
@@ -18,13 +19,17 @@ from typing import List, Optional
 # function's own directory is not on sys.path by default.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from _adaptive import Adaptive, Signal
 from _chat import Assistant
-from _engine import get_engine
+from _discover import Discover
+from _engine import ART, get_engine
 
 app = FastAPI(
     title="CINEMIND API",
@@ -46,7 +51,19 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=800)
 
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(request: Request, exc: RequestValidationError):
+    # The default handler echoes each bad value back, and a NaN or Infinity
+    # can't be written as JSON — so a 422 turned into a 500. Say where and why.
+    return JSONResponse(status_code=422, content={"detail": [
+        {"loc": [str(x) for x in err.get("loc", ())], "msg": err.get("msg", ""), "type": err.get("type", "")}
+        for err in exc.errors()]})
+
 CACHE = "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800"
+# For answers built from what one person sent — their likes, their messages.
+# No shared cache may keep them, so one person's picks are never served to another.
+PERSONAL = "private, no-store, max-age=0"
 
 
 def _cache(r: Response, v: str = CACHE):
@@ -259,6 +276,105 @@ async def legacy_search(response: Response, f: dict = Depends(filters)):
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
 
 
+# ============================================================
+# Natural-language discovery and the adaptive engine
+# ============================================================
+
+@lru_cache(maxsize=1)
+def get_discover() -> Discover:
+    return Discover(get_engine())
+
+
+@lru_cache(maxsize=1)
+def get_adaptive() -> Adaptive:
+    return Adaptive(get_engine())
+
+
+@app.get("/api/discover", tags=["Discover"])
+async def discover(response: Response, q: str = Query(..., min_length=1, max_length=300),
+                   limit: int = Query(24, ge=1, le=60)):
+    """
+    Describe a film in plain words — "something uplifting under two hours",
+    "feels like Interstellar but more emotional" — and get the films that fit,
+    each with the reasons it is there and a reading of how the description was
+    understood. Sentence embeddings rank by meaning; runtime, era, language and
+    genre apply as filters.
+    """
+    t0 = time.perf_counter()
+    out = get_discover().search(q, limit)
+    _cache(response, "public, max-age=300, s-maxage=86400")
+    out["latency_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+    return out
+
+
+SIGNAL_KINDS = {"like", "skip", "watchlist", "view", "rating"}
+
+
+# Python's JSON parser accepts NaN and Infinity; one of them in a rating or a
+# timestamp would quietly erase the signal, and in `explore` it was a 500.
+class SignalIn(BaseModel):
+    item_id: int
+    kind: str
+    # A star rating, for kind == "rating"; clamped to the 0.5-5 scale.
+    value: Optional[float] = Field(None, allow_inf_nan=False)
+    # Seconds or milliseconds since the epoch; omitted means "now".
+    ts: Optional[float] = Field(None, allow_inf_nan=False)
+
+
+class SearchIn(BaseModel):
+    q: str
+    ts: Optional[float] = Field(None, allow_inf_nan=False)
+
+
+class ForYouRequest(BaseModel):
+    signals: List[SignalIn] = Field(default_factory=list)
+    searches: List[SearchIn] = Field(default_factory=list)
+    explore: float = Field(0.3, allow_inf_nan=False)
+    k: int = 24
+    exclude: List[int] = Field(default_factory=list)
+
+
+def _seconds(ts: Optional[float], now: float) -> float:
+    if ts is None or ts <= 0:
+        return now
+    return min(ts / 1000.0 if ts > 1e11 else ts, now)
+
+
+@app.post("/api/foryou", tags=["Adaptive"])
+async def for_you(req: ForYouRequest, response: Response):
+    """
+    Personal recommendations from the signals this browser has collected —
+    likes, skips, watchlist, ratings, films opened, searches. Taste lives in the
+    two-tower space, with recent signals blended in to follow drift; candidates
+    come from that space, the co-rating graph and search intent; the list is
+    reranked for relevance, quality and diversity, with a share of slots spent
+    on exploration. Each film carries its evidence, a confidence, and — for
+    exploration slots — the propensity it was shown with, for offline
+    evaluation. The server keeps nothing.
+    """
+    e = get_engine()
+    now = time.time()
+    signals = [Signal(s.item_id, s.kind, None if s.value is None else min(max(s.value, 0.5), 5.0), _seconds(s.ts, now))
+               for s in req.signals[-500:] if s.kind in SIGNAL_KINDS and 0 <= s.item_id < e.n]
+    searches = [(q.q[:200], _seconds(q.ts, now)) for q in req.searches[-20:] if q.q.strip()]
+    out = get_adaptive().recommend(
+        signals, searches, k=max(1, min(req.k, 48)), explore=min(max(req.explore, 0.0), 1.0),
+        exclude={i for i in req.exclude[:500] if 0 <= i < e.n}, now=now)
+    out["ignored_signals"] = len(req.signals[-500:]) - len(signals)
+    _cache(response, PERSONAL)
+    return out
+
+
+@app.get("/api/evaluation", tags=["Adaptive"])
+async def evaluation(response: Response):
+    """Offline evaluation of the recommenders — see pipelines/evaluate.py."""
+    path = ART / "eval.json"
+    if not path.exists():
+        raise HTTPException(404, "No evaluation has been run yet: python pipelines/evaluate.py")
+    _cache(response)
+    return json.loads(path.read_text())
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
@@ -273,7 +389,7 @@ def get_assistant() -> Assistant:
 
 
 @app.post("/api/chat/message", tags=["Chat"])
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, response: Response):
     """
     The film assistant: questions about a film, films like one (or between
     several), a person's films, or a category. Answers come from the catalogue
@@ -283,4 +399,5 @@ async def chat(req: ChatRequest):
     t0 = time.perf_counter()
     out = get_assistant().reply((req.message or "")[:500], req.context)
     out["latency_ms"] = round((time.perf_counter() - t0) * 1000, 2)
+    _cache(response, PERSONAL)
     return out
