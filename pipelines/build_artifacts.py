@@ -220,7 +220,7 @@ def build_similarity(cols, classes, index_path: Path, ml32m: Path, out: Path):
         if s0 % 4096 == 0: print(f"  {s0}/{N}")
     np.savez_compressed(out / "neighbors.npz", ids=nbr, scores=sco.astype(np.float16))
     np.save(out / "item_vectors.npy", V.astype(np.float16))
-    print(f"[sim] wrote neighbors.npz + item_vectors.npy")
+    print("[sim] wrote neighbors.npz + item_vectors.npy")
     return nbr, sco
 
 
@@ -232,7 +232,9 @@ def build_browse(cols, out: Path):
     # Bayesian average: a 4.6 from 40 voters must not outrank a 4.4 from 90,000
     C, m = ra[rc > 0].mean(), 2500.0
     bayes = (rc * ra + m * C) / (rc + m)
-    has_art = np.array([bool(p) for p in cols["poster"]])
+    # Aliases (a served film's second id) are never listed.
+    has_art = np.array([bool(p) for p in cols["poster"]]) & \
+        np.array([a is None for a in cols.get("alias_of") or [None] * N])
 
     def pack(ids):
         return [int(i) for i in ids]
@@ -250,7 +252,9 @@ def build_browse(cols, out: Path):
                                      & (rc >= 20000), bayes, -1))[:12])
     payload = {"top50": top50, "genres": genres, "tv": tv, "hero": hero,
                "bayes": [round(float(x), 3) for x in bayes]}
-    (out / "browse.json").write_text(json.dumps(payload, separators=(",", ":")))
+    tmp = out / "browse.json.tmp"           # atomic: never a half-written browse.json
+    tmp.write_text(json.dumps(payload, separators=(",", ":")))
+    tmp.replace(out / "browse.json")
     print(f"[browse] top50 + {len(genres)} genre rows + {len(tv)} tv + {len(hero)} hero")
 
 
@@ -273,6 +277,9 @@ def main():
     print(f"[tmdb] {len(credits)} cached credit records")
     cols = build_catalog(classes, a.ml20m, a.ml32m, cache, credits)
     (a.out / "catalog.json").write_text(json.dumps(cols, separators=(",", ":")))
+    # This is the original 17,719-film build; a compressed catalogue from rebuild.py would
+    # otherwise be read in its place.
+    (a.out / "catalog.json.gz").unlink(missing_ok=True)
     print(f"[catalog] wrote {(a.out/'catalog.json').stat().st_size/1e6:.1f} MB")
     build_similarity(cols, classes, a.index, a.ml32m, a.out)
     build_browse(cols, a.out)

@@ -37,7 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _engine import _LANG_NAMES, _LANGS, ART, Engine, _fold, _key, _singular
+from _engine import _LANG_NAMES, _LANGS, _STOP, ART, Engine, _fold, _key, _singular
 from _semantic import dot, get_model, item_matrix, mm
 from _tower import get_tower
 
@@ -119,6 +119,7 @@ _MOOD_LEX = {
 }
 # Tags too generic to carry meaning on their own.
 _WEAK_TAGS = {"good", "story", "plot", "ending", "time", "light", "travel", "great", "film", "movie"}
+_QUESTION = {"what", "which", "who", "whom", "how", "why", "when", "where", "you", "your", "i", "im"}
 
 _EXCLUDE = re.compile(r"\b(?:not\s+in\s+the\s+mood\s+for|anything\s+but|no|not|without|nothing|non|avoid|except|"
                       r"isn'?t|aren'?t|never)\s+(?:a\s+|an\s+|too\s+|overly\s+|very\s+|any\s+|anything\s+|something\s+)?"
@@ -203,8 +204,11 @@ class Discover:
         self.quality = np.empty(e.n, np.float32)
         self.quality[order] = np.arange(e.n) / max(e.n - 1, 1)
         self.genre_mat = {g: np.array([g in gs for gs in e.genre_of]) for g in e.genres_all}
-        self.tag_sets = [set(t.lower() for t in ts) for ts in c["tags"]]
-        self.all_tags = {t for t in set().union(*self.tag_sets) if len(e.tag_index.get(t, ())) >= 3}
+        # Catalogue tags are already lower-case: the engine's per-film sets serve as they are.
+        # A tag that is a function or question word ("what", "the") names no theme, however
+        # many films a viewer filed under it — and the larger catalogue has some.
+        self.all_tags = {t for t in set().union(*e.tag_of)
+                         if len(e.tag_index.get(t, ())) >= 3 and t not in _STOP and t not in _QUESTION}
         self.lex = {w: [t for t in ts if t in self.all_tags] for w, ts in _MOOD_LEX.items()}
 
     # -- reading ------------------------------------------------------------
@@ -453,7 +457,7 @@ class Discover:
     # -- ranking ------------------------------------------------------------
     def mask(self, r: Reading, genres: bool = True) -> np.ndarray:
         e = self.e
-        m = np.ones(e.n, bool)
+        m = ~e.hidden                       # aliases of listed films are never offered
         if r.runtime_max:
             m &= (self.runtime > 0) & (self.runtime <= r.runtime_max)
         if r.runtime_min:
@@ -499,7 +503,7 @@ class Discover:
         if r.anchors:
             # The anchors as a little history: who liked these, and what else did they like?
             anchor_tt = self.tower.user(r.anchors)
-            anchor_sem = self.X[r.anchors].mean(0)
+            anchor_sem = self.X[r.anchors].astype(np.float32).mean(0)
             anchor_sem /= np.linalg.norm(anchor_sem) or 1
             graph = np.zeros(e.n, np.float32)
             for a in r.anchors:
@@ -568,7 +572,7 @@ class Discover:
     @lru_cache(maxsize=4096)
     def _proto(self, tag: str) -> np.ndarray:
         """A tag's prototype: the mean description of every film tagged with it."""
-        v = self.X[list(self.e.tag_index[tag])].mean(0)
+        v = self.X[list(self.e.tag_index[tag])].astype(np.float32).mean(0)
         return v / (np.linalg.norm(v) or 1)
 
     def _mood_vector(self, text: str, direct: list[str], related: list[str]) -> np.ndarray | None:

@@ -5,7 +5,7 @@
  * request, so they build the same URL through here rather than each assembling
  * their own — which is how the two ends of a faceted search usually drift apart.
  */
-import { API_BASE } from '../config';
+import { versioned } from '../config';
 import { Movie } from '../types';
 import { toMovie } from './api';
 
@@ -84,7 +84,7 @@ export async function searchFilms(
         if (filters.sort !== 'relevance') p.set('sort', filters.sort);
     }
 
-    const res = await fetch(`${API_BASE}/api/search?${p}`, { signal: opts.signal });
+    const res = await fetch(versioned(`/api/search?${p}`), { signal: opts.signal });
     if (!res.ok) throw new Error(`Search failed: ${res.status}`);
     const d = await res.json();
 
@@ -103,13 +103,13 @@ export async function searchFilms(
 }
 
 export async function fetchCategories(): Promise<Facets> {
-    const res = await fetch(`${API_BASE}/api/categories`);
+    const res = await fetch(versioned('/api/categories'));
     if (!res.ok) throw new Error(`Categories failed: ${res.status}`);
     return res.json();
 }
 
 export async function fetchSuggestions(q: string, signal?: AbortSignal) {
-    const res = await fetch(`${API_BASE}/api/suggest?q=${encodeURIComponent(q)}`, { signal });
+    const res = await fetch(versioned(`/api/suggest?q=${encodeURIComponent(q)}`), { signal });
     if (!res.ok) throw new Error(`Suggest failed: ${res.status}`);
     const d = await res.json();
     return {

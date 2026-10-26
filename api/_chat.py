@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import difflib
 import re
+from collections import Counter
 
 import numpy as np
 
@@ -170,21 +171,38 @@ class Assistant:
     def __init__(self, e: Engine):
         self.e = e
         c = e.c
+        # How far the catalogue reaches, for "is it here?" answers: the newest
+        # year with ratings, since a film nobody has rated yet says little — and
+        # with a hundred rated films, since MovieLens lists a few films before
+        # release (Wicked was rated in 2023 under its 2024 date).
+        rated = Counter(y for y, r in zip(c["year"], c["rc"]) if y and r)
+        self.latest = max((y for y, k in rated.items() if k >= 100), default=None) \
+            or max(rated, default=None) or max(y for y in c["year"] if y)
         # Percentile of each film's Bayesian rating, for "is it any good?".
         order = np.argsort(e.bayes, kind="stable")
         self.pct = np.empty(e.n, np.float32)
         self.pct[order] = np.arange(e.n) / max(e.n - 1, 1)
-        # Who directed what, and who acted in what — kept apart for roles.
-        self.directed: dict[str, set[int]] = {}
-        self.acted: dict[str, set[int]] = {}
+        # Who directed what, and who acted in what — kept apart for roles. Tuples of
+        # film ids, not sets: a quarter of a million people, most with a film or two.
+        directed: dict[str, list[int]] = {}
+        acted: dict[str, list[int]] = {}
         self.person_name: dict[str, str] = {}
         for i in range(e.n):
+            if e.hidden[i]:
+                continue
             for nm in c["directors"][i] or []:
-                self.directed.setdefault(_fold(nm), set()).add(i)
+                ids = directed.setdefault(_fold(nm), [])
+                if not ids or ids[-1] != i:
+                    ids.append(i)
                 self.person_name[_fold(nm)] = nm
             for nm in c["cast"][i] or []:
-                self.acted.setdefault(_fold(nm), set()).add(i)
+                ids = acted.setdefault(_fold(nm), [])
+                if not ids or ids[-1] != i:
+                    ids.append(i)
                 self.person_name[_fold(nm)] = nm
+        self.directed = {k: tuple(v) for k, v in directed.items()}
+        self.acted = {k: tuple(v) for k, v in acted.items()}
+        del directed, acted
         self._all_keys = list(e.key_index)
         self._discover = None
         self._people = list(self.person_name)
@@ -238,7 +256,10 @@ class Assistant:
         if pre and (e.c["rc"][pre[0]] or 0) >= 1000:
             return pre[0], "prefix"
         if len(k) >= 5:
-            close = difflib.get_close_matches(k, self._all_keys, n=6, cutoff=0.86)
+            # A short title is too easy to misread: "anora" is one letter from
+            # Nora (2000), a different film. Below seven letters a spelling has
+            # to be nearly exact before it stands in for the title asked about.
+            close = difflib.get_close_matches(k, self._all_keys, n=6, cutoff=0.86 if len(k) >= 7 else 0.93)
             fuzzy = rank([i for kk in close for i in e.key_index[kk]])
             if fuzzy:
                 return fuzzy[0], "fuzzy"
@@ -352,7 +373,7 @@ class Assistant:
             return self._out("Name a film you liked, or a genre and a decade, and I'll take it from there.")
         if _GREETING.match(f):
             return self._out("Hi. Ask me about any film — what it's about, who made it, whether it's any good — "
-                             "or for films like one you loved. I know 17,719 films, up to 2015.",
+                             f"or for films like one you loved. I know {self.e.n:,} films, up to {self.latest}.",
                              follow=["Tell me about Heat", "Films like Spirited Away", "90s horror"])
         if _HELP.match(f):
             return self._help()
@@ -473,7 +494,9 @@ class Assistant:
             return None
         d = self.discover
         r = d.read(raw)
-        direct, related = d._mood_tags(r.mood)
+        # Themes named in the message — but not chatter: "tell me a joke" is not asking for films
+        # tagged "joke".
+        direct, related = ([t for t in ts if t not in _CHATTER] for ts in d._mood_tags(r.mood))
         cue = _DESCRIBE.search(f)
         useful = (r.runtime_min or r.runtime_max
                   # "something that isn't scary": a category answer would serve Horror.
@@ -662,7 +685,7 @@ class Assistant:
         if sims:
             parts.append(f"If you like it, the closest films are {_join([self.name(s['item_id']) for s in sims[:3]])}.")
         if (c["rc"][i] or 0) < 300:
-            parts.append("If you meant a newer film with this title: the catalogue ends in 2015.")
+            parts.append(f"If you meant a newer film with this title: the catalogue ends in {self.latest}.")
         title = _display(c["title"][i])
         return self._out(" ".join(parts), [i] + [s["item_id"] for s in sims],
                          scores=[None] + [s.get("score") for s in sims], focus=i,
@@ -747,7 +770,7 @@ class Assistant:
 
     def _person(self, who: str, mods) -> dict:
         e = self.e
-        d, a = self.directed.get(who, set()), self.acted.get(who, set())
+        d, a = set(self.directed.get(who, ())), set(self.acted.get(who, ()))
         nm = self.person_name.get(who, who.title())
         ids = sorted(d | a, key=lambda i: -e.bayes[i])
         if mods:
@@ -846,7 +869,8 @@ class Assistant:
         text = f"I couldn't find a film called “{s}”."
         if near:
             text += f" The closest titles I have are {_join([self.name(i) for i in near], 'and')}."
-        text += " The catalogue covers 17,719 films from MovieLens up to 2015, so newer releases aren't here."
+        text += (f" The catalogue covers {self.e.n:,} films from MovieLens up to {self.latest}, "
+                 "so newer releases aren't here.")
         return self._out(text, near, follow=[f"Tell me about {_display(self.e.c['title'][near[0]])}"] if near else [])
 
     def _help(self, prefix: str = "") -> dict:

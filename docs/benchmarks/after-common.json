@@ -1,0 +1,594 @@
+{
+ "generated": "2026-10-26",
+ "runtime_s": 170,
+ "dataset": "MovieLens 32M, 17,714 of the catalogue's 88,514 films as candidates",
+ "experiment": {
+  "label": "after-common",
+  "timestamp": "2026-10-26T07:13:25Z",
+  "code": {
+   "commit": "8291d79",
+   "uncommitted_changes": true
+  },
+  "artifacts": "data/artifacts",
+  "dataset": {
+   "name": "MovieLens 32M",
+   "checksums": [
+    "8f033867bcb4e6be8792b21468b4fa6e",
+    "links.csv",
+    "0df90835c19151f9d819d0822e190797",
+    "movies.csv",
+    "cf12b74f9ad4b94a011f079e26d4270a",
+    "ratings.csv",
+    "963bf4fa4de6b8901868fddd3eb54567",
+    "tags.csv"
+   ]
+  },
+  "split": {
+   "type": "temporal",
+   "cutoff": "2016-01-01",
+   "until": null,
+   "positive": "rating >= 4",
+   "eligible": ">= 10 positives before the cutoff and >= 3 new positives after it",
+   "candidate_universe": "data/raw/baseline-artifacts/catalog.json",
+   "availability": "only films released or rated before the cutoff are candidates or targets"
+  },
+  "seed": 42,
+  "adaptive_options": {
+   "w_tt": 0.45,
+   "w_cf": 0.3,
+   "w_sem": 0.15,
+   "w_intent": 0.25,
+   "w_quality": 0.35,
+   "mmr_scale": 3.0,
+   "neg_floor": 0.6,
+   "explore_near": 0.6
+  },
+  "catalog_films": 88514,
+  "rating_backed_films": 84408,
+  "candidate_films": 17714,
+  "films_with_training_ratings": 30239,
+  "evaluated_users": 3000,
+  "users_without_targets": 0,
+  "test_interactions": 138943,
+  "models": {
+   "two_tower": {
+    "films": 88514,
+    "content_history_branch": true,
+    "seed": 7,
+    "uniform_negatives": 4096,
+    "id_dropout": 0.3,
+    "short_history_share": 0.5,
+    "dim": 64,
+    "logq": 0.5,
+    "epochs": 4,
+    "trained": "2026-10-26",
+    "cutoff": "2016-01-01",
+    "films_with_training_data": 22499,
+    "validation_recall@20": 0.1079,
+    "validation_recall@20_last3": 0.0945,
+    "selection": {
+     "validation": "2015 likes from earlier likes; model trained on likes before 2015",
+     "id_dropout": 0.3,
+     "epoch": 4,
+     "recall@20": 0.1079,
+     "recall@20_last3": 0.0945,
+     "new_film_recall@20": 0.0003,
+     "new_film_people": 915,
+     "new_film_share_of_top20": 0.0012,
+     "grid": [
+      {
+       "id_dropout": 0.0,
+       "epoch": 1,
+       "score": 0.0746,
+       "recall@20": 0.0826,
+       "recall@20_last3": 0.0666,
+       "new_film_recall@20": 0.006575591985428051,
+       "new_film_share_of_top20": 0.2628
+      },
+      {
+       "id_dropout": 0.3,
+       "epoch": 4,
+       "score": 0.1012,
+       "recall@20": 0.1079,
+       "recall@20_last3": 0.0945,
+       "new_film_recall@20": 0.000273224043715847,
+       "new_film_share_of_top20": 0.0012
+      },
+      {
+       "id_dropout": 0.5,
+       "epoch": 6,
+       "score": 0.0981,
+       "recall@20": 0.1037,
+       "recall@20_last3": 0.0924,
+       "new_film_recall@20": 0.000273224043715847,
+       "new_film_share_of_top20": 0.0002
+      }
+     ]
+    }
+   },
+   "semantic": {
+    "built": "2026-10-26T06:22:41Z",
+    "bytes": 45319296,
+    "dim": 256,
+    "dtype": "float16",
+    "empty_rows": 0,
+    "model": "minishlab/potion-base-8M",
+    "recipe": "title. genres. tags. tags. overview",
+    "rows": 88514,
+    "sha256": "d495c6e908b5b17866faaf61c367f0fdd82e7feea305b58a35ef46485784fb47"
+   },
+   "neighbors": {
+    "basis": {
+     "collaborative": 17280,
+     "content": 23504,
+     "hybrid": 47730
+    },
+    "built": "2026-10-26T06:49:31Z",
+    "bytes": 8573513,
+    "checks": {
+     "all": {
+      "films": 88514,
+      "mean_year_gap": 6.54,
+      "share_a_genre": 0.9693
+     },
+     "collaborative": {
+      "films": 17280,
+      "mean_year_gap": 8.31,
+      "share_a_genre": 0.9563
+     },
+     "content": {
+      "films": 23504,
+      "mean_year_gap": 6.55,
+      "share_a_genre": 0.9592
+     },
+     "hybrid": {
+      "films": 47730,
+      "mean_year_gap": 5.89,
+      "share_a_genre": 0.979
+     }
+    },
+    "era_span_years": 40.0,
+    "full_evidence_raters": 20,
+    "k": 24,
+    "rows": 88514,
+    "sha256": "bb645d97e4083f3e4b83ade95445cd10ed285f45c492e0bc45619f18fa39a88e",
+    "w_era": 1.0,
+    "w_sem": 0.5,
+    "weights": {
+     "fran": 0.4,
+     "gen": 0.6,
+     "icf": 1.35,
+     "tag": 0.5,
+     "thin": 0.7,
+     "tt": 0.75
+    }
+   }
+  }
+ },
+ "split": {
+  "cutoff": "2016-01-01",
+  "train_ratings": 20841758,
+  "test_ratings": 8889782,
+  "eligible_users": 6000,
+  "evaluated_users": 3000,
+  "items": 88514,
+  "candidate_items": 17714
+ },
+ "k": 20,
+ "two_tower": {
+  "trained": "2026-10-26",
+  "films": 88514,
+  "content_history_branch": true,
+  "seed": 7,
+  "uniform_negatives": 4096,
+  "id_dropout": 0.3,
+  "short_history_share": 0.5,
+  "dim": 64,
+  "logq": 0.5,
+  "epochs": 4,
+  "cutoff": "2016-01-01",
+  "films_with_training_data": 22499,
+  "validation_recall@20": 0.1079,
+  "validation_recall@20_last3": 0.0945,
+  "selection": {
+   "validation": "2015 likes from earlier likes; model trained on likes before 2015",
+   "id_dropout": 0.3,
+   "epoch": 4,
+   "recall@20": 0.1079,
+   "recall@20_last3": 0.0945,
+   "new_film_recall@20": 0.0003,
+   "new_film_people": 915,
+   "new_film_share_of_top20": 0.0012,
+   "grid": [
+    {
+     "id_dropout": 0.0,
+     "epoch": 1,
+     "score": 0.0746,
+     "recall@20": 0.0826,
+     "recall@20_last3": 0.0666,
+     "new_film_recall@20": 0.006575591985428051,
+     "new_film_share_of_top20": 0.2628
+    },
+    {
+     "id_dropout": 0.3,
+     "epoch": 4,
+     "score": 0.1012,
+     "recall@20": 0.1079,
+     "recall@20_last3": 0.0945,
+     "new_film_recall@20": 0.000273224043715847,
+     "new_film_share_of_top20": 0.0012
+    },
+    {
+     "id_dropout": 0.5,
+     "epoch": 6,
+     "score": 0.0981,
+     "recall@20": 0.1037,
+     "recall@20_last3": 0.0924,
+     "new_film_recall@20": 0.000273224043715847,
+     "new_film_share_of_top20": 0.0002
+    }
+   ]
+  }
+ },
+ "policies": {
+  "popularity": "Most-liked films in training",
+  "item-cf": "Item-item collaborative filtering (damped co-occurrence, cosine), rebuilt from training",
+  "two-tower": "The user tower over the liked films, nearest films by the item tower",
+  "adaptive": "The production adaptive engine: drift, negatives, quality, MMR diversity, 30% adventurousness"
+ },
+ "metrics": {
+  "popularity": {
+   "recall": 0.1392,
+   "recall_ci": [
+    0.1336,
+    0.1452
+   ],
+   "ndcg": 0.1442,
+   "ndcg_ci": [
+    0.1383,
+    0.1504
+   ],
+   "recall_10": 0.1413,
+   "ndcg_10": 0.1522,
+   "precision_10": 0.1357,
+   "precision_20": 0.119,
+   "map_20": 0.0652,
+   "hit_rate_10": 0.5413,
+   "coverage": 0.0183,
+   "diversity": 0.7271,
+   "novelty": 2.347,
+   "long_tail": 0.0,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.1392,
+   "latency_ms": {
+    "p50": 0.36,
+    "p95": 0.53,
+    "p99": 0.65
+   },
+   "vs_adaptive": {
+    "recall": -0.0794,
+    "recall_ci": [
+     -0.0851,
+     -0.0738
+    ],
+    "ndcg": -0.0776,
+    "ndcg_ci": [
+     -0.0836,
+     -0.0721
+    ],
+    "significant": true
+   }
+  },
+  "item-cf": {
+   "recall": 0.201,
+   "recall_ci": [
+    0.1942,
+    0.2077
+   ],
+   "ndcg": 0.2044,
+   "ndcg_ci": [
+    0.1975,
+    0.2121
+   ],
+   "recall_10": 0.2032,
+   "ndcg_10": 0.2145,
+   "precision_10": 0.1935,
+   "precision_20": 0.1687,
+   "map_20": 0.1008,
+   "hit_rate_10": 0.672,
+   "coverage": 0.0461,
+   "diversity": 0.7255,
+   "novelty": 3.134,
+   "long_tail": 0.0186,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.201,
+   "latency_ms": {
+    "p50": 0.3,
+    "p95": 0.48,
+    "p99": 0.67
+   },
+   "vs_adaptive": {
+    "recall": -0.0176,
+    "recall_ci": [
+     -0.022,
+     -0.0134
+    ],
+    "ndcg": -0.0174,
+    "ndcg_ci": [
+     -0.0217,
+     -0.013
+    ],
+    "significant": true
+   }
+  },
+  "two-tower": {
+   "recall": 0.1675,
+   "recall_ci": [
+    0.1612,
+    0.1737
+   ],
+   "ndcg": 0.165,
+   "ndcg_ci": [
+    0.1588,
+    0.1712
+   ],
+   "recall_10": 0.1658,
+   "ndcg_10": 0.1695,
+   "precision_10": 0.1577,
+   "precision_20": 0.1403,
+   "map_20": 0.0722,
+   "hit_rate_10": 0.621,
+   "coverage": 0.1692,
+   "diversity": 0.7227,
+   "novelty": 5.929,
+   "long_tail": 0.4909,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.1675,
+   "latency_ms": {
+    "p50": 1.0,
+    "p95": 1.45,
+    "p99": 1.97
+   },
+   "vs_adaptive": {
+    "recall": -0.0511,
+    "recall_ci": [
+     -0.0564,
+     -0.0456
+    ],
+    "ndcg": -0.0568,
+    "ndcg_ci": [
+     -0.062,
+     -0.051
+    ],
+    "significant": true
+   }
+  },
+  "adaptive": {
+   "recall": 0.2186,
+   "recall_ci": [
+    0.2118,
+    0.2251
+   ],
+   "ndcg": 0.2218,
+   "ndcg_ci": [
+    0.2146,
+    0.2285
+   ],
+   "recall_10": 0.2153,
+   "ndcg_10": 0.2301,
+   "precision_10": 0.2043,
+   "precision_20": 0.1812,
+   "map_20": 0.1057,
+   "hit_rate_10": 0.723,
+   "coverage": 0.1463,
+   "diversity": 0.7153,
+   "novelty": 4.438,
+   "long_tail": 0.2341,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.2186,
+   "latency_ms": {
+    "p50": 6.54,
+    "p95": 21.84,
+    "p99": 42.05
+   }
+  },
+  "adaptive \u2212 drift": {
+   "recall": 0.2206,
+   "recall_ci": [
+    0.214,
+    0.2278
+   ],
+   "ndcg": 0.2231,
+   "ndcg_ci": [
+    0.2162,
+    0.2302
+   ],
+   "recall_10": 0.217,
+   "ndcg_10": 0.2316,
+   "precision_10": 0.2062,
+   "precision_20": 0.1827,
+   "map_20": 0.1063,
+   "hit_rate_10": 0.728,
+   "coverage": 0.1311,
+   "diversity": 0.7161,
+   "novelty": 4.337,
+   "long_tail": 0.2175,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.2206,
+   "latency_ms": {
+    "p50": 6.48,
+    "p95": 21.23,
+    "p99": 37.9
+   },
+   "vs_adaptive": {
+    "recall": 0.002,
+    "recall_ci": [
+     -0.0001,
+     0.0036
+    ],
+    "ndcg": 0.0013,
+    "ndcg_ci": [
+     -0.0005,
+     0.003
+    ],
+    "significant": false
+   }
+  },
+  "adaptive \u2212 diversity": {
+   "recall": 0.2168,
+   "recall_ci": [
+    0.2106,
+    0.2233
+   ],
+   "ndcg": 0.2207,
+   "ndcg_ci": [
+    0.213,
+    0.2274
+   ],
+   "recall_10": 0.2143,
+   "ndcg_10": 0.2295,
+   "precision_10": 0.2037,
+   "precision_20": 0.1802,
+   "map_20": 0.1055,
+   "hit_rate_10": 0.7197,
+   "coverage": 0.1398,
+   "diversity": 0.7147,
+   "novelty": 4.413,
+   "long_tail": 0.2239,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.2168,
+   "latency_ms": {
+    "p50": 6.51,
+    "p95": 22.1,
+    "p99": 39.82
+   },
+   "vs_adaptive": {
+    "recall": -0.0019,
+    "recall_ci": [
+     -0.0034,
+     -0.0004
+    ],
+    "ndcg": -0.0011,
+    "ndcg_ci": [
+     -0.002,
+     -0.0001
+    ],
+    "significant": true
+   }
+  },
+  "adaptive \u2212 exploration": {
+   "recall": 0.2303,
+   "recall_ci": [
+    0.2237,
+    0.2373
+   ],
+   "ndcg": 0.232,
+   "ndcg_ci": [
+    0.2241,
+    0.2395
+   ],
+   "recall_10": 0.2291,
+   "ndcg_10": 0.241,
+   "precision_10": 0.2177,
+   "precision_20": 0.1904,
+   "map_20": 0.1146,
+   "hit_rate_10": 0.732,
+   "coverage": 0.1139,
+   "diversity": 0.7027,
+   "novelty": 4.29,
+   "long_tail": 0.2057,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.2303,
+   "latency_ms": {
+    "p50": 5.3,
+    "p95": 13.87,
+    "p99": 21.62
+   },
+   "vs_adaptive": {
+    "recall": 0.0117,
+    "recall_ci": [
+     0.0101,
+     0.0132
+    ],
+    "ndcg": 0.0102,
+    "ndcg_ci": [
+     0.0092,
+     0.011
+    ],
+    "significant": true
+   }
+  },
+  "adaptive \u2212 negatives": {
+   "recall": 0.2169,
+   "recall_ci": [
+    0.2104,
+    0.2234
+   ],
+   "ndcg": 0.2202,
+   "ndcg_ci": [
+    0.2134,
+    0.2275
+   ],
+   "recall_10": 0.2132,
+   "ndcg_10": 0.2282,
+   "precision_10": 0.2024,
+   "precision_20": 0.1797,
+   "map_20": 0.1047,
+   "hit_rate_10": 0.7207,
+   "coverage": 0.1434,
+   "diversity": 0.7156,
+   "novelty": 4.391,
+   "long_tail": 0.2196,
+   "cold_start_share": 0.0,
+   "cold_recall": null,
+   "cold_recall_users": 0,
+   "warm_recall": 0.2169,
+   "latency_ms": {
+    "p50": 6.34,
+    "p95": 20.39,
+    "p99": 34.36
+   },
+   "vs_adaptive": {
+    "recall": -0.0017,
+    "recall_ci": [
+     -0.0031,
+     -0.0002
+    ],
+    "ndcg": -0.0017,
+    "ndcg_ci": [
+     -0.0026,
+     -0.0007
+    ],
+    "significant": true
+   }
+  }
+ },
+ "ope": null,
+ "assumptions": [
+  "A held-out positive (\u22654\u2605 after the cutoff) is a success; a film not rated afterwards counts as a miss, though the person may never have seen it. MovieLens ratings are missing not at random.",
+  "The logging policy is simulated and its propensities are known exactly. A live system must log them \u2014 CINEMIND records the probability of every exploration slot it shows.",
+  "Each logged event is one film shown to one user; slates and position effects are not modelled.",
+  "Taste is assumed stable across the cutoff, apart from what the drift model captures.",
+  "These are relative comparisons between methods on the same data, not predictions of live click-through.",
+  "Offline recall only rewards films a person went on to rate, so it can measure what exploration costs but not what it learns. That is why exploration slots log their propensities: the counterfactual estimators need them once real feedback exists.",
+  "The single temporal split tests drift only loosely: the test period runs to 2023, and recency is measured from each person's last rating before 2016, not from the moment they would see the list."
+ ],
+ "notes": [
+  "The adaptive engine runs here exactly as deployed, except that its co-rating graph is item-item CF rebuilt from training data: the production graph was built from all 32M ratings and would leak the test period.",
+  "Film descriptions use viewer tags collected up to 2023, a small content-side leak into the test period."
+ ]
+}

@@ -5,8 +5,8 @@
  * film, so nothing here calls TMDB directly — the previous cards each made
  * their own TMDB request, which on the home page was several hundred.
  */
-import { API_BASE, TMDB_IMAGE_BASE } from '../config';
-import { Movie } from '../types';
+import { API_BASE, TMDB_IMAGE_BASE, versioned } from '../config';
+import { MatchBasis, Movie } from '../types';
 import type { TasteSignal } from './taste';
 
 type Size = 'w185' | 'w342' | 'w500' | 'w780' | 'w1280' | 'original';
@@ -35,6 +35,9 @@ export const toMovie = (m: any): Movie => ({
     score: m.score ?? undefined,
     shared_genres: m.shared_genres,
     shared_tags: m.shared_tags,
+    imdb_id: m.imdb_id ?? undefined,
+    rating_backed: m.rating_backed,
+    match_basis: m.match_basis,
     why: m.why,
     reason: m.reason,
     evidence: m.evidence,
@@ -45,7 +48,7 @@ export const toMovie = (m: any): Movie => ({
 });
 
 async function get(path: string, init?: RequestInit) {
-    const res = await fetch(`${API_BASE}${path}`, init);
+    const res = await fetch(!init?.method || init.method === 'GET' ? versioned(path) : `${API_BASE}${path}`, init);
     if (!res.ok) throw new Error(`${path} returned ${res.status}`);
     // A misrouted deploy serves index.html with a 200 for every /api path, so
     // check what came back rather than trusting the status.
@@ -56,6 +59,8 @@ async function get(path: string, init?: RequestInit) {
 }
 
 export interface Browse {
+    /** Films in the catalogue. */
+    total?: number;
     hero: Movie[];
     top50: Movie[];
     tv: Movie[];
@@ -65,6 +70,7 @@ export interface Browse {
 export async function fetchBrowse(): Promise<Browse> {
     const d = await get('/api/browse');
     return {
+        total: d.total,
         hero: d.hero.map(toMovie),
         top50: d.top50.map(toMovie),
         tv: d.tv.map(toMovie),
@@ -74,7 +80,11 @@ export async function fetchBrowse(): Promise<Browse> {
 
 export async function fetchSimilar(itemId: number, k = 24, signal?: AbortSignal) {
     const d = await get(`/api/similar/${itemId}?k=${k}`, { signal });
-    return { source: toMovie(d.source), matches: (d.similar_items ?? []).map(toMovie) as Movie[] };
+    return {
+        source: toMovie(d.source),
+        matches: (d.similar_items ?? []).map(toMovie) as Movie[],
+        basis: (d.match_basis ?? 'collaborative') as MatchBasis,
+    };
 }
 
 export interface ForYou {

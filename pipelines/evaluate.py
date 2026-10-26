@@ -2,13 +2,37 @@
 Offline evaluation: baseline vs two-tower retrieval vs adaptive reranking, on
 the same held-out data — plus a counterfactual-evaluation study.
 
-    python pipelines/evaluate.py --ml32m data/raw/ml-32m [--users 3000]
+    python pipelines/evaluate.py --ml32m data/raw/ml-32m [--users 3000] [--art DIR]
+        [--universe CATALOG] [--users-file FILE] [--save-users FILE] [--label NAME] [--per-user FILE]
+        [--cutoff DATE --until DATE] [--blend JSON] [--blend-grid FILE] [--no-ope]
+
+Run it on any artifact directory, so a catalogue before and after a change can
+be compared on the same people and the same held-out ratings:
+  --users-file    evaluate exactly these userIds (the before/after population)
+  --universe      only the films of this catalogue are candidates and test
+                  targets — a common candidate universe for systems whose
+                  catalogues differ. Every policy retrieves within it: the
+                  adaptive engine's candidate sources are limited to it before
+                  any top-k cut, not filtered afterwards. Targets are matched
+                  by their own MovieLens id, so ratings filed under a duplicate
+                  id this catalogue merged into an old film don't join them
+
+And on a validation period instead of the test period, to choose settings:
+  --cutoff 2015-01-01 --until 2016-01-01 --art data/raw/validation
+                  everything trained before 2015 and scored on 2015 — with the
+                  two-tower model trained before 2015 (rebuild.py assembles it).
+                  A model trained past the cutoff is refused: it has seen the
+                  held-out period
+  --blend-grid F  each blend of the adaptive engine's weights in F as an extra
+                  policy, compared person by person with the current weights
 
 THE SPLIT
 MovieLens 32M is split in time at 2016-01-01. Everything before is training,
 everything after is the test period. That keeps every model honest:
-  - the two-tower model was trained on MovieLens 20M, which ends in March
-    2015, so it has never seen a test rating;
+  - the two-tower model was trained on MovieLens 32M ratings before the
+    cutoff only (pipelines/train_two_tower.py), with its epoch chosen on a
+    validation set inside the training period, so it has never seen a test
+    rating;
   - item-item CF, popularity and the quality prior are rebuilt here from
     training ratings only, with the production formulas;
   - the adaptive engine is the production code in api/_adaptive.py, handed
@@ -28,11 +52,16 @@ THE POLICIES
   + ablations  adaptive without each of drift / diversity / exploration /
                negative signals, to show what each piece trades
 
-METRICS (K = 20)
-Recall@K (hits / min(|test|, K)), NDCG@K, HitRate@10, catalogue coverage,
-intra-list diversity (mean pairwise 1 − cosine of the films' content vectors),
-novelty (mean −log2 of training popularity) and long-tail share (outside
-the 1,000 most-liked). Recall and NDCG carry 95% bootstrap intervals.
+METRICS
+Recall@10/20 (hits / min(|test|, K)), Precision@10/20, NDCG@10/20, MAP@20,
+HitRate@10, catalogue coverage (of the candidate universe), intra-list
+diversity (mean pairwise 1 − cosine of the films' content vectors), novelty
+(mean −log2 of training popularity), long-tail share (outside the 1,000
+most-liked), cold-start share (recommended films with no training ratings),
+cold and warm Recall@20 (on test positives without / with training ratings),
+and each policy's ranking latency per user (p50/p95/p99). Recall@20 and
+NDCG@20 carry 95% bootstrap intervals; every policy also carries paired
+differences against the adaptive engine.
 
 COUNTERFACTUAL EVALUATION
 Could logged data from one recommender tell us how another would do, without
@@ -52,8 +81,10 @@ Writes data/artifacts/eval.json, served at /api/evaluation.
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import math
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -68,11 +99,10 @@ ART = ROOT / "data" / "artifacts"
 sys.path.insert(0, str(ROOT / "api"))
 
 from _adaptive import Adaptive, Options, Signal  # noqa: E402
-from _engine import get_engine  # noqa: E402
+from _engine import Engine, load_catalog  # noqa: E402
 from _semantic import item_matrix, mm  # noqa: E402
-from _tower import get_tower  # noqa: E402
+from _tower import Tower  # noqa: E402
 
-CUTOFF = int(datetime(2016, 1, 1, tzinfo=timezone.utc).timestamp())
 K = 20
 TOPN = 50          # neighbours kept per film in the rebuilt CF graph
 
@@ -83,14 +113,21 @@ def log(msg: str):
 
 # -- data ----------------------------------------------------------------------
 
-def load(ml32m: Path, movie_ids: list[int]):
-    pos = {int(m): i for i, m in enumerate(movie_ids)}
+def item_map(art: Path, movie_ids: list[int]) -> dict[int, int]:
+    """MovieLens id → item_id, through id_map.json (which folds in merged duplicates) when present."""
+    f = art / "id_map.json"
+    if f.exists():
+        return {int(m): int(i) for m, i in json.loads(f.read_text()).items()}
+    return {int(m): i for i, m in enumerate(movie_ids)}
+
+
+def load(ml32m: Path, pos: dict[int, int]):
     r = pd.read_csv(ml32m / "ratings.csv", dtype={"userId": np.int32, "movieId": np.int32,
                                                   "rating": np.float32, "timestamp": np.int64})
     r["item"] = r.movieId.map(pos)
     r = r.dropna(subset=["item"])
     r["item"] = r["item"].astype(np.int32)
-    return r[["userId", "item", "rating", "timestamp"]]
+    return r[["userId", "movieId", "item", "rating", "timestamp"]]
 
 
 def build_cf(train: pd.DataFrame, n_items: int):
@@ -113,15 +150,16 @@ def build_cf(train: pd.DataFrame, n_items: int):
     Xc = X.tocsc()
     nbr = np.zeros((n_items, TOPN), np.int32)
     sco = np.zeros((n_items, TOPN), np.float32)
+    k = min(TOPN, n_items - 1)         # a catalogue smaller than TOPN keeps zero-evidence padding
     for s0 in range(0, n_items, 1024):
         e = min(s0 + 1024, n_items)
         blk = (Xc[:, s0:e].T @ X).toarray()
         blk[np.arange(e - s0), np.arange(s0, e)] = 0
-        idx = np.argpartition(-blk, TOPN, axis=1)[:, :TOPN]
+        idx = np.argpartition(-blk, k, axis=1)[:, :k]
         vals = np.take_along_axis(blk, idx, 1)
-        o = np.argsort(-vals, axis=1)
-        nbr[s0:e] = np.take_along_axis(idx, o, 1)
-        sco[s0:e] = np.take_along_axis(vals, o, 1)
+        o = np.argsort(-vals, axis=1, kind="stable")
+        nbr[s0:e, :k] = np.take_along_axis(idx, o, 1)
+        sco[s0:e, :k] = np.take_along_axis(vals, o, 1)
     # A film with no co-ratings keeps an all-zero row: no evidence, which the
     # engine treats as contributing nothing (it never rescales a zero row).
     return nbr, sco
@@ -149,6 +187,20 @@ def scores_tt(tower, liked: np.ndarray) -> np.ndarray:
 
 
 # -- metrics -------------------------------------------------------------------
+
+def average_precision(rec: list[int], rel: set[int], k: int) -> float:
+    hits, total = 0, 0.0
+    for i, x in enumerate(rec[:k]):
+        if x in rel:
+            hits += 1
+            total += hits / (i + 1)
+    return total / min(len(rel), k) if rel else 0.0
+
+
+def pct(xs: list[float]) -> dict:
+    a = np.array(xs)
+    return {f"p{q}": round(float(np.percentile(a, q)), 2) for q in (50, 95, 99)} if len(a) else {}
+
 
 def ndcg(rec: list[int], rel: set[int], k: int) -> float:
     dcg = sum(1 / math.log2(i + 2) for i, x in enumerate(rec[:k]) if x in rel)
@@ -181,23 +233,77 @@ def main():
     ap.add_argument("--users", type=int, default=3000)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=Path, default=ART / "eval.json")
+    ap.add_argument("--art", type=Path, default=ART, help="artifact directory of the system to evaluate")
+    ap.add_argument("--universe", type=Path, default=None,
+                    help="a catalogue (file or artifact directory) whose films alone are candidates and targets")
+    ap.add_argument("--users-file", type=Path, default=None, help="JSON list of userIds to evaluate")
+    ap.add_argument("--save-users", type=Path, default=None, help="write the evaluated userIds here")
+    ap.add_argument("--label", default="", help="a name for this experiment")
+    ap.add_argument("--no-ope", action="store_true", help="skip the counterfactual study")
+    ap.add_argument("--cutoff", default="2016-01-01",
+                    help="the split: ratings before it train, after it test (2015-01-01 with --until 2016-01-01 "
+                         "validates on 2015, inside the training period, with a model trained before 2015)")
+    ap.add_argument("--until", default=None, help="ignore ratings from this date on")
+    ap.add_argument("--blend", default=None,
+                    help="JSON object or file of adaptive-engine blend weights to evaluate instead of the defaults")
+    ap.add_argument("--blend-grid", type=Path, default=None,
+                    help="JSON file: a list of blends, each evaluated as an extra policy (for validation only)")
+    ap.add_argument("--per-user", type=Path, default=None,
+                    help="write each user's Recall@20 and NDCG@20 per policy here (.json.gz), for paired "
+                         "comparisons between runs")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
     t_start = time.time()
+    day = lambda d: int(datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())  # noqa: E731
+    cutoff = day(args.cutoff)
+    until = day(args.until) if args.until else None
 
-    e = get_engine()
+    e = Engine(args.art)
     n = e.n
-    tower = get_tower()
-    content = item_matrix()
+    tower = Tower(args.art)
+    content = item_matrix(args.art)
     meta = {}
     if tower.trained:
-        meta = json.loads(str(np.load(ART / "tower_user.npz")["meta"]))
-    log(f"two-tower: {'trained model ' + json.dumps(meta) if tower.trained else 'original item vectors (fallback)'}")
+        meta = json.loads(str(np.load(args.art / "tower_user.npz")["meta"]))
+        if meta.get("cutoff", "2016-01-01") > args.cutoff:
+            sys.exit(f"the two-tower model in {args.art} was trained on ratings up to {meta.get('cutoff', '2016-01-01')}, "
+                     f"after this split's cutoff {args.cutoff}: it has seen the test period")
+    log(f"{args.label or args.art}: {n:,} films; two-tower "
+        f"{'trained model ' + json.dumps(meta) if tower.trained else 'original item vectors (fallback)'}")
+
+    pos = item_map(args.art, e.c["movieId"])
+    allowed = np.ones(n, bool)
+    base = None
+    if args.universe:
+        base = {int(m) for m in load_catalog(args.universe)["movieId"]}
+        allowed[:] = False
+        for m, i in pos.items():
+            if m in base:
+                allowed[i] = True
+        log(f"common universe: {int(allowed.sum()):,} of {n:,} films ({args.universe})")
+    allowed &= ~e.hidden                    # aliases of listed films are never offered, as in the API
 
     log("loading ratings ...")
-    r = load(args.ml32m, e.c["movieId"])
-    train, test = r[r.timestamp < CUTOFF], r[r.timestamp >= CUTOFF]
-    log(f"{len(r):,} catalogue ratings: {len(train):,} train, {len(test):,} test")
+    r = load(args.ml32m, pos)
+    if until:
+        r = r[r.timestamp < until]
+    train, test = r[r.timestamp < cutoff], r[r.timestamp >= cutoff]
+    # Only a film that existed at the cutoff can be recommended then, or missed: released
+    # before it by any source's date, or rated before it (MovieLens lists a few films before
+    # release). A 2019 film is neither a candidate nor a target for a list made in 2016.
+    released = e.c.get("released") or [None] * n
+    existed = np.array([bool(d and d < args.cutoff) or (y is not None and y < int(args.cutoff[:4]))
+                        for d, y in zip(released, e.c["year"])])
+    existed |= np.bincount(train.item.values, minlength=n) > 0
+    log(f"{int((allowed & ~existed).sum()):,} films released after the cutoff are left out")
+    allowed &= existed
+    blocked = np.flatnonzero(~allowed)
+    test = test[allowed[test.item.values]]
+    if base is not None:
+        # Targets by their own MovieLens id, so a rating filed under a duplicate id that
+        # this catalogue merged into an old film doesn't join the common test set.
+        test = test[test.movieId.isin(base)]
+    log(f"{len(r):,} catalogue ratings: {len(train):,} train, {len(test):,} test (in the universe)")
 
     log("rebuilding item-item CF from training ratings ...")
     nbr, sco = build_cf(train, n)
@@ -224,45 +330,75 @@ def main():
     te_pos = te[te.userId.isin(eligible)].groupby("userId")["item"].apply(set)
     users = [u for u in eligible if len(te_pos.get(u, set()) - set(seen_by[u].tolist())) >= 3]
     n_eligible = len(users)
-    log(f"{n_eligible:,} eligible users; evaluating {min(args.users, n_eligible):,}")
-    users = sorted(rng.choice(users, size=min(args.users, len(users)), replace=False).tolist())
+    if args.users_file:
+        fixed = [int(u) for u in json.loads(args.users_file.read_text())]
+        te_pos = te[te.userId.isin(fixed)].groupby("userId")["item"].apply(set)
+        users = sorted(u for u in fixed if u in seen_by.index)
+        log(f"fixed population: {len(users):,} of {len(fixed):,} listed users have training ratings")
+    else:
+        log(f"{n_eligible:,} eligible users; evaluating {min(args.users, n_eligible):,}")
+        users = sorted(rng.choice(users, size=min(args.users, len(users)), replace=False).tolist())
+    if args.save_users:
+        args.save_users.write_text(json.dumps([int(u) for u in users]))
     tr_by_user = {u: g for u, g in train[train.userId.isin(users)].groupby("userId")}
 
-    adaptive = Adaptive(e, nbr=nbr, nsc=sco, quality=quality, rating_count=rc)
+    adaptive = Adaptive(e, args.art, nbr=nbr, nsc=sco, quality=quality, rating_count=rc,
+                        tower=tower, semantic=content)
+    blend = {}
+    if args.blend:
+        blend = json.loads(Path(args.blend).read_text() if Path(args.blend).exists() else args.blend)
     variants = {
-        "adaptive": dict(explore=0.3, opt=Options()),
-        "adaptive − drift": dict(explore=0.3, opt=Options(drift=False)),
-        "adaptive − diversity": dict(explore=0.3, opt=Options(diversity=False)),
-        "adaptive − exploration": dict(explore=0.0, opt=Options(exploration=False)),
-        "adaptive − negatives": dict(explore=0.3, opt=Options(negatives=False)),
+        "adaptive": dict(explore=0.3, opt=Options(**blend)),
+        "adaptive − drift": dict(explore=0.3, opt=Options(drift=False, **blend)),
+        "adaptive − diversity": dict(explore=0.3, opt=Options(diversity=False, **blend)),
+        "adaptive − exploration": dict(explore=0.0, opt=Options(exploration=False, **blend)),
+        "adaptive − negatives": dict(explore=0.3, opt=Options(negatives=False, **blend)),
     }
+    for b in json.loads(args.blend_grid.read_text()) if args.blend_grid else []:
+        variants["blend " + json.dumps(b, separators=(",", ":"))] = dict(explore=0.3, opt=Options(**{**blend, **b}))
     names = ["popularity", "item-cf", "two-tower", *variants]
     recs: dict[str, list[list[int]]] = {k: [] for k in names}
+    lat: dict[str, list[float]] = {k: [] for k in names}
     truth: list[set[int]] = []
     ope_rows = []
+
+    def timed(name, f):
+        t = time.perf_counter()
+        out = f()
+        lat[name].append((time.perf_counter() - t) * 1000)
+        return out
 
     log("ranking ...")
     for n_u, u in enumerate(users):
         g = tr_by_user[u]
         seen = g.item.values
         seen_set = set(seen.tolist())
-        rel = te_pos[u] - seen_set
+        rel = te_pos.get(u, set()) - seen_set
         truth.append(rel)
         liked = g.item.values[g.rating.values >= 4]
-        s_pop, s_cf, s_tt = pos_cnt, scores_cf(nbr, sco, liked, n), scores_tt(tower, liked)
-        recs["popularity"].append(topk(s_pop, seen, K).tolist())
-        recs["item-cf"].append(topk(s_cf, seen, K).tolist())
-        recs["two-tower"].append(topk(s_tt, seen, K).tolist())
+        hide = np.concatenate([seen, blocked]) if blocked.size else seen
+        s_pop = pos_cnt
+        recs["popularity"].append(timed("popularity", lambda: topk(s_pop, hide, K)).tolist())
+        s_cf = scores_cf(nbr, sco, liked, n)
+        recs["item-cf"].append(timed("item-cf", lambda: topk(scores_cf(nbr, sco, liked, n), hide, K)).tolist())
+        s_tt = scores_tt(tower, liked)
+        recs["two-tower"].append(timed("two-tower", lambda: topk(scores_tt(tower, liked), hide, K)).tolist())
         sig = [Signal(int(i), "rating", float(v), float(t)) for i, v, t in
                zip(g.item.values, g.rating.values, g.timestamp.values)]
         for name, kw in variants.items():
-            out = adaptive.recommend(sig, [], k=K, now=float(CUTOFF), seed=args.seed + n_u, explain=False, **kw)
+            out = timed(name, lambda: adaptive.recommend(sig, [], k=K, now=float(cutoff), seed=args.seed + n_u,
+                                                          allowed=allowed if blocked.size else None,
+                                                          explain=False, **kw))
             recs[name].append(out["ids"])
+        if args.no_ope:
+            if (n_u + 1) % 500 == 0:
+                log(f"  {n_u + 1}/{len(users)}")
+            continue
 
         # Counterfactual study: a candidate set, a logging policy, and the truth.
-        A = set(topk(s_pop, seen, 100).tolist()) | set(topk(s_cf, seen, 100).tolist()) \
-            | set(topk(s_tt, seen, 100).tolist()) | set(recs["adaptive"][-1])
-        unseen = np.setdiff1d(np.arange(n), seen)
+        A = set(topk(s_pop, hide, 100).tolist()) | set(topk(s_cf, hide, 100).tolist()) \
+            | set(topk(s_tt, hide, 100).tolist()) | set(recs["adaptive"][-1])
+        unseen = np.setdiff1d(np.flatnonzero(allowed), seen)
         A |= set(rng.choice(unseen, size=50, replace=False).tolist())
         A = np.array(sorted(A))
         reward = np.array([1.0 if a in rel else 0.0 for a in A])
@@ -282,27 +418,50 @@ def main():
     # -- offline metrics ----------------------------------------------------------
     log("scoring ...")
     brng = np.random.default_rng(args.seed + 1)
+    # Users with no held-out positive in the universe cannot score; they are counted, not averaged.
+    keep = [j for j, t in enumerate(truth) if t]
+    cold = rc == 0                                   # films with no training ratings at all
     metrics = {}
     per_user: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for name in names:
-        R = recs[name]
-        rec_ = np.array([len(set(x[:K]) & t) / min(len(t), K) for x, t in zip(R, truth)])
-        nd = np.array([ndcg(x, t, K) for x, t in zip(R, truth)])
-        hit = np.array([1.0 if set(x[:10]) & t else 0.0 for x, t in zip(R, truth)])
-        per_user[name] = (rec_, nd)
+        R = [recs[name][j] for j in keep]
+        T = [truth[j] for j in keep]
+        def at(fn, k):
+            return np.array([fn(x, t, k) for x, t in zip(R, T)])
+        rec20 = at(lambda x, t, k: len(set(x[:k]) & t) / min(len(t), k), 20)
+        rec10 = at(lambda x, t, k: len(set(x[:k]) & t) / min(len(t), k), 10)
+        pre20 = at(lambda x, t, k: len(set(x[:k]) & t) / k, 20)
+        pre10 = at(lambda x, t, k: len(set(x[:k]) & t) / k, 10)
+        nd20, nd10 = at(ndcg, 20), at(ndcg, 10)
+        map20 = at(average_precision, 20)
+        hit = at(lambda x, t, k: 1.0 if set(x[:k]) & t else 0.0, 10)
+        cold_r = [len(set(x[:K]) & {i for i in t if cold[i]}) / min(sum(1 for i in t if cold[i]), K)
+                  for x, t in zip(R, T) if any(cold[i] for i in t)]
+        warm_r = [len(set(x[:K]) & {i for i in t if not cold[i]}) / min(sum(1 for i in t if not cold[i]), K)
+                  for x, t in zip(R, T) if any(not cold[i] for i in t)]
+        per_user[name] = (rec20, nd20)
         items = [i for x in R for i in x[:K]]
         nov = np.mean([-math.log2((pos_cnt[i] + 1) / n_train_users) for i in items])
         metrics[name] = {
-            "recall": round(float(rec_.mean()), 4), "recall_ci": boot_ci(rec_, brng),
-            "ndcg": round(float(nd.mean()), 4), "ndcg_ci": boot_ci(nd, brng),
+            "recall": round(float(rec20.mean()), 4), "recall_ci": boot_ci(rec20, brng),
+            "ndcg": round(float(nd20.mean()), 4), "ndcg_ci": boot_ci(nd20, brng),
+            "recall_10": round(float(rec10.mean()), 4), "ndcg_10": round(float(nd10.mean()), 4),
+            "precision_10": round(float(pre10.mean()), 4), "precision_20": round(float(pre20.mean()), 4),
+            "map_20": round(float(map20.mean()), 4),
             "hit_rate_10": round(float(hit.mean()), 4),
-            "coverage": round(len(set(items)) / n, 4),
+            "coverage": round(len(set(items)) / max(int(allowed.sum()), 1), 4),
             "diversity": round(float(np.mean([ild(x[:K], content) for x in R])), 4),
             "novelty": round(float(nov), 3),
             "long_tail": round(float(np.mean([i not in popular_1000 for i in items])), 4),
+            "cold_start_share": round(float(np.mean([cold[i] for i in items])), 4),
+            "cold_recall": round(float(np.mean(cold_r)), 4) if cold_r else None,
+            "cold_recall_users": len(cold_r),
+            "warm_recall": round(float(np.mean(warm_r)), 4) if warm_r else None,
+            "latency_ms": pct(lat[name]),
         }
-        log(f"  {name:24} recall {metrics[name]['recall']:.4f}  ndcg {metrics[name]['ndcg']:.4f}  "
-            f"div {metrics[name]['diversity']:.3f}  cov {metrics[name]['coverage']:.3f}")
+        log(f"  {name:24} recall@20 {metrics[name]['recall']:.4f}  ndcg@20 {metrics[name]['ndcg']:.4f}  "
+            f"map@20 {metrics[name]['map_20']:.4f}  cov {metrics[name]['coverage']:.3f}  "
+            f"cold {metrics[name]['cold_start_share']:.3f}  p95 {metrics[name]['latency_ms'].get('p95')} ms")
 
     # Every policy against the adaptive engine, user by user.
     base_rec, base_nd = per_user["adaptive"]
@@ -317,109 +476,155 @@ def main():
             "significant": bool(ci[0] > 0 or ci[1] < 0),
         }
         log(f"  {name:24} vs adaptive: recall {d_rec.mean():+.4f} [{ci[0]:+.4f}, {ci[1]:+.4f}]")
+    if args.per_user:
+        rows = {"label": args.label, "users": [int(users[j]) for j in keep],
+                "recall_20": {k: [round(float(x), 5) for x in v[0]] for k, v in per_user.items()},
+                "ndcg_20": {k: [round(float(x), 5) for x in v[1]] for k, v in per_user.items()}}
+        args.per_user.write_bytes(gzip.compress(json.dumps(rows).encode(), mtime=0))
 
-    # -- counterfactual evaluation -------------------------------------------------
-    log("counterfactual evaluation ...")
-    LOGS_PER_USER = 10
-    lrng = np.random.default_rng(args.seed + 2)
-    targets = ["popularity", "item-cf", "two-tower", "adaptive"]
-    logged = []                       # (row, action index, reward, p0)
-    for j, row in enumerate(ope_rows):
-        for a in lrng.choice(len(row["A"]), size=LOGS_PER_USER, p=row["p0"]):
-            logged.append((j, int(a), float(row["r"][a]), float(row["p0"][a])))
-
-    # Direct-method reward model: logged reward by (popularity quintile, CF-score band).
-    cells: dict[tuple, list[float]] = {}
-    for j, a, rw, _ in logged:
-        cells.setdefault((int(ope_rows[j]["pop_q"][a]), int(ope_rows[j]["cf_q"][a])), []).append(rw)
-    prior = np.mean([rw for _, _, rw, _ in logged])
-    rhat_cell = {c: (sum(v) + 5 * prior) / (len(v) + 5) for c, v in cells.items()}
-
-    def pi(row, name):
-        """A policy shows one film from its own top 10, weighted by rank like DCG,
-        with 5% spread uniformly so the logging policy is never the only support."""
-        A, L = row["A"], row["lists"][name]
-        p = np.full(len(A), 0.05 / len(A))
-        if len(L):
-            w = 1 / np.log2(np.arange(len(L)) + 2)
-            p[L] += 0.95 * w / w.sum()
-        else:
-            p += 0.95 / len(A)
-        return p
-
-    def rhat(row):
-        return np.array([rhat_cell.get((int(a), int(b)), prior) for a, b in zip(row["pop_q"], row["cf_q"])])
-
-    per_user = {name: {"truth": [], "ips": [], "dm": [], "dr": [], "w": [], "wr": []} for name in targets + ["logging"]}
-    rh = [rhat(row) for row in ope_rows]
-    for name in targets + ["logging"]:
+    ope_out = None
+    if not args.no_ope:
+        # -- counterfactual evaluation -------------------------------------------------
+        log("counterfactual evaluation ...")
+        LOGS_PER_USER = 10
+        lrng = np.random.default_rng(args.seed + 2)
+        targets = ["popularity", "item-cf", "two-tower", "adaptive"]
+        logged = []                       # (row, action index, reward, p0)
         for j, row in enumerate(ope_rows):
-            p = row["p0"] if name == "logging" else pi(row, name)
-            per_user[name]["truth"].append(float(p @ row["r"]))
-            per_user[name]["dm"].append(float(p @ rh[j]))
-        ips, dr, ws, wr = [], [], [], []
-        for j, a, rw, p0 in logged:
-            row = ope_rows[j]
-            p = row["p0"] if name == "logging" else pi(row, name)
-            w = float(p[a] / p0)
-            ips.append(w * rw)
-            dr.append(float(p @ rh[j]) + w * (rw - rh[j][a]))
-            ws.append(w)
-            wr.append(w * rw)
-        per_user[name].update(ips=ips, dr=dr, w=ws, wr=wr)
+            for a in lrng.choice(len(row["A"]), size=LOGS_PER_USER, p=row["p0"]):
+                logged.append((j, int(a), float(row["r"][a]), float(row["p0"][a])))
 
-    # Overlap diagnostics: how likely the logging policy was to show each target's top pick.
-    overlap = {}
-    for name in targets:
-        p0_top, hit_top = [], []
-        for row in ope_rows:
-            f = row["first"][name]
-            if f is None:
-                continue
-            k_ = int(np.searchsorted(row["A"], f))
-            p0_top.append(float(row["p0"][k_]))
-            hit_top.append(float(row["r"][k_]))
-        overlap[name] = {"logging_prob_of_top_pick": round(float(np.mean(p0_top)), 4),
-                         "top_pick_hit_rate": round(float(np.mean(hit_top)), 4)}
-        log(f"  overlap {name:12} p0(top) {overlap[name]['logging_prob_of_top_pick']:.4f}  "
-            f"hit(top) {overlap[name]['top_pick_hit_rate']:.4f}")
+        # Direct-method reward model: logged reward by (popularity quintile, CF-score band).
+        cells: dict[tuple, list[float]] = {}
+        for j, a, rw, _ in logged:
+            cells.setdefault((int(ope_rows[j]["pop_q"][a]), int(ope_rows[j]["cf_q"][a])), []).append(rw)
+        prior = np.mean([rw for _, _, rw, _ in logged])
+        rhat_cell = {c: (sum(v) + 5 * prior) / (len(v) + 5) for c, v in cells.items()}
 
-    ope = {}
-    for name in targets + ["logging"]:
-        d = per_user[name]
-        ips, dr, w, wr = (np.array(d[k]) for k in ("ips", "dr", "w", "wr"))
-        tru, dm = np.array(d["truth"]), np.array(d["dm"])
-        bi = brng.integers(0, len(ips), (500, len(ips)))
-        snips_b = wr[bi].sum(1) / np.maximum(w[bi].sum(1), 1e-12)
-        ope[name] = {
-            "truth": round(float(tru.mean()), 4),
-            "ips": round(float(ips.mean()), 4), "ips_ci": boot_ci(ips, brng, 500),
-            "snips": round(float(wr.sum() / max(w.sum(), 1e-12)), 4),
-            "snips_ci": [round(float(np.percentile(snips_b, 2.5)), 4), round(float(np.percentile(snips_b, 97.5)), 4)],
-            "dm": round(float(dm.mean()), 4),
-            "dr": round(float(dr.mean()), 4), "dr_ci": boot_ci(dr, brng, 500),
-            "ess": round(float(w.sum() ** 2 / max((w ** 2).sum(), 1e-12)), 1),
+        def pi(row, name):
+            """A policy shows one film from its own top 10, weighted by rank like DCG,
+            with 5% spread uniformly so the logging policy is never the only support."""
+            A, L = row["A"], row["lists"][name]
+            p = np.full(len(A), 0.05 / len(A))
+            if len(L):
+                w = 1 / np.log2(np.arange(len(L)) + 2)
+                p[L] += 0.95 * w / w.sum()
+            else:
+                p += 0.95 / len(A)
+            return p
+
+        def rhat(row):
+            return np.array([rhat_cell.get((int(a), int(b)), prior) for a, b in zip(row["pop_q"], row["cf_q"])])
+
+        per_user = {name: {"truth": [], "ips": [], "dm": [], "dr": [], "w": [], "wr": []} for name in targets + ["logging"]}
+        rh = [rhat(row) for row in ope_rows]
+        for name in targets + ["logging"]:
+            for j, row in enumerate(ope_rows):
+                p = row["p0"] if name == "logging" else pi(row, name)
+                per_user[name]["truth"].append(float(p @ row["r"]))
+                per_user[name]["dm"].append(float(p @ rh[j]))
+            ips, dr, ws, wr = [], [], [], []
+            for j, a, rw, p0 in logged:
+                row = ope_rows[j]
+                p = row["p0"] if name == "logging" else pi(row, name)
+                w = float(p[a] / p0)
+                ips.append(w * rw)
+                dr.append(float(p @ rh[j]) + w * (rw - rh[j][a]))
+                ws.append(w)
+                wr.append(w * rw)
+            per_user[name].update(ips=ips, dr=dr, w=ws, wr=wr)
+
+        # Overlap diagnostics: how likely the logging policy was to show each target's top pick.
+        overlap = {}
+        for name in targets:
+            p0_top, hit_top = [], []
+            for row in ope_rows:
+                f = row["first"][name]
+                if f is None:
+                    continue
+                k_ = int(np.searchsorted(row["A"], f))
+                p0_top.append(float(row["p0"][k_]))
+                hit_top.append(float(row["r"][k_]))
+            overlap[name] = {"logging_prob_of_top_pick": round(float(np.mean(p0_top)), 4),
+                             "top_pick_hit_rate": round(float(np.mean(hit_top)), 4)}
+            log(f"  overlap {name:12} p0(top) {overlap[name]['logging_prob_of_top_pick']:.4f}  "
+                f"hit(top) {overlap[name]['top_pick_hit_rate']:.4f}")
+
+        ope = {}
+        for name in targets + ["logging"]:
+            d = per_user[name]
+            ips, dr, w, wr = (np.array(d[k]) for k in ("ips", "dr", "w", "wr"))
+            tru, dm = np.array(d["truth"]), np.array(d["dm"])
+            bi = brng.integers(0, len(ips), (500, len(ips)))
+            snips_b = wr[bi].sum(1) / np.maximum(w[bi].sum(1), 1e-12)
+            ope[name] = {
+                "truth": round(float(tru.mean()), 4),
+                "ips": round(float(ips.mean()), 4), "ips_ci": boot_ci(ips, brng, 500),
+                "snips": round(float(wr.sum() / max(w.sum(), 1e-12)), 4),
+                "snips_ci": [round(float(np.percentile(snips_b, 2.5)), 4), round(float(np.percentile(snips_b, 97.5)), 4)],
+                "dm": round(float(dm.mean()), 4),
+                "dr": round(float(dr.mean()), 4), "dr_ci": boot_ci(dr, brng, 500),
+                "ess": round(float(w.sum() ** 2 / max((w ** 2).sum(), 1e-12)), 1),
+            }
+            log(f"  {name:12} truth {ope[name]['truth']:.4f}  ips {ope[name]['ips']:.4f}  snips {ope[name]['snips']:.4f}  "
+                f"dm {ope[name]['dm']:.4f}  dr {ope[name]['dr']:.4f}  ess {ope[name]['ess']}")
+
+        def kendall(key):
+            """Kendall's tau between an estimator's ranking of the policies and the true one."""
+            conc = disc = 0
+            for i_, a_ in enumerate(targets):
+                for b_ in targets[i_ + 1:]:
+                    s_ = (ope[a_]["truth"] - ope[b_]["truth"]) * (ope[a_][key] - ope[b_][key])
+                    conc += s_ > 0
+                    disc += s_ < 0
+            return round((conc - disc) / max(conc + disc, 1), 3)
+        agreement = {est: kendall(est) for est in ("ips", "snips", "dm", "dr")}
+
+        ope_out = {
+            "estimates": ope, "kendall_tau_vs_truth": agreement, "logs": len(logged), "overlap": overlap,
+            "logging_policy": "Softmax over z-scored log-popularity (temperature 1/1.5) within each user's candidate set",
+            "target_policies": "Each policy shows one film from its own top 10, weighted by rank (1/log2(rank+1)), "
+                               "with 5% spread uniformly over the candidate set",
+            "logs_per_user": LOGS_PER_USER,
         }
-        log(f"  {name:12} truth {ope[name]['truth']:.4f}  ips {ope[name]['ips']:.4f}  snips {ope[name]['snips']:.4f}  "
-            f"dm {ope[name]['dm']:.4f}  dr {ope[name]['dr']:.4f}  ess {ope[name]['ess']}")
 
-    def kendall(key):
-        """Kendall's tau between an estimator's ranking of the policies and the true one."""
-        conc = disc = 0
-        for i_, a_ in enumerate(targets):
-            for b_ in targets[i_ + 1:]:
-                s_ = (ope[a_]["truth"] - ope[b_]["truth"]) * (ope[a_][key] - ope[b_][key])
-                conc += s_ > 0
-                disc += s_ < 0
-        return round((conc - disc) / max(conc + disc, 1), 3)
-    agreement = {est: kendall(est) for est in ("ips", "snips", "dm", "dr")}
-
+    manifest = json.loads((args.art / "manifest.json").read_text()) if (args.art / "manifest.json").exists() else {}
+    arts = manifest.get("artifacts", {})
+    sums = args.ml32m / "checksums.txt"
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True,
+                                text=True, timeout=10).stdout.strip()
+        dirty = bool(subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True,
+                                    text=True, timeout=10).stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        commit, dirty = None, None
     out = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "runtime_s": round(time.time() - t_start),
-        "dataset": "MovieLens 32M, restricted to the 17,719 films in the catalogue",
-        "split": {"cutoff": "2016-01-01", "train_ratings": int(len(train)), "test_ratings": int(len(test)),
-                  "eligible_users": n_eligible, "evaluated_users": len(users), "items": n},
+        "dataset": f"MovieLens 32M, {int(allowed.sum()):,} of the catalogue's {n:,} films as candidates",
+        "experiment": {
+            "label": args.label,
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "code": {"commit": commit, "uncommitted_changes": dirty},
+            "artifacts": str(args.art.resolve().relative_to(ROOT)) if args.art.resolve().is_relative_to(ROOT) else str(args.art),
+            "dataset": {"name": "MovieLens 32M", "checksums": sums.read_text().split() if sums.exists() else None},
+            "split": {"type": "temporal", "cutoff": args.cutoff, "until": args.until, "positive": "rating >= 4",
+                      "eligible": ">= 10 positives before the cutoff and >= 3 new positives after it",
+                      "candidate_universe": str(args.universe) if args.universe else "all films in the catalogue",
+                      "availability": "only films released or rated before the cutoff are candidates or targets"},
+            "seed": args.seed,
+            "adaptive_options": {k: v for k, v in vars(Options(**blend)).items() if not isinstance(v, bool)},
+            "catalog_films": n, "rating_backed_films": int(sum(1 for x in e.c["rc"] if x)),
+            "candidate_films": int(allowed.sum()),
+            "films_with_training_ratings": int((rc > 0).sum()),
+            "evaluated_users": len(keep), "users_without_targets": len(users) - len(keep),
+            "test_interactions": int(sum(len(truth[j]) for j in keep)),
+            "models": {"two_tower": meta, "semantic": arts.get("semantic_items.npy"),
+                       "neighbors": {k: v for k, v in (arts.get("neighbors.npz") or {}).items() if k != "tuning"} or None},
+        },
+        "split": {"cutoff": args.cutoff, "train_ratings": int(len(train)), "test_ratings": int(len(test)),
+                  "eligible_users": n_eligible, "evaluated_users": len(keep), "items": n,
+                  "candidate_items": int(allowed.sum())},
         "k": K,
         "two_tower": {"trained": tower.trained, **meta},
         "policies": {
@@ -429,13 +634,7 @@ def main():
             "adaptive": "The production adaptive engine: drift, negatives, quality, MMR diversity, 30% adventurousness",
         },
         "metrics": metrics,
-        "ope": {
-            "estimates": ope, "kendall_tau_vs_truth": agreement, "logs": len(logged), "overlap": overlap,
-            "logging_policy": "Softmax over z-scored log-popularity (temperature 1/1.5) within each user's candidate set",
-            "target_policies": "Each policy shows one film from its own top 10, weighted by rank (1/log2(rank+1)), "
-                               "with 5% spread uniformly over the candidate set",
-            "logs_per_user": LOGS_PER_USER,
-        },
+        "ope": ope_out,
         "assumptions": [
             "A held-out positive (≥4★ after the cutoff) is a success; a film not rated afterwards counts as a miss, "
             "though the person may never have seen it. MovieLens ratings are missing not at random.",

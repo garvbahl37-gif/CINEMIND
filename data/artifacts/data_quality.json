@@ -1,0 +1,1269 @@
+{
+ "generated": "2026-10-26T06:22:27Z",
+ "films": 88514,
+ "movies": 88114,
+ "tv": 400,
+ "already_served": 17719,
+ "added": 70795,
+ "rating_backed": 84408,
+ "metadata_only": 4106,
+ "rating_backed_min5": 43867,
+ "movielens_ids": 87585,
+ "duplicates_merged": 30,
+ "shared_id_conflicts": 45,
+ "merges": [
+  {
+   "tmdbId": 3687,
+   "kept": 59935,
+   "merged": 212437,
+   "titles": [
+    "Flesh Gordon",
+    "Flesh Gordon"
+   ],
+   "years": [
+    1974,
+    1974
+   ]
+  },
+  {
+   "tmdbId": 4912,
+   "kept": 6003,
+   "merged": 144606,
+   "titles": [
+    "Confessions of a Dangerous Mind",
+    "Confessions of a Dangerous Mind"
+   ],
+   "years": [
+    2002,
+    2002
+   ]
+  },
+  {
+   "tmdbId": 9775,
+   "kept": 34330,
+   "merged": 178755,
+   "titles": [
+    "November",
+    "November"
+   ],
+   "years": [
+    2004,
+    2003
+   ]
+  },
+  {
+   "tmdbId": 13020,
+   "kept": 33154,
+   "merged": 202599,
+   "titles": [
+    "Enron: The Smartest Guys in the Room",
+    "Enron: The Smartest Guys in the Room"
+   ],
+   "years": [
+    2005,
+    2005
+   ]
+  },
+  {
+   "tmdbId": 15028,
+   "kept": 5264,
+   "merged": 144426,
+   "titles": [
+    "Clockstoppers",
+    "Clockstoppers"
+   ],
+   "years": [
+    2002,
+    2002
+   ]
+  },
+  {
+   "tmdbId": 19666,
+   "kept": 6776,
+   "merged": 181751,
+   "titles": [
+    "Lagaan: Once Upon a Time in India",
+    "Lagaan: Once Upon a Time in India"
+   ],
+   "years": [
+    2001,
+    2001
+   ]
+  },
+  {
+   "tmdbId": 24487,
+   "kept": 79329,
+   "merged": 232217,
+   "titles": [
+    "Passing Strange",
+    "Passing Strange"
+   ],
+   "years": [
+    2009,
+    2009
+   ]
+  },
+  {
+   "tmdbId": 30508,
+   "kept": 66511,
+   "merged": 191775,
+   "titles": [
+    "Berlin Calling",
+    "Berlin Calling"
+   ],
+   "years": [
+    2008,
+    2008
+   ]
+  },
+  {
+   "tmdbId": 34696,
+   "kept": 65633,
+   "merged": 137813,
+   "titles": [
+    "Fuel",
+    "Fuel"
+   ],
+   "years": [
+    2008,
+    2009
+   ]
+  },
+  {
+   "tmdbId": 44251,
+   "kept": 95771,
+   "merged": 206323,
+   "titles": [
+    "Dragon Ball Z: Broly Second Coming (Doragon b\u00f4ru Z 10: Kiken na futari! S\u00fbp\u00e2 senshi wa nemurenai)",
+    "Dragon Ball Z: Broly \u2013 Second Coming"
+   ],
+   "years": [
+    1994,
+    1994
+   ]
+  },
+  {
+   "tmdbId": 45555,
+   "kept": 144858,
+   "merged": 219145,
+   "titles": [
+    "God's Angry Man",
+    "God's Angry Man"
+   ],
+   "years": [
+    1980,
+    1980
+   ]
+  },
+  {
+   "tmdbId": 46667,
+   "kept": 110515,
+   "merged": 213187,
+   "titles": [
+    "Superdad",
+    "Superdad"
+   ],
+   "years": [
+    1973,
+    1973
+   ]
+  },
+  {
+   "tmdbId": 97995,
+   "kept": 70155,
+   "merged": 163246,
+   "titles": [
+    "Seven Years Bad Luck",
+    "Seven Years Bad Luck"
+   ],
+   "years": [
+    1921,
+    1921
+   ]
+  },
+  {
+   "tmdbId": 116440,
+   "kept": 115877,
+   "merged": 252320,
+   "titles": [
+    "The Simpsons: The Longest Daycare",
+    "Maggie Simpson in The Longest Daycare"
+   ],
+   "years": [
+    2012,
+    2012
+   ]
+  },
+  {
+   "tmdbId": 133919,
+   "kept": 7396,
+   "merged": 272905,
+   "titles": [
+    "Scenes From a Marriage (Scener ur ett \u00e4ktenskap)",
+    "Scenes from a Marriage"
+   ],
+   "years": [
+    1973,
+    1974
+   ]
+  },
+  {
+   "tmdbId": 159898,
+   "kept": 167510,
+   "merged": 275753,
+   "titles": [
+    "The Boxing Cats (Prof. Welton's)",
+    "The Boxing Cats"
+   ],
+   "years": [
+    1894,
+    1894
+   ]
+  },
+  {
+   "tmdbId": 264068,
+   "kept": 176543,
+   "merged": 266856,
+   "titles": [
+    "That's Sexploitation!",
+    "That's Sexploitation!"
+   ],
+   "years": [
+    2013,
+    2013
+   ]
+  },
+  {
+   "tmdbId": 265189,
+   "kept": 114342,
+   "merged": 175813,
+   "titles": [
+    "Force Majeure (Turist)",
+    "Force Majeure"
+   ],
+   "years": [
+    2014,
+    2014
+   ]
+  },
+  {
+   "tmdbId": 282848,
+   "kept": 117192,
+   "merged": 241346,
+   "titles": [
+    "Doctor Who: The Time of the Doctor",
+    "Doctor Who: The Time of the Doctor"
+   ],
+   "years": [
+    2013,
+    2013
+   ]
+  },
+  {
+   "tmdbId": 298721,
+   "kept": 142861,
+   "merged": 162632,
+   "titles": [
+    "Cemetery of Splendour",
+    "Cemetery of Splendor"
+   ],
+   "years": [
+    2015,
+    2015
+   ]
+  },
+  {
+   "tmdbId": 315360,
+   "kept": 120757,
+   "merged": 283525,
+   "titles": [
+    "Beck - Rum 302",
+    "Beck 27 - Room 302"
+   ],
+   "years": [
+    2015,
+    2015
+   ]
+  },
+  {
+   "tmdbId": 372631,
+   "kept": 148976,
+   "merged": 215011,
+   "titles": [
+    "Marvel Super Hero Adventures: Frost Fight!",
+    "Marvel Super Hero Adventures: Frost Fight!"
+   ],
+   "years": [
+    2015,
+    2015
+   ]
+  },
+  {
+   "tmdbId": 411012,
+   "kept": 174527,
+   "merged": 215119,
+   "titles": [
+    "Chasing Trane: The John Coltrane Documentary",
+    "Chasing Trane"
+   ],
+   "years": [
+    2017,
+    2017
+   ]
+  },
+  {
+   "tmdbId": 411081,
+   "kept": 168000,
+   "merged": 218855,
+   "titles": [
+    "Summer Love",
+    "Summer Love"
+   ],
+   "years": [
+    2016,
+    2016
+   ]
+  },
+  {
+   "tmdbId": 412862,
+   "kept": 208020,
+   "merged": 195339,
+   "titles": [
+    "Ratsasan",
+    "Ratsasan"
+   ],
+   "years": [
+    2018,
+    2018
+   ]
+  },
+  {
+   "tmdbId": 413765,
+   "kept": 163585,
+   "merged": 187127,
+   "titles": [
+    "David Lynch: The Art Life",
+    "David Lynch: The Art Life"
+   ],
+   "years": [
+    2016,
+    2017
+   ]
+  },
+  {
+   "tmdbId": 521777,
+   "kept": 203218,
+   "merged": 258279,
+   "titles": [
+    "Good Boys",
+    "Good Boys"
+   ],
+   "years": [
+    2019,
+    2019
+   ]
+  },
+  {
+   "tmdbId": 566222,
+   "kept": 204294,
+   "merged": 229671,
+   "titles": [
+    "The Great Hack",
+    "The Great Hack"
+   ],
+   "years": [
+    2019,
+    2019
+   ]
+  },
+  {
+   "tmdbId": 604196,
+   "kept": 203449,
+   "merged": 206117,
+   "titles": [
+    "The Lonely Island Presents: The Unauthorized Bash Brothers Experience",
+    "The Lonely Island Presents: The Unauthorized Bash Brothers Experience"
+   ],
+   "years": [
+    2019,
+    2019
+   ]
+  },
+  {
+   "tmdbId": 642732,
+   "kept": 254100,
+   "merged": 258689,
+   "titles": [
+    "Roadrunner: A Film About Anthony Bourdain",
+    "Roadrunner: A Film About Anthony Bourdain"
+   ],
+   "years": [
+    2021,
+    2021
+   ]
+  }
+ ],
+ "conflicts": [
+  {
+   "tmdbId": 744,
+   "movieIds": [
+    1101,
+    96062
+   ],
+   "titles": [
+    "Top Gun",
+    "Jekyll"
+   ],
+   "years": [
+    1986,
+    2007
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 3556,
+   "movieIds": [
+    95214,
+    27002
+   ],
+   "titles": [
+    "Mad Dog Coll",
+    "From the Earth to the Moon"
+   ],
+   "years": [
+    1961,
+    1998
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 4043,
+   "movieIds": [
+    26599,
+    107718
+   ],
+   "titles": [
+    "Law of Desire (Ley del deseo, La)",
+    "State of Play"
+   ],
+   "years": [
+    1987,
+    2003
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 9045,
+   "movieIds": [
+    6041,
+    26849
+   ],
+   "titles": [
+    "Amen.",
+    "The Stand"
+   ],
+   "years": [
+    2002,
+    1994
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 9343,
+   "movieIds": [
+    2970,
+    108977
+   ],
+   "titles": [
+    "Fitzcarraldo",
+    "Paranoia Agent"
+   ],
+   "years": [
+    1982,
+    2004
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 9687,
+   "movieIds": [
+    42197,
+    51024
+   ],
+   "titles": [
+    "Keeping Mum",
+    "The Odyssey"
+   ],
+   "years": [
+    2005,
+    1997
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 9693,
+   "movieIds": [
+    48774,
+    93040
+   ],
+   "titles": [
+    "Children of Men",
+    "The Civil War"
+   ],
+   "years": [
+    2006,
+    1990
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 10991,
+   "movieIds": [
+    4241,
+    174533
+   ],
+   "titles": [
+    "Pok\u00e9mon 3: The Movie",
+    "Pok\u00e9mon: Spell of the Unown"
+   ],
+   "years": [
+    2001,
+    2000
+   ],
+   "reason": "titles differ"
+  },
+  {
+   "tmdbId": 12117,
+   "movieIds": [
+    2676,
+    51185
+   ],
+   "titles": [
+    "Instinct",
+    "Human Trafficking"
+   ],
+   "years": [
+    1999,
+    2005
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 12584,
+   "movieIds": [
+    4710,
+    62970
+   ],
+   "titles": [
+    "The Shootist",
+    "Tin Man"
+   ],
+   "years": [
+    1976,
+    2007
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 12600,
+   "movieIds": [
+    5672,
+    174543
+   ],
+   "titles": [
+    "Pokemon 4 Ever (a.k.a. Pok\u00e9mon 4: The Movie)",
+    "Pok\u00e9mon 4Ever: Celebi - Voice of the Forest"
+   ],
+   "years": [
+    2002,
+    2001
+   ],
+   "reason": "titles differ"
+  },
+  {
+   "tmdbId": 13812,
+   "movieIds": [
+    62733,
+    42987
+   ],
+   "titles": [
+    "Quarantine",
+    "Fingersmith"
+   ],
+   "years": [
+    2008,
+    2005
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 13851,
+   "movieIds": [
+    60979,
+    87308
+   ],
+   "titles": [
+    "Batman: Gotham Knight",
+    "Jane Eyre"
+   ],
+   "years": [
+    2008,
+    2006
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 13894,
+   "movieIds": [
+    27647,
+    52784
+   ],
+   "titles": [
+    "Tipping the Velvet",
+    "Sharkwater"
+   ],
+   "years": [
+    2002,
+    2006
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 14968,
+   "movieIds": [
+    72178,
+    48268
+   ],
+   "titles": [
+    "Welcome to Dongmakgol",
+    "Empire Falls"
+   ],
+   "years": [
+    2005,
+    2005
+   ],
+   "reason": "titles differ"
+  },
+  {
+   "tmdbId": 16133,
+   "movieIds": [
+    37495,
+    27180
+   ],
+   "titles": [
+    "Survive Style 5+",
+    "Joan of Arc"
+   ],
+   "years": [
+    2004,
+    1999
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 18197,
+   "movieIds": [
+    4537,
+    26887
+   ],
+   "titles": [
+    "Running on Empty",
+    "The Langoliers"
+   ],
+   "years": [
+    1988,
+    1995
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 19002,
+   "movieIds": [
+    53827,
+    170279
+   ],
+   "titles": [
+    "Sybil",
+    "Darkman III: Die Darkman Die"
+   ],
+   "years": [
+    1976,
+    1996
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 19614,
+   "movieIds": [
+    8962,
+    26693
+   ],
+   "titles": [
+    "Fade to Black",
+    "It"
+   ],
+   "years": [
+    2004,
+    1990
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 19654,
+   "movieIds": [
+    7646,
+    140743
+   ],
+   "titles": [
+    "Rose Red",
+    "The Man I Love"
+   ],
+   "years": [
+    2002,
+    1997
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 19997,
+   "movieIds": [
+    2939,
+    59869
+   ],
+   "titles": [
+    "Niagara",
+    "The Andromeda Strain"
+   ],
+   "years": [
+    1953,
+    2008
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 21753,
+   "movieIds": [
+    145972,
+    222065
+   ],
+   "titles": [
+    "Everything You Want",
+    "Love Surreal"
+   ],
+   "years": [
+    2005,
+    2015
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 30991,
+   "movieIds": [
+    240714,
+    108979
+   ],
+   "titles": [
+    "The Curse of the Living Corpse",
+    "Cowboy Bebop"
+   ],
+   "years": [
+    1964,
+    1998
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 32166,
+   "movieIds": [
+    104072,
+    27292
+   ],
+   "titles": [
+    "The Count of Monte Cristo",
+    "Chasing Sleep"
+   ],
+   "years": [
+    1998,
+    2000
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 34129,
+   "movieIds": [
+    99792,
+    256549
+   ],
+   "titles": [
+    "Painted Lady",
+    "Shrill Cries of Summer"
+   ],
+   "years": [
+    1997,
+    2008
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 37306,
+   "movieIds": [
+    80137,
+    125501
+   ],
+   "titles": [
+    "If God Is Willing and da Creek Don't Rise",
+    "Voodoo Moon"
+   ],
+   "years": [
+    2010,
+    2006
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 37939,
+   "movieIds": [
+    44597,
+    79222
+   ],
+   "titles": [
+    "Youth of the Beast (Yaju no seishun)",
+    "The Phantom"
+   ],
+   "years": [
+    1963,
+    2009
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 38973,
+   "movieIds": [
+    93719,
+    228233
+   ],
+   "titles": [
+    "Dragon Age: Redemption",
+    "Kamen Rider Den-O The Movie: I\u2019m Born!"
+   ],
+   "years": [
+    2011,
+    2007
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 39172,
+   "movieIds": [
+    93928,
+    137809
+   ],
+   "titles": [
+    "After...",
+    "After"
+   ],
+   "years": [
+    2006,
+    2009
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 39468,
+   "movieIds": [
+    86487,
+    105811
+   ],
+   "titles": [
+    "Mildred Pierce",
+    "Godzilla vs. Megaguirus (Gojira tai Megagirasu: J\u00ee sh\u00f4metsu sakusen)"
+   ],
+   "years": [
+    2011,
+    2000
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 42553,
+   "movieIds": [
+    114376,
+    53771
+   ],
+   "titles": [
+    "The Musketeers of Pig Alley",
+    "Alice in Wonderland"
+   ],
+   "years": [
+    1912,
+    1985
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 43016,
+   "movieIds": [
+    125067,
+    103277
+   ],
+   "titles": [
+    "Waltz of the Toreadors",
+    "Hatfields & McCoys"
+   ],
+   "years": [
+    1962,
+    2012
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 43065,
+   "movieIds": [
+    95717,
+    105091
+   ],
+   "titles": [
+    "Treasure Island",
+    "Nightmares in Red White & Blue: The Evolution of the American Horror Film"
+   ],
+   "years": [
+    2012,
+    2009
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 44264,
+   "movieIds": [
+    82459,
+    96347
+   ],
+   "titles": [
+    "True Grit",
+    "Endeavour"
+   ],
+   "years": [
+    2010,
+    2012
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 44434,
+   "movieIds": [
+    94041,
+    57236
+   ],
+   "titles": [
+    "Appropriate Adult",
+    "LOL"
+   ],
+   "years": [
+    2011,
+    2006
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 46976,
+   "movieIds": [
+    27724,
+    8400
+   ],
+   "titles": [
+    "Hitler: The Rise of Evil",
+    "Wish You Were Here"
+   ],
+   "years": [
+    2003,
+    1987
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 58451,
+   "movieIds": [
+    200908,
+    258991
+   ],
+   "titles": [
+    "The Adventures of Pinocchio",
+    "The Adventures of Pinocchio"
+   ],
+   "years": [
+    1975,
+    1972
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 79782,
+   "movieIds": [
+    895,
+    181393
+   ],
+   "titles": [
+    "Venice/Venice",
+    "Venice"
+   ],
+   "years": [
+    1992,
+    2010
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 84198,
+   "movieIds": [
+    2679,
+    103208
+   ],
+   "titles": [
+    "Finding North",
+    "A Place at the Table"
+   ],
+   "years": [
+    1998,
+    2012
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 109962,
+   "movieIds": [
+    5848,
+    102367
+   ],
+   "titles": [
+    "Rich and Famous",
+    "Rich and Famous (Gong woo ching)"
+   ],
+   "years": [
+    1981,
+    1987
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 126193,
+   "movieIds": [
+    115955,
+    285825
+   ],
+   "titles": [
+    "Category 7: The End of the World",
+    "I... Dreaming"
+   ],
+   "years": [
+    2005,
+    1988
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 128062,
+   "movieIds": [
+    32853,
+    128305
+   ],
+   "titles": [
+    "Sorrow and the Pity, The (Le chagrin et la piti\u00e9)",
+    "They All Lie"
+   ],
+   "years": [
+    1969,
+    2009
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 132641,
+   "movieIds": [
+    864,
+    134006
+   ],
+   "titles": [
+    "The Wife",
+    "Wife"
+   ],
+   "years": [
+    1995,
+    1953
+   ],
+   "reason": "years differ"
+  },
+  {
+   "tmdbId": 542757,
+   "movieIds": [
+    203453,
+    215891
+   ],
+   "titles": [
+    "Rem\u00e9lem legk\u00f6zelebb siker\u00fcl meghalnod :)",
+    "Hope You Die Next Time :-)"
+   ],
+   "years": [
+    2018,
+    2018
+   ],
+   "reason": "titles differ"
+  },
+  {
+   "tmdbId": 792517,
+   "movieIds": [
+    242100,
+    239670
+   ],
+   "titles": [
+    "Hate by Dani Rovira",
+    "Dani Rovira: Odio"
+   ],
+   "years": [
+    2021,
+    2021
+   ],
+   "reason": "titles differ"
+  }
+ ],
+ "source_coverage": {
+  "movielens-32m": 87560,
+  "tmdb": 87064,
+  "wikidata": 75925,
+  "movielens-20m": 959,
+  "tmdb-legacy": 110
+ },
+ "tmdb_cache": {
+  "not_found": 1187,
+  "ok": 87096
+ },
+ "wikidata_ids_matched": 76361,
+ "field_coverage": {
+  "all": {
+   "year": 0.9992,
+   "genres": 0.9919,
+   "tags": 0.5793,
+   "runtime": 0.9852,
+   "lang": 0.9914,
+   "overview": 0.982,
+   "poster": 0.9737,
+   "directors": 0.9865,
+   "cast": 0.9563,
+   "countries": 0.9931,
+   "imdbId": 0.9892,
+   "tmdbId": 0.9984
+  },
+  "already_served": {
+   "year": 0.9998,
+   "genres": 0.9985,
+   "tags": 0.8992,
+   "runtime": 0.9914,
+   "lang": 0.9946,
+   "overview": 0.993,
+   "poster": 0.9909,
+   "directors": 0.9911,
+   "cast": 0.9859,
+   "countries": 0.994,
+   "imdbId": 0.9459,
+   "tmdbId": 0.9972
+  },
+  "added": {
+   "year": 0.999,
+   "genres": 0.9902,
+   "tags": 0.4992,
+   "runtime": 0.9837,
+   "lang": 0.9906,
+   "overview": 0.9792,
+   "poster": 0.9694,
+   "directors": 0.9853,
+   "cast": 0.9489,
+   "countries": 0.9929,
+   "imdbId": 1.0,
+   "tmdbId": 0.9987
+  }
+ },
+ "flags": {
+  "alias_of_served_film": 2,
+  "has_merged_duplicate": 30,
+  "legacy_tmdb_data_was_another_film": 7,
+  "missing_genres": 720,
+  "missing_imdb_id": 959,
+  "missing_language": 758,
+  "missing_overview": 1594,
+  "missing_poster": 2326,
+  "missing_runtime": 1307,
+  "missing_year": 71,
+  "no_ratings": 4106,
+  "no_tmdb_id": 89,
+  "runtime_outlier": 14,
+  "runtime_zero_cleared": 6,
+  "title_from_tmdb": 1,
+  "tmdb_imdb_mismatch": 36,
+  "tmdb_not_found": 1187,
+  "tmdb_shared_id_not_this_film": 2,
+  "tmdb_year_conflict": 7,
+  "wikidata_ambiguous": 42,
+  "wikidata_year_conflict": 368
+ },
+ "flags_added": {
+  "has_merged_duplicate": 15,
+  "missing_genres": 693,
+  "missing_language": 662,
+  "missing_overview": 1470,
+  "missing_poster": 2165,
+  "missing_runtime": 1154,
+  "missing_year": 68,
+  "no_ratings": 3151,
+  "no_tmdb_id": 89,
+  "runtime_outlier": 14,
+  "runtime_zero_cleared": 6,
+  "title_from_tmdb": 1,
+  "tmdb_imdb_mismatch": 29,
+  "tmdb_not_found": 1120,
+  "tmdb_shared_id_not_this_film": 2,
+  "tmdb_year_conflict": 1,
+  "wikidata_ambiguous": 32,
+  "wikidata_year_conflict": 349
+ },
+ "invalid": {
+  "year_out_of_range_or_missing": 71,
+  "malformed_poster_path": 0,
+  "missing_imdb_id": 959,
+  "runtime_outlier": 14
+ },
+ "sources": {
+  "movielens-32m": "GroupLens MovieLens 32M (2023-10). Research use; transformations may be redistributed under the same terms; no commercial use without permission.",
+  "movielens-20m": "GroupLens MovieLens 20M, for films served before the expansion that ML-32M no longer lists.",
+  "tmdb": "TMDB API, fetched per film with the project's key; see docs/AUDIT.md for the terms.",
+  "tmdb-legacy": "TMDB data cached before this build, fetch date unknown.",
+  "wikidata": "Wikidata (CC0), matched by IMDb id."
+ },
+ "served_duplicates": [
+  {
+   "tmdbId": 12599,
+   "kept": 3799,
+   "alias": 91752,
+   "titles": [
+    "Pok\u00e9mon the Movie 2000",
+    "Pokemon: The Movie 2000"
+   ],
+   "years": [
+    2000,
+    2000
+   ]
+  },
+  {
+   "tmdbId": 13209,
+   "kept": 48682,
+   "alias": 80330,
+   "titles": [
+    "Offside",
+    "Offside"
+   ],
+   "years": [
+    2006,
+    2006
+   ]
+  }
+ ],
+ "excluded": []
+}

@@ -3,6 +3,8 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { MARK } from './Marks';
 
 interface Props {
+    /** Films in the catalogue, once known. */
+    films?: number;
     /** The catalogue has answered (or failed): the gate may open. */
     ready: boolean;
     /** Called once the gate is fully open and the loader can unmount. */
@@ -20,7 +22,7 @@ const EASE = [0.76, 0, 0.18, 1] as const;
  * out from the centre like a projector gate, to exactly where the shell sits,
  * and the dashboard is already behind it.
  */
-const Loader = ({ ready, onDone }: Props) => {
+const Loader = ({ ready, onDone, films }: Props) => {
     const reduce = useReducedMotion();
     const [minDone, setMinDone] = useState(false);
     const [phase, setPhase] = useState<'loading' | 'opening' | 'fading'>('loading');
@@ -118,7 +120,7 @@ const Loader = ({ ready, onDone }: Props) => {
                     <motion.p className="mt-5 text-[14px] text-white/75 tabular-nums"
                         initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }}
                         transition={{ delay: 0.7, duration: 0.5 }}>
-                        {ready ? '17,719 films, 24 matches each' : 'Loading 17,719 films'}
+                        {ready && films ? `${films.toLocaleString()} films, 24 matches each` : 'Loading the catalogue'}
                     </motion.p>
                 </div>
             </motion.div>

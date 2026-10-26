@@ -74,7 +74,8 @@ def _cache(r: Response, v: str = CACHE):
 async def health(response: Response):
     e = get_engine()
     _cache(response, "public, max-age=30")
-    return {"status": "healthy", "items": e.n, "neighbors_per_item": int(e.nbr.shape[1])}
+    return {"status": "healthy", "items": e.n, "neighbors_per_item": int(e.nbr.shape[1]),
+            "rating_backed": e.rated}
 
 
 @app.get("/api/browse")
@@ -91,6 +92,7 @@ async def browse(response: Response):
         "top50": e.items(b["top50"]),
         "tv": e.items(b["tv"]),
         "rows": rows,
+        "total": e.n,
         "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
     }
 
@@ -106,6 +108,9 @@ async def similar(item_id: int, response: Response, k: int = Query(12, ge=1, le=
     return {
         "item_id": item_id,
         "source": e.item(item_id),
+        # collaborative: from co-ratings; hybrid: thin co-rating evidence, leaning
+        # on content; content: no positive ratings, matched on what it is about.
+        "match_basis": e.basis_of(item_id),
         "similar_items": res,
         "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
     }

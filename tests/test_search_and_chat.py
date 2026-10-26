@@ -126,9 +126,10 @@ def test_recommend_something_funny_is_a_mood_not_a_title_search(bot):
     assert "Something Wild" not in r["response"]
 
 
-def test_films_after_2015_are_not_invented(bot):
-    r = ask(bot, "tell me about la la land")
-    assert "couldn't find" in r["response"] and "2015" in r["response"]
+def test_films_after_the_catalogue_are_not_invented(bot):
+    """A film released after the catalogue ends gets "not here", not a lookalike."""
+    r = ask(bot, "tell me about anora")
+    assert "couldn't find" in r["response"] and str(bot.latest) in r["response"]
 
 
 def test_off_topic_gets_help_not_a_film_list(bot):
@@ -161,3 +162,10 @@ def test_chat_keeps_what_was_ruled_out(bot, e, msg):
     assert ids
     banned = "romance" if "romance" in msg else "horror"
     assert not any(banned in e.genre_of[i] for i in ids), out["response"]
+
+
+def test_an_exact_title_outranks_a_surname_in_the_cast(e):
+    """A 2023 documentary lists J. Robert Oppenheimer in its cast; the film titled
+    Oppenheimer still comes first."""
+    top = e.search("oppenheimer", limit=3)["results"][0]
+    assert (top["title"], top["year"]) == ("Oppenheimer", 2023)

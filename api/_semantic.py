@@ -130,19 +130,32 @@ class SemanticModel:
         return np.stack([self.encode(t) for t in texts]) if texts else np.zeros((0, self.dim), np.float32)
 
 
+CHUNK = 8192
+
+
 def dot(matrix: np.ndarray, vec: np.ndarray) -> np.ndarray:
     """
     matrix @ vec for unit-vector tables. Some BLAS builds (Accelerate on recent
     macOS) raise spurious divide/overflow flags on perfectly finite input; the
     result is correct, so the flags are silenced here and nowhere else.
+
+    The tables are kept as float16 to halve their memory; they are multiplied in
+    float32, a chunk of rows at a time, so no full float32 copy is ever made.
     """
+    vec = np.asarray(vec, np.float32)
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
-        out = matrix @ vec
+        if matrix.dtype != np.float16:
+            out = matrix @ vec
+        else:
+            out = np.empty((matrix.shape[0],) + vec.shape[1:], np.float32)
+            for s in range(0, matrix.shape[0], CHUNK):
+                out[s:s + CHUNK] = matrix[s:s + CHUNK].astype(np.float32) @ vec
     return np.nan_to_num(out, nan=-1.0, posinf=1.0, neginf=-1.0)
 
 
 def mm(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """a @ b with the same treatment as dot(): for matrices and single pairs alike."""
+    """a @ b with the same treatment as dot(), in float32: for small matrices and single pairs."""
+    a, b = np.asarray(a, np.float32), np.asarray(b, np.float32)
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         out = a @ b
     return np.nan_to_num(out, nan=-1.0, posinf=1.0, neginf=-1.0)
@@ -157,5 +170,5 @@ def get_model(root: Path = ART) -> SemanticModel:
 
 @lru_cache(maxsize=1)
 def item_matrix(root: Path = ART) -> np.ndarray:
-    """(items, dim) unit vectors for every film, as float32 for the dot products."""
-    return np.load(root / "semantic_items.npy").astype(np.float32)
+    """(items, dim) unit vectors for every film, kept as float16 (dot() multiplies in float32)."""
+    return np.load(root / "semantic_items.npy").astype(np.float16, copy=False)

@@ -1,3 +1,12 @@
+"""
+SIMULATION ONLY — NOT A TRAINING PIPELINE.
+
+This script logs random "loss" and "accuracy" values to MLflow and writes a
+placeholder production.index. No model is trained and no metric it produces
+means anything. It is kept as a sketch of MLflow wiring; nothing deployed uses
+it. The real training and evaluation are pipelines/train_two_tower.py and
+pipelines/evaluate.py (see docs/BENCHMARK.md).
+"""
 import mlflow
 import mlflow.sklearn
 import numpy as np

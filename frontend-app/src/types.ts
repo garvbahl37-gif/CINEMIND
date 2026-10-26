@@ -24,6 +24,11 @@ export interface Movie {
     score?: number;
     shared_genres?: string[];
     shared_tags?: string[];
+    imdb_id?: string;
+    /** False for metadata-only films: nobody in MovieLens has rated them. */
+    rating_backed?: boolean;
+    /** How a film's matches were found: co-ratings, a mix, or content alone. */
+    match_basis?: MatchBasis;
 
     /** Set on discovery results: why the film fits the description. */
     why?: string[];
@@ -36,6 +41,8 @@ export interface Movie {
     exploring?: boolean;
     propensity?: number;
 }
+
+export type MatchBasis = 'collaborative' | 'hybrid' | 'content';
 
 /** One piece of evidence behind a recommendation. */
 export interface Evidence {

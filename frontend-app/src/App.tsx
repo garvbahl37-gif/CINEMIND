@@ -272,13 +272,13 @@ function App() {
           )}
 
           {view === 'about' && (
-            <AboutPage onSelect={setPick} onDiscover={discover} />
+            <AboutPage onSelect={setPick} onDiscover={discover} films={browse?.total} />
           )}
         </main>
 
-        <footer className="px-4 md:px-6 py-8 flex flex-wrap gap-x-8 gap-y-2 text-[12px] text-white/50">
+        <footer className="px-4 md:px-6 pt-8 pb-24 md:pb-8 flex flex-wrap gap-x-8 gap-y-2 text-[12px] text-white/50">
           <span>Ratings and tags from MovieLens, GroupLens Research.</span>
-          <span>Artwork, synopses and credits from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+          <span>Film facts from Wikidata (CC0).</span>
         </footer>
       </div>
 
@@ -289,7 +289,7 @@ function App() {
         {pick && <MatchStage key="stage" pick={pick} onClose={() => setPick(null)} taste={taste} />}
       </AnimatePresence>
       <ChatInterface key={who} onSelect={setPick} />
-      {!booted && <Loader ready={!!browse || !!browseError} onDone={() => setBooted(true)} />}
+      {!booted && <Loader ready={!!browse || !!browseError} films={browse?.total} onDone={() => setBooted(true)} />}
     </div>
   );
 }

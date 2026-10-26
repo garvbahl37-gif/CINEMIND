@@ -46,7 +46,7 @@ import hashlib
 import math
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -93,11 +93,24 @@ class Signal:
 
 @dataclass
 class Options:
-    """Switches for the offline ablations; production uses the defaults."""
+    """Switches for the offline ablations, and the relevance blend; production uses the defaults."""
     drift: bool = True
     diversity: bool = True
     exploration: bool = True
     negatives: bool = True
+    # Each source's weight on its z-scored score, and the quality prior's — chosen on
+    # 2015 (docs/BENCHMARK.md, Hybrid selection; the quality prior was 0.20 before).
+    w_tt: float = 0.45
+    w_cf: float = 0.30
+    w_sem: float = 0.15
+    w_intent: float = 0.25
+    w_quality: float = 0.35
+    # Thresholds on two-tower similarity: how hard the diversity pass pushes apart films
+    # alike, how alike a film must be to one you passed on to be held back, and how far
+    # from your likes an exploration pick must sit (unless it is outside your genres).
+    mmr_scale: float = 3.0
+    neg_floor: float = 0.6
+    explore_near: float = 0.6
 
 
 @dataclass
@@ -131,14 +144,18 @@ class Adaptive:
             quality = np.empty(e.n, np.float32)
             quality[order] = np.arange(e.n) / max(e.n - 1, 1)
         self.quality = np.asarray(quality, np.float32)
+        self.q_order = np.argsort(-self.quality, kind="stable")     # best first, sorted once
         self.rc = np.asarray([x or 0 for x in e.c["rc"]] if rating_count is None else rating_count, np.float32)
         self.n = e.n
         self.genre_of = e.genre_of
+        self.hidden = set(np.flatnonzero(e.hidden).tolist())     # aliases are never recommended
 
     # -- the profile ---------------------------------------------------------
     def profile(self, signals: list[Signal], searches: list[tuple[str, float]], now: float,
                 opt: Options = Options()) -> Profile:
-        sig = [s for s in signals if 0 <= s.item < self.n]
+        # A signal on an alias counts for the listed film it duplicates.
+        sig = [s if not self.e.hidden[s.item] else replace(s, item=int(self.e.canonical[s.item]))
+               for s in signals if 0 <= s.item < self.n]
         last = max((s.ts for s in sig), default=now)
         pos_items, long_w, recent_w = [], [], []
         sem_v = np.zeros(self.X.shape[1], np.float32)
@@ -162,7 +179,7 @@ class Adaptive:
                 pos_items.append(s.item)
                 long_w.append(lw)
                 recent_w.append(rw)
-                sem_v += lw * self.X[s.item]
+                sem_v += lw * self.X[s.item].astype(np.float32)
                 pos[s.item] = max(pos.get(s.item, 0.0), lw if not opt.drift else 0.6 * lw + 0.4 * rw)
                 rec[s.item] = rw
                 recent_mass += rw
@@ -202,19 +219,23 @@ class Adaptive:
     def recommend(self, signals: list[Signal], searches: list[tuple[str, float]] | None = None, *,
                   k: int = 24, explore: float = 0.3, exclude: set[int] | None = None,
                   now: float | None = None, opt: Options = Options(), seed: int | None = None,
-                  explain: bool = True) -> dict:
+                  explain: bool = True, allowed: np.ndarray | None = None) -> dict:
+        """`allowed` (a boolean mask over films) limits every candidate source to those films
+        before any top-k cut — the offline evaluation's common candidate universe."""
         t0 = time.perf_counter()
         now = time.time() if now is None else now
         explore = float(np.clip(explore, 0.0, 1.0))
         P = self.profile(signals, searches or [], now, opt)
-        exclude = set(exclude or ()) | P.interacted
+        exclude = set(exclude or ()) | P.interacted | self.hidden
         cold = P.u is None
 
         # Candidates.
         cand: set[int] = set()
+        out_of_bounds = None if allowed is None else ~np.asarray(allowed, bool)
         s_tt = dot(self.TT, P.u) if P.u is not None else np.zeros(self.n, np.float32)
         if P.u is not None:
-            cand |= set(np.argpartition(-s_tt, 500)[:500].tolist())
+            top = np.where(out_of_bounds, -np.inf, s_tt) if out_of_bounds is not None else s_tt
+            cand |= set(np.argpartition(-top, 500)[:500].tolist())
         cf = np.zeros(self.n, np.float32)
         for p, w in P.positive.items():
             row, sc = self.nbr[p], self.nsc[p]
@@ -222,13 +243,17 @@ class Adaptive:
         cand |= set(np.flatnonzero(cf > 0).tolist())
         s_int = dot(self.X, P.intent) if P.intent is not None else np.zeros(self.n, np.float32)
         if P.intent is not None:
-            cand |= set(np.argpartition(-s_int, 150)[:150].tolist())
+            top = np.where(out_of_bounds, -np.inf, s_int) if out_of_bounds is not None else s_int
+            cand |= set(np.argpartition(-top, 150)[:150].tolist())
         s_sem = dot(self.X, P.taste_sem) if P.taste_sem is not None else np.zeros(self.n, np.float32)
-        q_pool = np.argsort(-self.quality)[:400]
+        q_order = self.q_order if out_of_bounds is None else self.q_order[~out_of_bounds[self.q_order]]
+        q_pool = q_order[:400]
         if cold and P.intent is None:
             cand |= set(q_pool[:300].tolist())
         cand -= exclude
         C = np.array(sorted(cand), np.int64)
+        if out_of_bounds is not None:
+            C = C[~out_of_bounds[C]]
         if C.size == 0:
             if not explain:
                 return {"ids": [], "propensities": {}}
@@ -238,16 +263,16 @@ class Adaptive:
         if cold:
             rel = 0.9 * _z(s_int[C]) if P.intent is not None else np.zeros(C.size, np.float32)
         else:
-            rel = 0.45 * _z(s_tt[C]) + 0.30 * _z(cf[C]) + 0.15 * _z(s_sem[C])
+            rel = opt.w_tt * _z(s_tt[C]) + opt.w_cf * _z(cf[C]) + opt.w_sem * _z(s_sem[C])
             if P.intent is not None:
-                rel = rel + 0.25 * _z(s_int[C])
-        base = rel + (0.20 if not cold else 0.6) * _z(self.quality[C])
+                rel = rel + opt.w_intent * _z(s_int[C])
+        base = rel + (opt.w_quality if not cold else 0.6) * _z(self.quality[C])
         base -= np.where(self.rc[C] < 30, 0.5, np.where(self.rc[C] < 100, 0.2, 0.0)).astype(np.float32)
         skip_sim = np.zeros(C.size, np.float32)
         if P.negative:
             N = self.TT[list(P.negative)]
             skip_sim = np.clip(mm(self.TT[C], N.T).max(axis=1), 0, 1)
-            base -= 2.5 * np.clip(skip_sim - 0.6, 0, None)
+            base -= 2.5 * np.clip(skip_sim - opt.neg_floor, 0, None)
         if P.viewed:
             base -= 0.3 * np.isin(C, list(P.viewed))
 
@@ -258,12 +283,13 @@ class Adaptive:
         top = C[order[:250]]
         topb = base[order[:250]]
         delta = (0.25 + 0.50 * explore) if opt.diversity else 0.0
-        chosen = self._mmr(top, topb, n_exploit, delta)
+        chosen = self._mmr(top, topb, n_exploit, delta * opt.mmr_scale)
 
         # Exploration: relevant, well-rated films outside the usual territory, sampled.
         explored, props = [], {}
         if n_explore:
-            explored, props = self._explore(P, C, rel, base, chosen, n_explore, now, explore, seed)
+            explored, props = self._explore(P, C, q_pool, chosen, exclude, n_explore, now, explore, seed,
+                                            near_max=opt.explore_near)
         ranked = self._interleave(chosen, explored)
 
         if not explain:                         # the offline evaluation needs the ranking only
@@ -297,7 +323,7 @@ class Adaptive:
         best_sim = np.zeros(items.size, np.float32)
         avail = np.ones(items.size, bool)
         for _ in range(min(k, items.size)):
-            val = scores - delta * 3.0 * best_sim
+            val = scores - delta * best_sim
             val = np.where(avail, val, -np.inf)
             j = int(np.argmax(val))
             picked.append(int(items[j]))
@@ -305,11 +331,11 @@ class Adaptive:
             best_sim = np.maximum(best_sim, np.clip(mm(V, V[j]), 0, 1))
         return picked
 
-    def _explore(self, P: Profile, C, rel, base, chosen, n, now, explore, seed):
+    def _explore(self, P: Profile, C, q_pool, chosen, exclude, n, now, explore, seed, near_max: float = 0.6):
         pos_items = list(P.positive)
         usual = self._top_genres(P.positive, 3)
-        pool = set(C.tolist()) | set(np.argsort(-self.quality)[:400].tolist())
-        pool -= set(chosen) | P.interacted
+        pool = set(C.tolist()) | set(q_pool.tolist())
+        pool -= set(chosen) | exclude
         pool = np.array(sorted(pool), np.int64)
         if pool.size == 0:
             return [], {}
@@ -321,7 +347,7 @@ class Adaptive:
             floor = -1.0
         near = np.clip(mm(self.TT[pool], self.TT[pos_items].T), 0, 1).max(axis=1) if pos_items else np.zeros(pool.size)
         outside = np.array([0.0 if (self.genre_of[i] & usual) else 1.0 for i in pool]) if usual else np.ones(pool.size)
-        ok = (self.quality[pool] >= 0.6) & (self.rc[pool] >= 300) & (r >= floor) & ((near < 0.6) | (outside > 0))
+        ok = (self.quality[pool] >= 0.6) & (self.rc[pool] >= 300) & (r >= floor) & ((near < near_max) | (outside > 0))
         if not ok.any():
             return [], {}
         E, r, near, outside = pool[ok], r[ok], near[ok], outside[ok]

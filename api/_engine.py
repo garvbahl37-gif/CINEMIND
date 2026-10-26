@@ -12,9 +12,12 @@ across all requests the instance serves.
 from __future__ import annotations
 
 import bisect
+import gzip
 import json
 import re
+import sys
 import unicodedata
+from array import array
 from functools import lru_cache
 from pathlib import Path
 
@@ -117,55 +120,172 @@ def title_variants(title: str) -> set[str]:
     return out
 
 
+def release_memory():
+    """Hand memory freed after startup back to the OS. Parsing catalog.json peaks
+    far above what is kept; glibc holds on to the difference unless asked. A
+    no-op where there is no glibc (macOS)."""
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
+
+
+class ArtifactError(RuntimeError):
+    """The artifacts on disk disagree with each other; serving them would be wrong."""
+
+
+# How a film's matches were found (neighbors.npz `basis`).
+BASIS = ("collaborative", "hybrid", "content")
+# Artifacts with one row per film, which must agree with catalog.json.
+PER_FILM = {"semantic_items.npy", "tower_items.npy", "tower_user.npz", "neighbors.npz", "browse.json"}
+
+
+def catalog_path(where: Path) -> Path:
+    """The catalogue file in an artifact directory: catalog.json.gz as built, or the
+    catalog.json of builds before it was compressed."""
+    gz = where / "catalog.json.gz"
+    return gz if gz.exists() else where / "catalog.json"
+
+
+def load_catalog(where: Path) -> dict:
+    """The columnar catalogue, from an artifact directory or a catalogue file."""
+    f = catalog_path(where) if where.is_dir() else where
+    if f.suffix == ".gz":
+        # Streamed: the whole text is held once while it parses, as for a plain file.
+        with gzip.open(f, "rt", encoding="utf-8") as fh:
+            return json.load(fh)
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
 class Engine:
     def __init__(self, root: Path = ART):
-        self.c = json.loads((root / "catalog.json").read_text())
+        for f in (catalog_path(root), root / "neighbors.npz", root / "browse.json"):
+            if not f.exists():
+                raise ArtifactError(f"{f} is missing — run the build (see README, Running it locally).")
+        self.c = load_catalog(root)
         nz = np.load(root / "neighbors.npz")
         self.nbr, self.nsc = nz["ids"], nz["scores"].astype(np.float32)
-        self.browse = json.loads((root / "browse.json").read_text())
         self.n = len(self.c["title"])
+        # Older graphs predate the basis label: everything in them was co-rating based.
+        self.basis = nz["basis"] if "basis" in nz.files else np.zeros(self.n, np.int8)
+        self.raters = nz["positive_raters"] if "positive_raters" in nz.files else None
+        self.browse = json.loads((root / "browse.json").read_text())
+        # A film served twice under two MovieLens ids keeps both item_ids (browsers store
+        # them), but the second is an alias: it resolves by id and is never listed.
+        alias = self.c.get("alias_of") or [None] * self.n
+        self.hidden = np.array([a is not None for a in alias], bool)
+        self.canonical = np.array([i if a is None else a for i, a in enumerate(alias)], np.int64)
+        self._validate(root)
+        self.rated = sum(1 for r in self.c["rc"] if r)
+        # The same names, genres and tags recur across thousands of films; one
+        # copy of each string instead of one per film, in tuples (the columns are
+        # never modified, and every empty one is the same object).
+        for col in ("genres", "tags", "directors", "cast", "countries"):
+            if col in self.c:
+                self.c[col] = [tuple(sys.intern(x) for x in v) if v else () for v in self.c[col]]
+        for col in ("lang", "media"):
+            self.c[col] = [sys.intern(x) if isinstance(x, str) else x for x in self.c[col]]
 
-        # Search structures, built once per instance.
+        # Search structures, built once per instance. Read-only from here on, so
+        # they are stored compactly: tuples for per-film lists, shared frozensets
+        # for genre sets, int arrays for posting lists.
         self.fold = [_fold(t) for t in self.c["title"]]
-        self.keys = [title_variants(t) for t in self.c["title"]]
+        self.keys = [() if self.hidden[i] else tuple(title_variants(t)) for i, t in enumerate(self.c["title"])]
         self.key_index: dict[str, list[int]] = {}
         for i, ks in enumerate(self.keys):
             for k in ks:
                 self.key_index.setdefault(k, []).append(i)
+        self.key_index = {k: array("i", v) for k, v in self.key_index.items()}
         self._key_sorted = sorted(self.key_index)
         self.bayes = np.array(self.browse["bayes"], np.float32)
-        self.tokens: dict[str, set[int]] = {}
+
+        def post(index: dict[str, list[int]], key: str, i: int):
+            """Films are visited in id order, so each posting list stays sorted and a
+            repeat can only be the film just added — lists, not sets, while building."""
+            ids = index.setdefault(key, [])
+            if not ids or ids[-1] != i:
+                ids.append(i)
+
+        def compact(index: dict[str, list[int]]) -> dict[str, array]:
+            return {k: array("i", v) for k, v in index.items()}
+
+        tokens: dict[str, list[int]] = {}
         for i, t in enumerate(self.fold):
+            if self.hidden[i]:
+                continue
             for w in re.split(r"[^a-z0-9']+", t):
                 if len(w) > 1 and w not in _STOP:
-                    self.tokens.setdefault(w, set()).add(i)
-        self.genre_of = [{g.lower() for g in gs} for gs in self.c["genres"]]
-        self.tag_of = [set(ts) for ts in self.c["tags"]]
+                    post(tokens, w, i)
+        self.tokens = compact(tokens)
+        del tokens
+        shared: dict[frozenset, frozenset] = {}
+        self.genre_of = [shared.setdefault(fs, fs) for fs in (frozenset(g.lower() for g in gs) for gs in self.c["genres"])]
+        self.tag_of = self.c["tags"]          # tuples; intersected per response, a few at a time
         self.genres_all = {g.lower() for gs in self.c["genres"] for g in gs}
         # lowercase key -> the label as it should be displayed ("sci-fi" -> "Sci-Fi")
         self.genre_label = {g.lower(): g for gs in self.c["genres"] for g in gs}
         self._cats: dict | None = None
+        self._sugg: dict | None = None
 
         # Tag lookup, so "heist" or "time travel" finds films by theme.
-        self.tag_index: dict[str, set[int]] = {}
+        tag_index: dict[str, list[int]] = {}
         for i, ts in enumerate(self.c["tags"]):
+            if self.hidden[i]:
+                continue
             for t in ts:
-                self.tag_index.setdefault(t, set()).add(i)
+                post(tag_index, t, i)
                 for w in t.split():
                     if len(w) > 2:
-                        self.tag_index.setdefault(w, set()).add(i)
+                        post(tag_index, w, i)
+        self.tag_index = compact(tag_index)
+        del tag_index
 
         # Directors and cast, indexed by full name and by surname.
-        self.people: dict[str, set[int]] = {}
+        people: dict[str, list[int]] = {}
         for i in range(self.n):
+            if self.hidden[i]:
+                continue
             names = (self.c.get("directors") or [[]] * self.n)[i] + \
                     (self.c.get("cast") or [[]] * self.n)[i]
             for nm in names:
                 fn = _fold(nm)
-                self.people.setdefault(fn, set()).add(i)
+                post(people, fn, i)
                 parts = fn.split()
                 if len(parts) > 1:
-                    self.people.setdefault(parts[-1], set()).add(i)
+                    post(people, parts[-1], i)
+        self.people = compact(people)
+        del people
+        release_memory()
+
+    def _validate(self, root: Path):
+        """Fail at startup, with the file to blame, rather than per request."""
+        n = self.n
+        short = [k for k, v in self.c.items() if isinstance(v, list) and len(v) != n]
+        if short:
+            raise ArtifactError(f"catalog.json: columns {short} do not have {n} rows")
+        if self.nbr.ndim != 2 or self.nbr.shape[0] != n or self.nsc.shape != self.nbr.shape:
+            raise ArtifactError(f"neighbors.npz is {self.nbr.shape} for {n} films — rebuild it")
+        if self.nbr.size and not ((self.nbr >= 0) & (self.nbr < n)).all():
+            raise ArtifactError("neighbors.npz points at films outside the catalogue")
+        if not np.isfinite(self.nsc).all():
+            raise ArtifactError("neighbors.npz has non-finite scores")
+        if len(self.basis) != n:
+            raise ArtifactError(f"neighbors.npz basis has {len(self.basis)} rows for {n} films")
+        bad = [i for i, a in enumerate(self.c.get("alias_of") or []) if a is not None
+               and not (0 <= a < n and self.c["alias_of"][a] is None)]
+        if bad:
+            raise ArtifactError(f"catalog.json: alias_of of film {bad[0]} is not a listed film")
+        if len(self.browse.get("bayes", [])) != n:
+            raise ArtifactError(f"browse.json ranks {len(self.browse.get('bayes', []))} films, catalogue has {n}")
+        manifest = root / "manifest.json"
+        if manifest.exists():
+            for name, meta in json.loads(manifest.read_text()).get("artifacts", {}).items():
+                if name in PER_FILM and meta.get("rows") != n:
+                    raise ArtifactError(f"{name} was built for {meta['rows']} films; catalog.json has {n}")
+
+    def basis_of(self, i: int) -> str:
+        return BASIS[int(self.basis[i])]
 
     # -- shaping ----------------------------------------------------------
     def item(self, i: int, score: float | None = None) -> dict:
@@ -189,6 +309,9 @@ class Engine:
             "tmdb_vote": c["tv"][i],
             "directors": (c.get("directors") or [[]] * self.n)[i],
             "cast": (c.get("cast") or [[]] * self.n)[i][:5],
+            "imdb_id": c["imdbId"][i] if "imdbId" in c else None,
+            # Metadata-only films have no MovieLens ratings: matched by content, never by co-rating.
+            "rating_backed": bool(c["rc"][i]),
         }
         if score is not None:
             d["score"] = round(float(score), 4)
@@ -204,11 +327,13 @@ class Engine:
         if len(sc) == 0:
             return []
         hi = float(sc.max()) or 1.0
+        basis = self.basis_of(i)
         out = []
         for j, s in zip(ids, sc):
             d = self.item(int(j), float(s) / hi)   # 0..1 relative match strength
             d["shared_genres"] = sorted(self.genre_of[i] & self.genre_of[int(j)])
-            d["shared_tags"] = sorted(self.tag_of[i] & self.tag_of[int(j)])[:3]
+            d["shared_tags"] = sorted(set(self.tag_of[i]) & set(self.tag_of[int(j)]))[:3]
+            d["match_basis"] = basis
             out.append(d)
         return out
 
@@ -342,7 +467,9 @@ class Engine:
         phrase = _key(q) if not filt else _key(free_text)
         for i, ks in enumerate(self.keys):
             if phrase in ks:
-                bump(i, 300)
+                # An exact title outranks any mix of partial matches: "oppenheimer" is
+                # Nolan's film before a documentary whose cast lists J. Robert Oppenheimer.
+                bump(i, 600)
             elif any(k.startswith(phrase) for k in ks):
                 bump(i, 190)
             elif any(phrase in k for k in ks):
@@ -370,6 +497,8 @@ class Engine:
     # -- filtering --------------------------------------------------------
     def _keep(self, i: int, g: set, ymin, ymax, lang, media, skip: str = "") -> bool:
         """One item against the active filters, optionally ignoring one facet."""
+        if self.hidden[i]:
+            return False
         if g and skip != "genres" and not g <= self.genre_of[i]:
             return False
         if lang and skip != "lang" and self.c["lang"][i] != lang:
@@ -504,19 +633,38 @@ class Engine:
         return self._cats
 
     # -- autosuggest ------------------------------------------------------
+    @staticmethod
+    def _prefixed(keys: list[str], f: str) -> list[str]:
+        """Every key that starts with f, from a sorted list — a typeahead runs on each keystroke."""
+        return keys[bisect.bisect_left(keys, f):bisect.bisect_left(keys, f + chr(0x10FFFF))]
+
     def suggest(self, q: str, limit: int = 6) -> list[dict]:
         f = _key(q)
         if len(f) < 2:
             return []
-        pre, sub = [], []
-        for i, ks in enumerate(self.keys):
-            if any(k.startswith(f) for k in ks):
-                pre.append(i)
-            elif any(f in k for k in ks):
-                sub.append(i)
-        pre.sort(key=lambda i: -self.bayes[i])
-        sub.sort(key=lambda i: -self.bayes[i])
+        hit = {i for k in self._prefixed(self._key_sorted, f) for i in self.key_index[k]}
+        pre = sorted(sorted(hit), key=lambda i: -self.bayes[i])
+        sub: list[int] = []
+        if len(pre) < limit:                 # titles that only contain it, when beginnings run short
+            sub = [i for i, ks in enumerate(self.keys) if i not in hit and any(f in k for k in ks)]
+            sub.sort(key=lambda i: -self.bayes[i])
         return self.items((pre + sub)[:limit])
+
+    def _suggestible(self):
+        """People and themes worth offering as a category, sorted for prefix lookup; built once."""
+        if self._sugg is None:
+            names = [n for n, ids in self.people.items() if " " in n and len(ids) >= 3]
+            tags = [t for t, ids in self.tag_index.items() if len(t) >= 4 and len(ids) >= 10
+                    and t not in self.genres_all and "(" not in t and ")" not in t]
+            by_word: dict[str, list[str]] = {}
+            for n in names:
+                for w in n.split():
+                    by_word.setdefault(w, []).append(n)
+            # Published whole, so a concurrent request never sees it half built.
+            self._sugg = {"names": sorted(names), "words": sorted(by_word), "by_word": by_word,
+                          "tags": sorted(tags), "order": {k: j for j, k in enumerate(self.people)},
+                          "tag_order": {k: j for j, k in enumerate(self.tag_index)}}
+        return self._sugg
 
     def suggest_categories(self, q: str, limit: int = 5) -> list[dict]:
         """
@@ -596,23 +744,21 @@ class Engine:
                                  "sublabel": f"{n:,} films", "filters": p,
                                  "count": 10 ** 6})
 
-        for name, ids in self.people.items():
-            if " " not in name or len(ids) < 3:
-                continue                      # surnames are duplicates of these
-            if name.startswith(f) or any(w.startswith(f) for w in name.split()):
-                people.append({"kind": "person", "label": name.title(),
-                               "sublabel": f"{len(ids)} films",
-                               "filters": {"q": name}, "count": len(ids)})
+        # Full names only (surnames are duplicates of these), by name or by any of its words.
+        sg = self._suggestible()
+        names = set(self._prefixed(sg["names"], f))
+        names.update(n for w in self._prefixed(sg["words"], f) for n in sg["by_word"][w])
+        for name in sorted(names, key=sg["order"].get):
+            ids = self.people[name]
+            people.append({"kind": "person", "label": name.title(),
+                           "sublabel": f"{len(ids)} films",
+                           "filters": {"q": name}, "count": len(ids)})
 
-        for tag, ids in self.tag_index.items():
-            if len(tag) < 4 or len(ids) < 10 or tag in self.genres_all:
-                continue
-            if "(" in tag or ")" in tag:
-                continue
-            if tag.startswith(f):
-                tags.append({"kind": "tag", "label": tag.title(),
-                             "sublabel": f"{len(ids)} films",
-                             "filters": {"q": tag}, "count": len(ids)})
+        for tag in sorted(self._prefixed(sg["tags"], f), key=sg["tag_order"].get):
+            ids = self.tag_index[tag]
+            tags.append({"kind": "tag", "label": tag.title(),
+                         "sublabel": f"{len(ids)} films",
+                         "filters": {"q": tag}, "count": len(ids)})
 
         for b in (genres, langs, people, tags):
             b.sort(key=lambda c: -c["count"])

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { Movie } from '../types';
+import { MatchBasis, Movie } from '../types';
 import { fetchSimilar, img } from '../lib/api';
 import { names, pct, runtime, short, stars } from '../lib/format';
 import { Taste } from '../lib/taste';
@@ -66,7 +66,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const MatchStage = ({ pick, onClose, taste }: Props) => {
     const [trail, setTrail] = useState<Movie[]>([pick]);
     const current = trail[trail.length - 1];
-    const [data, setData] = useState<{ source: Movie; matches: Movie[] } | null>(null);
+    const [data, setData] = useState<{ source: Movie; matches: Movie[]; basis: MatchBasis } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [attempt, setAttempt] = useState(0);
     const [focus, setFocus] = useState(0);
@@ -371,7 +371,11 @@ const MatchStage = ({ pick, onClose, taste }: Props) => {
                         <>
                             <p className="text-[15px] text-white/75 max-w-[46ch] leading-[1.55]">
                                 {data
-                                    ? <>Its 24 closest films fan out on either side, nearest first. Match strength comes from 32 million ratings, reranked by what the films are about.</>
+                                    ? data.basis === 'content'
+                                        ? <>Nobody has rated this film highly yet, so there are no co-rating matches: its 24 closest films are matched on what they are about — genres, themes and description.</>
+                                        : data.basis === 'hybrid'
+                                            ? <>Its 24 closest films fan out on either side, nearest first. Few people have rated it yet, so the matches lean on what the films are about as well as who liked them.</>
+                                            : <>Its 24 closest films fan out on either side, nearest first. Match strength comes from 32 million ratings, reranked by what the films are about.</>
                                     : 'Finding its 24 closest films…'}
                             </p>
                             {focused.m.tags?.length ? (

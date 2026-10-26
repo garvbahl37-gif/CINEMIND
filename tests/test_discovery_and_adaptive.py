@@ -175,6 +175,26 @@ def test_exploration_is_flagged_logged_and_switchable(e, a):
     assert [r["item_id"] for r in again["results"]] == [r["item_id"] for r in out["results"]]
 
 
+def test_excluded_films_never_come_back_as_exploration(e, a):
+    """`exclude` is part of /api/foryou's contract, and binds the exploration slots too."""
+    sig = likes(e, HORROR)
+    out = a.recommend(sig, [], k=24, explore=1.0, now=NOW, seed=3)
+    explored = {r["item_id"] for r in out["results"] if r["exploring"]}
+    assert explored
+    again = a.recommend(sig, [], k=24, explore=1.0, now=NOW, seed=3, exclude=explored)
+    assert not explored & {r["item_id"] for r in again["results"]}
+
+
+def test_an_allowed_set_bounds_every_candidate_source(e, a):
+    """The offline evaluation's common universe: candidates come from these films only."""
+    import numpy as np
+    allowed = np.zeros(e.n, bool)
+    allowed[::2] = True
+    for sig in (likes(e, HORROR), []):
+        out = a.recommend(sig, [], k=24, explore=1.0, now=NOW, seed=3, allowed=allowed, explain=False)
+        assert len(out["ids"]) == 24 and all(allowed[i] for i in out["ids"])
+
+
 def test_explanations_are_true(e, a):
     sig = likes(e, ["The Dark Knight"] + HORROR[:2])
     liked = {s.item for s in sig}
@@ -255,3 +275,35 @@ def test_evaluation_compares_every_policy(client):
     assert {"popularity", "item-cf", "two-tower", "adaptive"} <= set(m)
     assert all("vs_adaptive" in v for k, v in m.items() if k != "adaptive")
     json.dumps(r.json(), allow_nan=False)
+
+
+# -- response schemas: everything that was there still is -----------------------
+
+ITEM_FIELDS = {"item_id", "title", "year", "genres", "tags", "tmdbId", "movieId", "poster_path", "backdrop_path",
+               "overview", "runtime", "media_type", "original_language", "rating_avg", "rating_count", "tmdb_vote",
+               "directors", "cast"}
+
+
+def test_film_fields_are_a_superset_of_what_clients_read(client):
+    d = client.get("/api/movie/0").json()
+    assert ITEM_FIELDS <= set(d), ITEM_FIELDS - set(d)
+    assert isinstance(d["genres"], list) and isinstance(d["cast"], list)
+    assert "rating_backed" in d and "imdb_id" in d
+
+
+def test_similar_says_how_matches_were_found(e, client):
+    d = client.get("/api/similar/0", params={"k": 5}).json()
+    assert set(d) >= {"item_id", "source", "similar_items", "match_basis"}
+    assert d["match_basis"] in ("collaborative", "hybrid", "content")
+    assert all(ITEM_FIELDS <= set(x) and x["match_basis"] == d["match_basis"] for x in d["similar_items"])
+    unrated = next(i for i, r in enumerate(e.c["rc"]) if r == 0)
+    u = client.get(f"/api/similar/{unrated}").json()
+    assert u["match_basis"] == "content" and u["source"]["rating_backed"] is False
+    assert u["source"]["rating_avg"] is None
+
+
+def test_browse_and_health_report_the_catalogue(e, client):
+    b = client.get("/api/browse").json()
+    assert {"hero", "top50", "tv", "rows", "total"} <= set(b) and b["total"] == e.n
+    h = client.get("/api/health").json()
+    assert h["items"] == e.n and 0 < h["rating_backed"] <= e.n

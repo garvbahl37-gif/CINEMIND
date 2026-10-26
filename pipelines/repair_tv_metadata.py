@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import gzip
 import json
 import os
 import re
@@ -48,6 +49,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ART = Path(__file__).resolve().parent.parent / "data" / "artifacts"
+sys.path.insert(0, str(ART.parent.parent / "api"))
+from _engine import catalog_path, load_catalog  # noqa: E402
 API = "https://api.themoviedb.org/3"
 
 
@@ -212,7 +215,8 @@ def main():
     if not api_key:
         sys.exit("Set TMDB_API_KEY.")
 
-    c = json.loads((args.root / "catalog.json").read_text())
+    c = load_catalog(args.root)
+    cat_file = catalog_path(args.root).name
     b = json.loads((args.root / "browse.json").read_text())
     # Items already settled by an earlier run into the same --out are not asked again.
     state = out / "repair_state.json"
@@ -272,12 +276,14 @@ def main():
     if args.dry_run:
         print("[repair] dry run: nothing written")
         return
-    # Same serialisation as build_artifacts.py, so the diff is only the repair.
-    (out / "catalog.json").write_text(json.dumps(c, separators=(",", ":")))
+    # Same serialisation as the build, in the format it was found in, so the diff is only the repair.
+    text = json.dumps(c, separators=(",", ":")).encode()
+    (out / cat_file).write_bytes(gzip.compress(text, compresslevel=9, mtime=0) if cat_file.endswith(".gz") else text)
     (out / "browse.json").write_text(json.dumps(b, separators=(",", ":")))
     if out.resolve() != ART.resolve():
         state.write_text(json.dumps(sorted(done)))
-    print(f"[repair] wrote catalog.json and browse.json to {out}")
+    print(f"[repair] wrote {cat_file} and browse.json to {out} — rebuild the embeddings and graph "
+          f"(pipelines/rebuild.py --skip catalog) so they describe the repaired films")
 
 
 if __name__ == "__main__":

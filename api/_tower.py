@@ -28,13 +28,14 @@ class Tower:
     def __init__(self, root: Path = ART):
         items, user = root / "tower_items.npy", root / "tower_user.npz"
         if items.exists() and user.exists():
-            self.V = np.load(items).astype(np.float32)
+            # float16 tables, multiplied in float32 by dot()/mm() (api/_semantic.py).
+            self.V = np.load(items).astype(np.float16, copy=False)
             z = np.load(user)
-            self.H = z["hist"].astype(np.float32)
+            self.H = z["hist"].astype(np.float16, copy=False)
             self.w1, self.b1, self.w2, self.b2 = (z[k].astype(np.float32) for k in ("w1", "b1", "w2", "b2"))
             self.trained = True
         else:
-            self.V = np.load(root / "item_vectors.npy").astype(np.float32)
+            self.V = np.load(root / "item_vectors.npy").astype(np.float16, copy=False)
             self.H = self.V
             self.w1 = None
             self.trained = False

@@ -24,9 +24,9 @@ const Panel = ({ title, aside, children, className }: {
     </section>
 );
 
-const FIGURES: [string, string][] = [
+const figures = (films?: number): [string, string][] => [
     ['32M', 'ratings'],
-    ['17,719', 'films indexed'],
+    [films ? films.toLocaleString() : '—', 'films indexed'],
     ['24', 'matches per film'],
     ['~1 ms', 'per lookup'],
 ];
@@ -39,7 +39,7 @@ const STEPS = [
     },
     {
         title: 'Place each film in 64 dimensions',
-        body: 'A two-tower network, trained with InfoNCE and in-batch negatives, maps 17,719 films into one embedding space. Distance there is a learned measure of taste, and it finds neighbours co-occurrence alone would miss.',
+        body: 'A two-tower network, trained with InfoNCE on in-batch and uniformly sampled negatives, maps every film into one embedding space. Distance there is a learned measure of taste, and it finds neighbours co-occurrence alone would miss.',
         bg: 'linear-gradient(180deg,#7a1fe0 0%,#45108f 36%,#14063a 72%,#05020e 100%)', rays: true,
     },
     {
@@ -72,21 +72,21 @@ const CHECKS: [string, string][] = [
     ['0', 'films recommended to themselves'],
     ['0', 'out-of-range or duplicate IDs'],
     ['0', 'neighbours missing a title'],
-    ['100%', 'of the 17,719 score rows sorted best first'],
-    ['94.8%', 'of matches share a genre with their film'],
-    ['8.5 yrs', 'apart, on average, a film and its matches'],
+    ['100%', 'of score rows sorted best first'],
+    ['96.9%', 'of matches share a genre with their film'],
+    ['6.5 yrs', 'apart, on average, a film and its matches'],
 ];
 
 const STACK = [
     {
         where: 'On every request',
         tools: ['FastAPI', 'NumPy'],
-        note: 'Artifacts load once per warm instance. A match lookup is an array slice; a description runs a sentence encoder rewritten in NumPy; your picks take about 6 ms. No PyTorch or FAISS at request time.',
+        note: 'Artifacts load once per warm instance. A match lookup is an array slice; a description runs a sentence encoder rewritten in NumPy; your picks take about 30 ms across the whole catalogue. No PyTorch or FAISS at request time.',
     },
     {
         where: 'At build time only',
         tools: ['PyTorch', 'FAISS', 'Model2Vec', 'pandas', 'SciPy'],
-        note: 'About twenty minutes, offline. The build checks its own output across the whole catalogue and refuses to write artifacts that fail.',
+        note: 'About forty minutes, offline, into a staging copy. Every artifact is checked against the catalogue before it replaces what is served, and a failed check leaves the site as it was.',
     },
     {
         where: 'In your browser',
@@ -134,7 +134,9 @@ const WeightsChart = () => {
     );
 };
 
-const AboutPage = ({ onSelect, onDiscover }: { onSelect: (m: Movie) => void; onDiscover?: (q: string) => void }) => {
+const AboutPage = ({ onSelect, onDiscover, films }: {
+    onSelect: (m: Movie) => void; onDiscover?: (q: string) => void; films?: number;
+}) => {
     const [caseFilm, setCaseFilm] = useState<{ source: Movie; matches: Movie[] } | null>(null);
 
     useEffect(() => {
@@ -154,7 +156,7 @@ const AboutPage = ({ onSelect, onDiscover }: { onSelect: (m: Movie) => void; onD
                     each request takes milliseconds.
                 </p>
                 <dl className="relative mt-auto pt-10 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-6">
-                    {FIGURES.map(([v, k]) => (
+                    {figures(films).map(([v, k]) => (
                         <div key={k}>
                             <dd className="numeral text-[52px] md:text-[76px]">{v}</dd>
                             <dt className="mt-2 text-[14px] text-white/75">{k}</dt>
@@ -197,7 +199,7 @@ const AboutPage = ({ onSelect, onDiscover }: { onSelect: (m: Movie) => void; onD
                 <EvaluationNote />
             </Panel>
 
-            <Panel title="Checked before it ships" aside="The build verifies all 17,719 films before it writes anything">
+            <Panel title="Checked before it ships" aside="The build verifies every film before it writes anything">
                 <dl className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {CHECKS.map(([v, k]) => (
                         <div key={k} className="rounded-[18px] bg-panel-hi p-5 md:p-6 min-h-[168px] flex flex-col justify-between">

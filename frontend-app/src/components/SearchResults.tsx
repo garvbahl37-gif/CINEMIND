@@ -90,8 +90,7 @@ const SearchResults = ({
                     <div className="py-16 text-center">
                         <h2 className="text-[24px] font-medium">Nothing matches {query ? `“${query}”` : 'those filters'}</h2>
                         <p className="mt-2 text-white/60 max-w-[48ch] mx-auto">
-                            The catalogue covers 17,719 films. Remove a filter, or search a genre, a decade like “90s”,
-                            a director or a title.
+                            Remove a filter, or search a genre, a decade like “90s”, a director or a title.
                         </p>
                         <button type="button" onClick={onBack} className="pill pill-white mt-6">Back to browse</button>
                     </div>

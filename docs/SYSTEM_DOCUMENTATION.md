@@ -1,3 +1,10 @@
+> **Historical document.** This describes an earlier prototype (`serving/`,
+> `candidate_generation/`, `ranking/`, `reranking/`, `run.py`) that is not part of
+> the deployed system: there is no LightGBM ranker, FAISS IVF/HNSW retrieval or
+> Redis feature store in production, and the numbers below were not reproduced by
+> anything in this repository. For the running system see the README; for what was
+> checked and measured, see `docs/AUDIT.md` and `docs/BENCHMARK.md`.
+
 # FAANG-Grade Movie Recommender System
 ## Complete Technical Documentation
 
