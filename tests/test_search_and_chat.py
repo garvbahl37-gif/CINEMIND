@@ -169,3 +169,20 @@ def test_an_exact_title_outranks_a_surname_in_the_cast(e):
     Oppenheimer still comes first."""
     top = e.search("oppenheimer", limit=3)["results"][0]
     assert (top["title"], top["year"]) == ("Oppenheimer", 2023)
+
+
+@pytest.mark.parametrize("q, title, year", [("1917", "1917", 2019), ("2012", "2012", 2009), ("1922", "1922", 2017)])
+def test_a_year_that_is_a_known_films_title_finds_the_film(e, q, title, year):
+    top = e.search(q, limit=3)["results"][0]
+    assert (top["title"], top["year"]) == (title, year)
+    assert (e.suggest(q)[0]["title"], e.suggest(q)[0]["year"]) == (title, year)
+
+
+def test_a_plain_year_still_browses_the_year(e):
+    r = e.search("1990", limit=3)
+    assert r["filters"].get("year_min") == 1990 and all(x["year"] == 1990 for x in r["results"])
+
+
+def test_typeahead_keeps_a_well_known_title_above_obscure_namesakes(e):
+    titles = [(x["title"], x["year"]) for x in e.suggest("drive")]
+    assert titles[0] == ("Drive", 2011) and ("Drive My Car", 2021) in titles

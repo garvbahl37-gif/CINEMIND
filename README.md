@@ -226,7 +226,9 @@ The reverse also holds: a query of two or more words that names a title, or
 begins one, is searched as a title and none of its words become filters. Without
 that, `star wars` applied the *War* genre and returned *Starship Troopers*,
 `children of men` became the *Children* genre, and `the french connection`
-became a French-language filter with no results. Titles are matched in every
+became a French-language filter with no results. A year that is also a well-known film's
+whole title — `1917`, `2012` — finds the film rather than the year's films;
+`1990` still browses 1990. Titles are matched in every
 form MovieLens files them under — article-last (`Good, the Bad and the Ugly,
 The`), with alternates in brackets (`Seven (a.k.a. Se7en)`, `Postman, The
 (Postino, Il)`), and with or without a leading article.

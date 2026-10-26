@@ -80,7 +80,10 @@ _QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u02bc": "'", "\u2032": 
 
 def _fold(s: str) -> str:
     """Lowercase, straighten quotes and strip accents, so 'Amelie' finds 'Amélie'."""
-    s = unicodedata.normalize("NFKD", s.lower().translate(_QUOTES))
+    s = s.lower().translate(_QUOTES)
+    if s.isascii():
+        return s                # nothing to decompose — most names and titles, a million at startup
+    s = unicodedata.normalize("NFKD", s)
     return "".join(c for c in s if not unicodedata.combining(c))
 
 
@@ -243,13 +246,16 @@ class Engine:
 
         # Directors and cast, indexed by full name and by surname.
         people: dict[str, list[int]] = {}
+        folded: dict[str, str] = {}            # a name recurs in many films: fold it once
         for i in range(self.n):
             if self.hidden[i]:
                 continue
             names = (self.c.get("directors") or [[]] * self.n)[i] + \
                     (self.c.get("cast") or [[]] * self.n)[i]
             for nm in names:
-                fn = _fold(nm)
+                fn = folded.get(nm)
+                if fn is None:
+                    fn = folded[nm] = _fold(nm)
                 post(people, fn, i)
                 parts = fn.split()
                 if len(parts) > 1:
@@ -363,11 +369,14 @@ class Engine:
         into a filter: "star wars" is not the War genre, "children of men" is not
         Children, and "the french connection" is not a French-language film.
         Single words ("horror") and real category phrases ("korean thrillers")
-        are unaffected — no title starts with them.
+        are unaffected — no title starts with them. One exception: a year that is
+        also a known film's whole title ("1917", "2012") is that film, not the
+        year's films; "1990", which titles no such film, stays a year.
         """
         k = _key(q)
         if len(k.split()) < 2:
-            return False
+            return bool(re.fullmatch(r"(18|19|20)\d\d", k)) and \
+                any((self.c["rc"][i] or 0) >= 100 for i in self.key_index.get(k, ()))
         if k in self.key_index:
             return True
         j = bisect.bisect_left(self._key_sorted, k + " ")
@@ -449,9 +458,12 @@ class Engine:
             cand = _singular(w)
             return _EXPAND.get(cand, cand) in want_g or cand in consumed
 
+        # A year or decade is dropped only when it became a filter: "1917", the film's
+        # whole title, has to stay to be matched.
+        dated = "year_min" in filt or "year_max" in filt
         free = [w for w in re.split(r"[^a-z0-9']+", f)
                 if len(w) > 1 and w not in _STOP and not _structural(w)
-                and not re.fullmatch(r"(19|20)?\d0s|(19|20)\d{2}", w)]
+                and not (dated and re.fullmatch(r"(19|20)?\d0s|(19|20)\d{2}", w))]
         free_text = " ".join(free)
         if not free_text:
             return {}, ""
@@ -643,7 +655,10 @@ class Engine:
         if len(f) < 2:
             return []
         hit = {i for k in self._prefixed(self._key_sorted, f) for i in self.key_index[k]}
-        pre = sorted(sorted(hit), key=lambda i: -self.bayes[i])
+        # A known film whose whole title this is comes first: "2012" is the film, before
+        # "2012: Supernova" — but an obscure namesake doesn't bury a well-known title.
+        known = {i for i in self.key_index.get(f, ()) if (self.c["rc"][i] or 0) >= 100}
+        pre = sorted(sorted(hit), key=lambda i: (i not in known, -self.bayes[i]))
         sub: list[int] = []
         if len(pre) < limit:                 # titles that only contain it, when beginnings run short
             sub = [i for i, ks in enumerate(self.keys) if i not in hit and any(f in k for k in ks)]

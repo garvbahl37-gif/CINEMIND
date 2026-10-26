@@ -187,19 +187,19 @@ class Assistant:
         directed: dict[str, list[int]] = {}
         acted: dict[str, list[int]] = {}
         self.person_name: dict[str, str] = {}
+        folded: dict[str, str] = {}            # a name recurs in many films: fold it once
         for i in range(e.n):
             if e.hidden[i]:
                 continue
-            for nm in c["directors"][i] or []:
-                ids = directed.setdefault(_fold(nm), [])
+            for role, nm in [(directed, x) for x in c["directors"][i] or ()] + \
+                            [(acted, x) for x in c["cast"][i] or ()]:
+                fn = folded.get(nm)
+                if fn is None:
+                    fn = folded[nm] = _fold(nm)
+                ids = role.setdefault(fn, [])
                 if not ids or ids[-1] != i:
                     ids.append(i)
-                self.person_name[_fold(nm)] = nm
-            for nm in c["cast"][i] or []:
-                ids = acted.setdefault(_fold(nm), [])
-                if not ids or ids[-1] != i:
-                    ids.append(i)
-                self.person_name[_fold(nm)] = nm
+                self.person_name[fn] = nm
         self.directed = {k: tuple(v) for k, v in directed.items()}
         self.acted = {k: tuple(v) for k, v in acted.items()}
         del directed, acted
