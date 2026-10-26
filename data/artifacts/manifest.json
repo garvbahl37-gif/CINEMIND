@@ -1,58 +1,58 @@
 {
  "artifacts": {
   "browse.json": {
-   "built": "2026-10-26T06:49:31Z",
-   "bytes": 532063,
+   "built": "2026-10-26T16:35:38Z",
+   "bytes": 532059,
    "rows": 88514,
-   "sha256": "353d74dbb0b58ef7fd62a29e805f56480735a31edd07334535eded06b021840d"
+   "sha256": "91e0911345a0270168063d293aa954c655ba98e359fb07b205d48c5edbf28051"
   },
   "catalog.json.gz": {
    "added": 70795,
-   "aliases": 2,
-   "built": "2026-10-26T06:22:39Z",
-   "bytes": 22683792,
-   "rating_backed": 84408,
+   "aliases": 6,
+   "built": "2026-10-26T16:11:30Z",
+   "bytes": 22684315,
+   "rating_backed": 84404,
    "rows": 88514,
    "served_before": 17719,
-   "sha256": "df74e1b5b51c71d1226bfa3d89c663675ec1183bc55cbd1417659d30f29b3192"
+   "sha256": "d4b71e6016ff435dc6af5088921151d48617c4c49ed298f5181af7b0cadbde89"
   },
   "data_quality.json": {
-   "built": "2026-10-26T06:22:39Z",
-   "bytes": 18943,
-   "sha256": "a05e499618e1c413351ab72ae1060cb1e6f5b16056a71e64ac1262d1435a4228"
+   "built": "2026-10-26T16:11:31Z",
+   "bytes": 12513,
+   "sha256": "7aae2e0fda3b1dca85482b9103bd68f7a62db91e65529bb65f6052c0e1d3f0b4"
   },
   "id_map.json": {
-   "built": "2026-10-26T06:22:39Z",
-   "bytes": 1287735,
+   "built": "2026-10-26T16:11:30Z",
+   "bytes": 1287732,
    "movielens_ids": 88544,
-   "sha256": "b72e0f971ff1d37c5b30440e04a3cca60a57d3e72df3bc94973490352c5745cf"
+   "sha256": "9b674a26218e1eafa008bf8d0b8b4b6d7359306329ea999da85bb68f48feb8d5"
   },
   "neighbors.npz": {
    "basis": {
-    "collaborative": 17280,
-    "content": 23504,
-    "hybrid": 47730
+    "collaborative": 17279,
+    "content": 23507,
+    "hybrid": 47728
    },
-   "built": "2026-10-26T06:49:31Z",
-   "bytes": 8573513,
+   "built": "2026-10-26T16:35:38Z",
+   "bytes": 8572608,
    "checks": {
     "all": {
      "films": 88514,
      "mean_year_gap": 6.54,
-     "share_a_genre": 0.9693
+     "share_a_genre": 0.9694
     },
     "collaborative": {
-     "films": 17280,
+     "films": 17279,
      "mean_year_gap": 8.31,
-     "share_a_genre": 0.9563
+     "share_a_genre": 0.9565
     },
     "content": {
-     "films": 23504,
-     "mean_year_gap": 6.55,
-     "share_a_genre": 0.9592
+     "films": 23507,
+     "mean_year_gap": 6.54,
+     "share_a_genre": 0.9593
     },
     "hybrid": {
-     "films": 47730,
+     "films": 47728,
      "mean_year_gap": 5.89,
      "share_a_genre": 0.979
     }
@@ -61,40 +61,40 @@
    "full_evidence_raters": 20,
    "k": 24,
    "rows": 88514,
-   "sha256": "bb645d97e4083f3e4b83ade95445cd10ed285f45c492e0bc45619f18fa39a88e",
+   "sha256": "0daed298a30b760d6b67009725b6a0cc718cd5ae59c89e43a5a930649b543edb",
    "tuning": [
     {
-     "recovered": 0.1609,
+     "recovered": 0.1622,
      "w_era": 0.0,
      "w_sem": 0.0
     },
     {
-     "recovered": 0.1803,
+     "recovered": 0.181,
      "w_era": 0.25,
      "w_sem": 0.0
     },
     {
-     "recovered": 0.1896,
+     "recovered": 0.1902,
      "w_era": 0.5,
      "w_sem": 0.0
     },
     {
-     "recovered": 0.1897,
+     "recovered": 0.1907,
      "w_era": 1.0,
      "w_sem": 0.0
     },
     {
-     "recovered": 0.1833,
+     "recovered": 0.185,
      "w_era": 1.5,
      "w_sem": 0.0
     },
     {
-     "recovered": 0.162,
+     "recovered": 0.161,
      "w_era": 0.0,
      "w_sem": 0.5
     },
     {
-     "recovered": 0.1812,
+     "recovered": 0.1801,
      "w_era": 0.25,
      "w_sem": 0.5
     },
@@ -104,17 +104,17 @@
      "w_sem": 0.5
     },
     {
-     "recovered": 0.192,
+     "recovered": 0.1925,
      "w_era": 1.0,
      "w_sem": 0.5
     },
     {
-     "recovered": 0.1871,
+     "recovered": 0.1889,
      "w_era": 1.5,
      "w_sem": 0.5
     },
     {
-     "recovered": 0.1589,
+     "recovered": 0.1592,
      "w_era": 0.0,
      "w_sem": 0.9
     },
@@ -124,42 +124,42 @@
      "w_sem": 0.9
     },
     {
-     "recovered": 0.1865,
+     "recovered": 0.1868,
      "w_era": 0.5,
      "w_sem": 0.9
     },
     {
-     "recovered": 0.1899,
+     "recovered": 0.1905,
      "w_era": 1.0,
      "w_sem": 0.9
     },
     {
-     "recovered": 0.1872,
+     "recovered": 0.1882,
      "w_era": 1.5,
      "w_sem": 0.9
     },
     {
-     "recovered": 0.155,
+     "recovered": 0.1554,
      "w_era": 0.0,
      "w_sem": 1.3
     },
     {
-     "recovered": 0.1731,
+     "recovered": 0.1728,
      "w_era": 0.25,
      "w_sem": 1.3
     },
     {
-     "recovered": 0.1814,
+     "recovered": 0.1819,
      "w_era": 0.5,
      "w_sem": 1.3
     },
     {
-     "recovered": 0.1866,
+     "recovered": 0.1877,
      "w_era": 1.0,
      "w_sem": 1.3
     },
     {
-     "recovered": 0.1848,
+     "recovered": 0.1851,
      "w_era": 1.5,
      "w_sem": 1.3
     }
@@ -176,13 +176,13 @@
    }
   },
   "provenance.json.gz": {
-   "built": "2026-10-26T06:22:39Z",
-   "bytes": 1039676,
+   "built": "2026-10-26T16:11:30Z",
+   "bytes": 1039738,
    "rows": 88514,
-   "sha256": "ec248949e438f3c17bf6859c93919de372c07399cd5f8c71c2ffbe65deceb1e1"
+   "sha256": "eecc2deece2f8b6b74e93513f759337bb1a9bbc586171f2fa297f01240eddf43"
   },
   "semantic_items.npy": {
-   "built": "2026-10-26T06:22:41Z",
+   "built": "2026-10-26T16:11:33Z",
    "bytes": 45319296,
    "dim": 256,
    "dtype": "float16",
@@ -190,10 +190,10 @@
    "model": "minishlab/potion-base-8M",
    "recipe": "title. genres. tags. tags. overview",
    "rows": 88514,
-   "sha256": "d495c6e908b5b17866faaf61c367f0fdd82e7feea305b58a35ef46485784fb47"
+   "sha256": "a428feb632c24935d054df5d2222d5894bb339a84e4a44a60c5461b880ed42df"
   },
   "semantic_tokens.npy": {
-   "built": "2026-10-26T06:22:41Z",
+   "built": "2026-10-26T16:11:33Z",
    "bytes": 15118464,
    "dim": 256,
    "model": "minishlab/potion-base-8M",
@@ -201,7 +201,7 @@
    "vocab": 29528
   },
   "tower_items.npy": {
-   "built": "2026-10-26T06:45:39Z",
+   "built": "2026-10-26T16:33:12Z",
    "bytes": 11329920,
    "cutoff": "2016-01-01",
    "dim": 64,
@@ -215,47 +215,47 @@
      {
       "epoch": 1,
       "id_dropout": 0.0,
-      "new_film_recall@20": 0.006575591985428051,
-      "new_film_share_of_top20": 0.2628,
-      "recall@20": 0.0826,
-      "recall@20_last3": 0.0666,
+      "new_film_recall@20": 0.006384335154826958,
+      "new_film_share_of_top20": 0.2673,
+      "recall@20": 0.0823,
+      "recall@20_last3": 0.067,
       "score": 0.0746
      },
      {
       "epoch": 4,
       "id_dropout": 0.3,
       "new_film_recall@20": 0.000273224043715847,
-      "new_film_share_of_top20": 0.0012,
-      "recall@20": 0.1079,
-      "recall@20_last3": 0.0945,
-      "score": 0.1012
+      "new_film_share_of_top20": 0.001,
+      "recall@20": 0.1088,
+      "recall@20_last3": 0.092,
+      "score": 0.1004
      },
      {
       "epoch": 6,
       "id_dropout": 0.5,
       "new_film_recall@20": 0.000273224043715847,
       "new_film_share_of_top20": 0.0002,
-      "recall@20": 0.1037,
-      "recall@20_last3": 0.0924,
-      "score": 0.0981
+      "recall@20": 0.1034,
+      "recall@20_last3": 0.0926,
+      "score": 0.098
      }
     ],
     "id_dropout": 0.3,
     "new_film_people": 915,
     "new_film_recall@20": 0.0003,
-    "new_film_share_of_top20": 0.0012,
-    "recall@20": 0.1079,
-    "recall@20_last3": 0.0945,
+    "new_film_share_of_top20": 0.001,
+    "recall@20": 0.1088,
+    "recall@20_last3": 0.092,
     "validation": "2015 likes from earlier likes; model trained on likes before 2015"
    },
-   "sha256": "66b0532cc71fd0d473164c1d97ea0e0e9b7449afa6438b2228bd129ead48c019"
+   "sha256": "93b951f7c01201f77350ff9bfc226b100b82c4288cb026afdb1e9a81e2f9e068"
   },
   "tower_user.npz": {
-   "built": "2026-10-26T06:45:39Z",
-   "bytes": 10586043,
+   "built": "2026-10-26T16:33:12Z",
+   "bytes": 10587089,
    "dim": 64,
    "rows": 88514,
-   "sha256": "19c7f202e341c1ee773336cb3f4e07d7ba41cdfaee4d27737afb792643b3b563"
+   "sha256": "686e5da4d09cd3cee710e92f1702711cbaff74fbf3939d3d71c8b9bd03672619"
   }
  }
 }

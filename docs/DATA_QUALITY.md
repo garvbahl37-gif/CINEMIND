@@ -1,6 +1,6 @@
 # Catalogue data quality
 
-Generated 2026-10-26T06:22:27Z by `pipelines/build_catalog.py`. Machine-readable:
+Generated 2026-10-26T16:11:18Z by `pipelines/build_catalog.py`. Machine-readable:
 `data/artifacts/data_quality.json`.
 
 ## Size
@@ -10,12 +10,12 @@ Generated 2026-10-26T06:22:27Z by `pipelines/build_catalog.py`. Machine-readable
 | Films | **88,514** (88,114 films, 400 series) |
 | Served before this build (ids unchanged) | 17,719 |
 | Added | 70,795 |
-| With MovieLens ratings | 84,408 (43,867 with five or more) |
-| Metadata only (no ratings) | 4,106 |
+| With MovieLens ratings | 84,404 (43,865 with five or more) |
+| Metadata only (no ratings) | 4,110 |
 | MovieLens 32M ids read | 87,585 |
 | Duplicates merged (shared TMDB id, matching year and title) | 30 |
-| Duplicates among films served before, kept as aliases | 2 |
-| Shared TMDB ids kept apart (conflicts) | 45 |
+| Duplicates among films served before, kept as aliases | 6 |
+| Shared TMDB ids kept apart (conflicts) | 7 |
 | Excluded as invalid | 0 |
 
 ## Field coverage
@@ -39,24 +39,23 @@ Generated 2026-10-26T06:22:27Z by `pipelines/build_catalog.py`. Machine-readable
 
 | Flag | All films | Added films |
 |---|---|---|
-| `alias_of_served_film` | 2 | 0 |
-| `has_merged_duplicate` | 30 | 15 |
+| `alias_of_served_film` | 6 | 4 |
+| `has_merged_duplicate` | 36 | 17 |
 | `legacy_tmdb_data_was_another_film` | 7 | 0 |
 | `missing_genres` | 720 | 693 |
 | `missing_imdb_id` | 959 | 0 |
-| `missing_language` | 758 | 662 |
-| `missing_overview` | 1,594 | 1,470 |
-| `missing_poster` | 2,326 | 2,165 |
-| `missing_runtime` | 1,307 | 1,154 |
+| `missing_language` | 757 | 661 |
+| `missing_overview` | 1,592 | 1,468 |
+| `missing_poster` | 2,324 | 2,163 |
+| `missing_runtime` | 1,306 | 1,153 |
 | `missing_year` | 71 | 68 |
-| `no_ratings` | 4,106 | 3,151 |
+| `no_ratings` | 4,110 | 3,155 |
 | `no_tmdb_id` | 89 | 89 |
 | `runtime_outlier` | 14 | 14 |
 | `runtime_zero_cleared` | 6 | 6 |
 | `title_from_tmdb` | 1 | 1 |
 | `tmdb_imdb_mismatch` | 36 | 29 |
 | `tmdb_not_found` | 1,187 | 1,120 |
-| `tmdb_shared_id_not_this_film` | 2 | 2 |
 | `tmdb_year_conflict` | 7 | 1 |
 | `wikidata_ambiguous` | 42 | 32 |
 | `wikidata_year_conflict` | 368 | 349 |
@@ -108,62 +107,36 @@ were that film's, and are cleared.
 
 Both ids may be stored in browsers, so neither row is removed: the alias keeps
 its item_id and resolves, but is never listed — search, matches, home rows and
-recommendations skip it, and a like of it counts for the film it duplicates.
+recommendations skip it — and its ratings, and a like of it, count for the film
+it duplicates. Pairs the automatic rule cannot see, because their titles differ,
+are listed in `pipelines/confirmed_duplicates.json` once a person has confirmed
+them.
 
-| TMDB id | Listed movieId | Alias movieId | Titles | Years |
-|---|---|---|---|---|
-| 12599 | 3799 | 91752 | Pokémon the Movie 2000 / Pokemon: The Movie 2000 | 2000 / 2000 |
-| 13209 | 48682 | 80330 | Offside / Offside | 2006 / 2006 |
+| TMDB id | Listed movieId | Alias movieId | Titles | Years | Found by |
+|---|---|---|---|---|---|
+| 12599 | 3799 | 91752 | Pokémon the Movie 2000 / Pokemon: The Movie 2000 | 2000 / 2000 | shared TMDB id, year and title |
+| 13209 | 48682 | 80330 | Offside / Offside | 2006 / 2006 | shared TMDB id, year and title |
+| 10991 | 4241 | 174533 | Pokémon 3: The Movie / Pokémon: Spell of the Unown | 2001 / 2000 | confirmed by review |
+| 12600 | 5672 | 174543 | Pokemon 4 Ever (a.k.a. Pokémon 4: The Movie) / Pokémon 4Ever: Celebi - Voice of the Forest | 2002 / 2001 | confirmed by review |
+| 542757 | 215891 | 203453 | Hope You Die Next Time :-) / Remélem legközelebb sikerül meghalnod :) | 2018 / 2018 | confirmed by review |
+| 792517 | 242100 | 239670 | Hate by Dani Rovira / Dani Rovira: Odio | 2021 / 2021 | confirmed by review |
+
+- **Pokémon 3: The Movie** / Pokémon: Spell of the Unown: TMDB 10991, 'Pokémon 3: The Movie' (2000-07-08), carries tt0235679, the second id's IMDb id; Wikidata Q890665, the item for tt0235679, is 'Pokémon 3: The Movie'; both are directed by Kunihiko Yuyama. The 2000 Japanese release and its 2001 US release.
+- **Pokemon 4 Ever (a.k.a. Pokémon 4: The Movie)** / Pokémon 4Ever: Celebi - Voice of the Forest: TMDB 12600, 'Pokémon 4Ever' (2001-07-07), carries tt0287635, the second id's IMDb id; Wikidata Q82579, the item for tt0287635, is 'Pokémon 4Ever'; same director (Kunihiko Yuyama) and runtime (80 min). The 2001 Japanese release and its 2002 US release.
+- **Hope You Die Next Time :-)** / Remélem legközelebb sikerül meghalnod :): The Hungarian original title and its English one, under two IMDb ids (tt8529512, tt8723836); one TMDB record (542757), the same director (Mihály Schwechtje), runtime (96 min) and year.
+- **Hate by Dani Rovira** / Dani Rovira: Odio: 'Odio' is Spanish for 'Hate': one stand-up special by Dani Rovira under its English and Spanish titles and two IMDb ids (tt13323128, tt13323166), with one TMDB record (792517) and the same year.
 
 ## Shared TMDB ids kept apart
 
 | TMDB id | movieIds | Titles | Years | Why not merged |
 |---|---|---|---|---|
-| 744 | 1101, 96062 | Top Gun / Jekyll | 1986 / 2007 | years differ |
-| 3556 | 95214, 27002 | Mad Dog Coll / From the Earth to the Moon | 1961 / 1998 | years differ |
-| 4043 | 26599, 107718 | Law of Desire (Ley del deseo, La) / State of Play | 1987 / 2003 | years differ |
-| 9045 | 6041, 26849 | Amen. / The Stand | 2002 / 1994 | years differ |
-| 9343 | 2970, 108977 | Fitzcarraldo / Paranoia Agent | 1982 / 2004 | years differ |
-| 9687 | 42197, 51024 | Keeping Mum / The Odyssey | 2005 / 1997 | years differ |
-| 9693 | 48774, 93040 | Children of Men / The Civil War | 2006 / 1990 | years differ |
-| 10991 | 4241, 174533 | Pokémon 3: The Movie / Pokémon: Spell of the Unown | 2001 / 2000 | titles differ |
-| 12117 | 2676, 51185 | Instinct / Human Trafficking | 1999 / 2005 | years differ |
-| 12584 | 4710, 62970 | The Shootist / Tin Man | 1976 / 2007 | years differ |
-| 12600 | 5672, 174543 | Pokemon 4 Ever (a.k.a. Pokémon 4: The Movie) / Pokémon 4Ever: Celebi - Voice of the Forest | 2002 / 2001 | titles differ |
-| 13812 | 62733, 42987 | Quarantine / Fingersmith | 2008 / 2005 | years differ |
-| 13851 | 60979, 87308 | Batman: Gotham Knight / Jane Eyre | 2008 / 2006 | years differ |
-| 13894 | 27647, 52784 | Tipping the Velvet / Sharkwater | 2002 / 2006 | years differ |
-| 14968 | 72178, 48268 | Welcome to Dongmakgol / Empire Falls | 2005 / 2005 | titles differ |
-| 16133 | 37495, 27180 | Survive Style 5+ / Joan of Arc | 2004 / 1999 | years differ |
-| 18197 | 4537, 26887 | Running on Empty / The Langoliers | 1988 / 1995 | years differ |
-| 19002 | 53827, 170279 | Sybil / Darkman III: Die Darkman Die | 1976 / 1996 | years differ |
-| 19614 | 8962, 26693 | Fade to Black / It | 2004 / 1990 | years differ |
-| 19654 | 7646, 140743 | Rose Red / The Man I Love | 2002 / 1997 | years differ |
-| 19997 | 2939, 59869 | Niagara / The Andromeda Strain | 1953 / 2008 | years differ |
 | 21753 | 145972, 222065 | Everything You Want / Love Surreal | 2005 / 2015 | years differ |
-| 30991 | 240714, 108979 | The Curse of the Living Corpse / Cowboy Bebop | 1964 / 1998 | years differ |
-| 32166 | 104072, 27292 | The Count of Monte Cristo / Chasing Sleep | 1998 / 2000 | years differ |
-| 34129 | 99792, 256549 | Painted Lady / Shrill Cries of Summer | 1997 / 2008 | years differ |
-| 37306 | 80137, 125501 | If God Is Willing and da Creek Don't Rise / Voodoo Moon | 2010 / 2006 | years differ |
-| 37939 | 44597, 79222 | Youth of the Beast (Yaju no seishun) / The Phantom | 1963 / 2009 | years differ |
-| 38973 | 93719, 228233 | Dragon Age: Redemption / Kamen Rider Den-O The Movie: I’m Born! | 2011 / 2007 | years differ |
 | 39172 | 93928, 137809 | After... / After | 2006 / 2009 | years differ |
-| 39468 | 86487, 105811 | Mildred Pierce / Godzilla vs. Megaguirus (Gojira tai Megagirasu: Jî shômetsu sakusen) | 2011 / 2000 | years differ |
-| 42553 | 114376, 53771 | The Musketeers of Pig Alley / Alice in Wonderland | 1912 / 1985 | years differ |
-| 43016 | 125067, 103277 | Waltz of the Toreadors / Hatfields & McCoys | 1962 / 2012 | years differ |
-| 43065 | 95717, 105091 | Treasure Island / Nightmares in Red White & Blue: The Evolution of the American Horror Film | 2012 / 2009 | years differ |
-| 44264 | 82459, 96347 | True Grit / Endeavour | 2010 / 2012 | years differ |
-| 44434 | 94041, 57236 | Appropriate Adult / LOL | 2011 / 2006 | years differ |
-| 46976 | 27724, 8400 | Hitler: The Rise of Evil / Wish You Were Here | 2003 / 1987 | years differ |
 | 58451 | 200908, 258991 | The Adventures of Pinocchio / The Adventures of Pinocchio | 1975 / 1972 | years differ |
 | 79782 | 895, 181393 | Venice/Venice / Venice | 1992 / 2010 | years differ |
 | 84198 | 2679, 103208 | Finding North / A Place at the Table | 1998 / 2012 | years differ |
 | 109962 | 5848, 102367 | Rich and Famous / Rich and Famous (Gong woo ching) | 1981 / 1987 | years differ |
-| 126193 | 115955, 285825 | Category 7: The End of the World / I... Dreaming | 2005 / 1988 | years differ |
-| 128062 | 32853, 128305 | Sorrow and the Pity, The (Le chagrin et la pitié) / They All Lie | 1969 / 2009 | years differ |
 | 132641 | 864, 134006 | The Wife / Wife | 1995 / 1953 | years differ |
-| 542757 | 203453, 215891 | Remélem legközelebb sikerül meghalnod :) / Hope You Die Next Time :-) | 2018 / 2018 | titles differ |
-| 792517 | 242100, 239670 | Hate by Dani Rovira / Dani Rovira: Odio | 2021 / 2021 | titles differ |
 
 ## Sources
 

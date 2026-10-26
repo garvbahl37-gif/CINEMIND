@@ -111,6 +111,11 @@ class Options:
     mmr_scale: float = 3.0
     neg_floor: float = 0.6
     explore_near: float = 0.6
+    # A shelf of its own for films nobody has rated, so they never take a place earned on
+    # ratings: how many, and how its two content signals weigh.
+    unrated_k: int = 6
+    u_tt: float = 0.5
+    u_sem: float = 0.5
 
 
 @dataclass
@@ -149,6 +154,8 @@ class Adaptive:
         self.n = e.n
         self.genre_of = e.genre_of
         self.hidden = set(np.flatnonzero(e.hidden).tolist())     # aliases are never recommended
+        # Films nobody has rated (offline: before the cutoff), for their own shelf.
+        self.unrated = np.flatnonzero((self.rc == 0) & ~e.hidden)
 
     # -- the profile ---------------------------------------------------------
     def profile(self, signals: list[Signal], searches: list[tuple[str, float]], now: float,
@@ -292,8 +299,10 @@ class Adaptive:
                                             near_max=opt.explore_near)
         ranked = self._interleave(chosen, explored)
 
+        unrated = [] if cold else self._unrated(P, s_tt, s_sem, s_int, exclude, out_of_bounds, opt)
         if not explain:                         # the offline evaluation needs the ranking only
-            return {"ids": [int(i) for i in ranked], "propensities": {int(i): p for i, p in props.items()}}
+            return {"ids": [int(i) for i in ranked], "propensities": {int(i): p for i, p in props.items()},
+                    "unrated": unrated}
         rel_pct = {int(i): float(p) for i, p in zip(C, (np.argsort(np.argsort(rel)) + 1) / C.size)}
         results = []
         for pos_, i in enumerate(ranked):
@@ -306,14 +315,43 @@ class Adaptive:
                       "confidence_label": "High" if conf >= 0.66 else "Medium" if conf >= 0.4 else "Low",
                       "position": pos_})
             results.append(d)
+        usual = self._top_genres(P.positive, 3)
+        shelf = []
+        for i in unrated:
+            d = self.e.item(int(i), None)
+            shared = sorted(self.e.genre_label.get(g, g) for g in self.genre_of[i] & usual)
+            text = "No ratings yet — matched on what it's about" + (f": {', '.join(shared)}" if shared else "")
+            d.update({"exploring": False, "propensity": 1.0, "reason": text,
+                      "evidence": [{"kind": "content", "strength": 1.0, "text": text}],
+                      "confidence": None, "confidence_label": None})
+            shelf.append(d)
         return {
             "results": results,
+            "unrated": shelf,
             "profile": self._summary(P, explore, opt),
             "policy": {"version": "adaptive-1", "epsilon": round(n_explore / max(k, 1), 3),
                        "diversity": round(delta, 3), "drift": round(P.drift, 3), "candidates": int(C.size),
                        "cold_start": cold},
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
         }
+
+    def _unrated(self, P: Profile, s_tt, s_sem, s_int, exclude, out_of_bounds, opt: Options) -> list[int]:
+        """Films nobody has rated, nearest this taste by what they are about: the two-tower
+        model scores them from content alone (calibrated for that in training), the
+        sentence embedding from their text, and searches lean the shelf as they lean the list."""
+        if opt.unrated_k <= 0 or P.u is None or self.unrated.size == 0:
+            return []
+        pool = self.unrated
+        if out_of_bounds is not None:
+            pool = pool[~out_of_bounds[pool]]
+        if exclude:
+            pool = pool[~np.isin(pool, np.fromiter(exclude, np.int64))]
+        if pool.size == 0:
+            return []
+        score = opt.u_tt * _z(s_tt[pool]) + opt.u_sem * _z(s_sem[pool])
+        if P.intent is not None:
+            score = score + opt.w_intent * _z(s_int[pool])
+        return [int(i) for i in pool[np.argsort(-score, kind="stable")[:opt.unrated_k]]]
 
     def _mmr(self, items: np.ndarray, scores: np.ndarray, k: int, delta: float) -> list[int]:
         if k <= 0 or items.size == 0:

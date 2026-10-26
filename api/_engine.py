@@ -194,7 +194,14 @@ class Engine:
         # they are stored compactly: tuples for per-film lists, shared frozensets
         # for genre sets, int arrays for posting lists.
         self.fold = [_fold(t) for t in self.c["title"]]
-        self.keys = [() if self.hidden[i] else tuple(title_variants(t)) for i, t in enumerate(self.c["title"])]
+        # An alias's title is another name for the film it duplicates: "Pokémon 4Ever: Celebi"
+        # finds "Pokemon 4 Ever", which is listed in its place.
+        also: dict[int, list[str]] = {}
+        for i in np.flatnonzero(self.hidden):
+            also.setdefault(int(self.canonical[i]), []).append(self.c["title"][i])
+        self.keys = [() if self.hidden[i] else
+                     tuple(title_variants(t).union(*(title_variants(x) for x in also.get(i, ()))))
+                     for i, t in enumerate(self.c["title"])]
         self.key_index: dict[str, list[int]] = {}
         for i, ks in enumerate(self.keys):
             for k in ks:
@@ -217,7 +224,7 @@ class Engine:
         for i, t in enumerate(self.fold):
             if self.hidden[i]:
                 continue
-            for w in re.split(r"[^a-z0-9']+", t):
+            for w in re.split(r"[^a-z0-9']+", " ".join([t, *map(_fold, also.get(i, ()))])):
                 if len(w) > 1 and w not in _STOP:
                     post(tokens, w, i)
         self.tokens = compact(tokens)

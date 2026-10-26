@@ -46,7 +46,9 @@ def test_ids_already_in_browsers_never_move(c):
     classes = np.load(ART / "item_classes.npy")
     assert [int(m) for m in c["movieId"][:LEGACY_N]] == [int(x) for x in classes]
     id_map = json.loads((ART / "id_map.json").read_text())
-    assert all(id_map[str(int(m))] == i for i, m in enumerate(classes))
+    alias = c.get("alias_of") or [None] * len(c["title"])
+    # Every row stays where it was; an alias's ratings count for the film it duplicates.
+    assert all(id_map[str(int(m))] == (i if alias[i] is None else alias[i]) for i, m in enumerate(classes))
 
 
 def test_no_film_is_listed_twice(c):
@@ -94,6 +96,7 @@ def test_a_film_served_twice_resolves_by_both_ids_but_is_listed_once(c):
     e = get_engine()
     pairs = [(i, a) for i, a in enumerate(c["alias_of"]) if a is not None]
     assert {(c["movieId"][a], c["movieId"][i]) for i, a in pairs} >= {(48682, 80330), (3799, 91752)}
+    assert all(c["rc"][i] == 0 for i, _ in pairs)                       # their ratings count for the listed film
     for i, a in pairs:
         assert e.item(i)["title"] == c["title"][i]                      # the stored id still resolves
         ids = [r["item_id"] for r in e.search(c["title"][a], limit=40)["results"]]
@@ -102,3 +105,19 @@ def test_a_film_served_twice_resolves_by_both_ids_but_is_listed_once(c):
     out = Adaptive(e).recommend([Signal(alias, "like", None, 1.79e9)], [], k=24, explore=0.3, now=1.79e9)
     ids = {r["item_id"] for r in out["results"]}
     assert offside not in ids and alias not in ids                     # liked once, under either id
+
+
+def test_duplicates_a_person_confirmed_are_listed_once(c):
+    """pipelines/confirmed_duplicates.json: pairs whose titles differ, so no rule can see them."""
+    pairs = json.loads((ROOT / "pipelines" / "confirmed_duplicates.json").read_text())["pairs"]
+    row = {int(m): i for i, m in enumerate(c["movieId"])}
+    for d in pairs:
+        k, a = row[d["keep"]], row[d["alias"]]
+        assert c["alias_of"][a] == k and c["alias_of"][k] is None
+    from _engine import get_engine
+    e = get_engine()
+    titles = [r["title"] for r in e.search("pokemon 4ever", limit=20)["results"]]
+    assert sum("4" in t and "ever" in t.lower().replace(" ", "") for t in titles) == 1
+    # the alias's title still finds the film, which is listed in its place
+    assert titles[0] == "Pokemon 4 Ever (a.k.a. Pokémon 4: The Movie)"
+    assert e.search("pokemon spell of the unown", limit=1)["results"][0]["title"] == "Pokémon 3: The Movie"

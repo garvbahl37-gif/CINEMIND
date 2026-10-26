@@ -62,8 +62,8 @@ Three things it deliberately avoids:
 ## The catalogue
 
 88,514 films: the 17,719 served before the expansion, unchanged and in the same
-order, and 70,795 added from MovieLens 32M. 84,408 have MovieLens ratings;
-4,106 are metadata-only. The full report, regenerated with every build,
+order, and 70,795 added from MovieLens 32M. 84,404 have MovieLens ratings;
+4,104 are metadata-only. The full report, regenerated with every build,
 is [docs/DATA_QUALITY.md](docs/DATA_QUALITY.md).
 
 | Source | What it contributes | Terms |
@@ -82,13 +82,18 @@ as duplicates, so ratings for either land on the same film.
 they share a TMDB id *and* their years are within one *and* their titles match.
 A shared TMDB id alone is not enough — MovieLens files some series under a
 film's id, which is how *Top Gun* and the series *Jekyll* came to share one. Titles
-alone never merge anything. 30 pairs were merged; 45 that share an id
-were kept apart, and both lists are in the report. Two films the old catalogue
-already listed twice stay as aliases: both ids resolve, the film is listed once.
-A wrong merge hides a film and pools its ratings with another's, so the rule
-stays strict even where it misses: three pairs in the report that share an id
-and a year but word their titles differently (*Pokémon 4Ever* and *Pokémon
-4Ever: Celebi*, for one) are probably the same film, and are left for review.
+alone never merge anything. 30 pairs were merged; 7 that share an id are
+different films, kept apart, and both lists are in the report. (A series served
+before the expansion has an id in TMDB's TV namespace, which only coincides
+with a film's; those are never compared.) When both duplicates were already
+served, both ids may sit in browsers, so the second stays as an alias: it
+resolves, is never listed, and its ratings count for the first. A wrong merge
+hides a film and pools its ratings with another's, so the rule stays strict
+where titles differ; pairs like *Pokémon 4Ever* and *Pokémon 4Ever: Celebi* are
+aliased only once a person has confirmed them from evidence beyond the titles —
+IMDb, TMDB and Wikidata records, directors, runtimes — in
+[`pipelines/confirmed_duplicates.json`](pipelines/confirmed_duplicates.json):
+four so far, six aliases in all.
 
 **Nothing is invented.** Each field comes from the first source that has it and
 agrees with MovieLens. A TMDB record is this film when it carries MovieLens' own
@@ -338,6 +343,7 @@ signals ─▶ taste ─▶ candidates ─▶ rerank ─▶ picks + evidence ─
 | **Exploration** | `explore` (0–1, the *Adventurousness* slider, default 0.3) spends round(k · 0.35 · explore) slots on relevant, well-rated films outside your usual genres or far from your likes. They are *sampled*, not ranked, and each carries the probability it was shown with. |
 | **Evidence** | Every pick says why (`Because you liked …` cites only films you liked), with a confidence built from where it ranks among the candidates, how many of your likes support it and how many ratings it has — scaled down for exploration. |
 | **Feedback** | The browser logs what was shown, where, whether it was exploration, its propensity, and whether it was opened or liked — the record counterfactual evaluation needs. |
+| **Not yet rated** | Films nobody has rated never earn a place in the list, which is built on ratings. They get a shelf of their own — up to six, matched on what they are about (the two-tower model's content vector and the sentence embedding) and labelled *No ratings yet*. Offline, for people who went on to love a film nobody had rated, it held one for 1.4% of them — 15 times six random unrated films. Weighted on the two-tower content vector alone it did twice as well on 2015, but not by enough to clear the rule fixed in advance, so the even mix stays. |
 
 The two-tower model is retrained for this (`pipelines/train_two_tower.py`): the
 user tower is a mean over liked films plus a residual MLP, so it needs no
@@ -380,17 +386,18 @@ works* page draws from the full-catalogue run (`/api/evaluation`).
 **Split.** Temporal, at 2016-01-01: MovieLens ratings before it to learn from,
 after it to test on, and nothing after it used to choose anything — the
 two-tower model, the match graph's content weights and the adaptive engine's
-blend are all selected on 2015, inside the training period. Of fourteen
-alternative blends and similarity thresholds for the adaptive engine, one
-cleared the rule fixed in advance — a quality-prior weight of 0.35 instead of
-0.20, worth 0.03 recall points — and is used. 3,000 people, drawn once and fixed
-(`docs/benchmarks/users.json`), each with ten or more likes before the cutoff
-and three or more new ones after. A later rating of 4★ or more on a film they
-hadn't rated is a hit. Only films that existed at the cutoff — released or rated
-before it — are candidates or targets: a list made on 1 January 2016 cannot hold
-a film from 2019, and counting one as a miss would be as wrong as recommending
-it. The co-rating graph is rebuilt from training ratings with the production
-formula, because the shipped graph saw all 32M.
+blend are all selected on 2015, inside the training period. None of the
+alternative blends and similarity thresholds tried for the adaptive engine
+clears the rule fixed in advance; a quality-prior weight of 0.35, which cleared
+it by 0.03 recall points in an earlier round, is kept and makes no measurable
+difference. 3,000 people, drawn once and fixed (`docs/benchmarks/users.json`),
+each with ten or more likes before the cutoff and three or more new ones after.
+A later rating of 4★ or more on a film they hadn't rated is a hit. Only films
+that existed at the cutoff — released or rated before it — are candidates or
+targets: a list made on 1 January 2016 cannot hold a film from 2019, and
+counting one as a miss would be as wrong as recommending it. The co-rating graph
+is rebuilt from training ratings with the production formula, because the
+shipped graph saw all 32M.
 
 **Over the whole expanded catalogue** (67,601 candidate films — those that
 existed at the cutoff; 1,231 of the 3,000 people later loved one that nobody
@@ -400,8 +407,8 @@ had rated before it):
 |---|---|---|---|---|---|---|
 | Most popular | 0.133 (0.127–0.138) | 0.140 | 0.063 | 54.1% | 0.5% | 0.0% |
 | Item-item CF | 0.190 (0.183–0.197) | 0.198 | 0.097 | 67.3% | 1.3% | 2.0% |
-| Two-tower alone | 0.161 (0.155–0.167) | 0.163 | 0.071 | 62.6% | 4.5% | 49.8% |
-| **Adaptive engine (hybrid)** | **0.207 (0.200–0.213)** | **0.216** | **0.102** | **72.6%** | 4.0% | 23.1% |
+| Two-tower alone | 0.159 (0.153–0.165) | 0.161 | 0.070 | 62.2% | 4.5% | 50.5% |
+| **Adaptive engine (hybrid)** | **0.206 (0.200–0.212)** | **0.215** | **0.102** | **72.3%** | 4.0% | 23.2% |
 
 **Before and after, person by person.** The same 3,000 people, the same
 held-out ratings, and only the old catalogue's films as candidates and
@@ -413,21 +420,25 @@ quality-prior weight and all:
 |---|---|---|---|
 | Most popular | 0.139 | 0.139 | 0.00 |
 | Item-item CF | 0.201 | 0.201 | +0.04 (−0.03 to +0.11) |
-| Two-tower alone | 0.133 | 0.168 | **+3.46 (+3.11 to +3.81)** |
-| Adaptive engine (hybrid) | 0.223 | 0.219 | −0.46 (−0.70 to −0.22) |
+| Two-tower alone | 0.133 | 0.166 | **+3.29 (+2.94 to +3.64)** |
+| Adaptive engine (hybrid) | 0.223 | 0.218 | −0.48 (−0.72 to −0.24) |
 
-The retrained two-tower model is the clear gain: 3.5 recall points on the same
+The retrained two-tower model is the clear gain: 3.3 recall points on the same
 people and films. Popularity and item-item CF don't move, as they shouldn't —
-they see the same training ratings. The adaptive engine is 0.46 points (2.1%)
-worse, and its cause is open. It isn't the longer histories: the change is
-uncorrelated with how much of a person's history the old catalogue lacked
-(r = 0.007), and the 1,042 people with none of it lose 0.35 points too. Nor
-the blend or the similarity thresholds, which were calibrated against the old
-model: fourteen alternatives were scored on 2015 and none recovers it.
+they see the same training ratings. The adaptive engine is 0.48 points (2.1%)
+worse, and the [benchmark](docs/BENCHMARK.md#why-the-hybrid-dipped) finds why
+by putting parts back one at a time: learning only from the old films' ratings
+changes nothing (−0.61 points), but putting the old two-tower model back in
+their rows closes almost all of the gap (−0.09). The new model is far better
+alone yet adds less to the blend — most likely because it now learns much of
+what the co-rating signal already knows — and re-weighting the blend on 2015
+doesn't recover it (see [Status](#status)).
 
 Over the whole catalogue the adaptive engine still leads every baseline. No
-policy recommends a film nobody had rated before the cutoff: cold recall is
-0.000 for all of them (see [Status](#status)).
+ranked list holds a film nobody had rated before the cutoff — cold recall is
+0.000 for every policy — so those films get a shelf of their own: for the 1,231
+people who went on to love one, the six-film shelf held it for 1.4% of them
+(95% CI 0.8–2.1%), where six unrated films drawn at random would for 0.1%.
 
 **What these numbers can't tell you.** A film not rated after the cutoff counts
 as a miss, though the person may never have seen it — MovieLens ratings are
@@ -580,7 +591,7 @@ Interactive schema at [`/docs`](https://cinemind-theta.vercel.app/docs).
 | `GET /api/top50` | Bayesian-ranked top 50 |
 | `POST /api/blend` | Recommendations from several films at once |
 | `GET /api/discover?q=&limit=` | Films that fit a description, each with `why`, plus the reading as `understood` |
-| `POST /api/foryou` | The adaptive engine: `{signals, searches, explore, k}` → picks with `reason`, `evidence`, `confidence`, `exploring`, `propensity` |
+| `POST /api/foryou` | The adaptive engine: `{signals, searches, explore, k, exclude}` → picks with `reason`, `evidence`, `confidence`, `exploring`, `propensity`, plus `unrated`: films nobody has rated, matched on content |
 | `GET /api/evaluation` | The offline comparison in `eval.json` |
 | `POST /api/chat/message` | The film assistant: `{message, context?}` → `{response, recommendations, focus, follow_ups}` |
 
@@ -726,7 +737,7 @@ not just a status code:
 
 ```bash
 curl https://cinemind-theta.vercel.app/api/health
-# {"status":"healthy","items":88514,"neighbors_per_item":24,"rating_backed":84408}
+# {"status":"healthy","items":88514,"neighbors_per_item":24,"rating_backed":84404}
 ```
 
 **Resources.** The function is configured with 1,024 MB (`vercel.json`). With
@@ -763,7 +774,11 @@ outside this repository.
   file has one row per film, checksums match the manifest, and sampled films'
   vectors re-encode from their own text (`pipelines/validate_artifacts.py`).
 - Content-based matching for films with no ratings, labelled by basis
-  (`match_basis`), and no invented ratings for them.
+  (`match_basis`), and no invented ratings for them; and their own shelf in
+  *For you*, which never takes a place in the ranked list, honours `exclude`
+  and is measured on its own (`tests/test_discovery_and_adaptive.py`).
+- Duplicates a person confirmed are listed once and resolve by both ids
+  (`tests/test_catalog_and_vectors.py`).
 - The evaluation harness: metric definitions checked on hand-worked cases, a
   reproducible run on a fixture, fixed populations and a common candidate
   universe for before/after comparisons, and a refusal to score a model trained
@@ -794,16 +809,11 @@ outside this repository.
 
 **Planned**
 
-- Recommending films with no ratings in *For you*. The adaptive engine ranks
-  them below rated films, so its lists hold none (cold-start share 0 in the
-  [benchmark](docs/BENCHMARK.md)); they are reachable through similar films,
-  discovery and search. Offline and in production these are now the same kind
-  of film — one that exists but nobody rated — so a way to surface them can be
-  chosen on 2015 like everything else.
-- Three pairs that share a TMDB id and a year but word their titles differently
-  are probably duplicates; they are listed in
-  [docs/DATA_QUALITY.md](docs/DATA_QUALITY.md) for a person to confirm, rather
-  than merged by a looser rule.
+- Recovering the adaptive engine's dip. Its cause is found
+  ([Evaluation](#evaluation)): the retrained two-tower model, better on its
+  own, adds less to the blend than the old one did, and re-weighting the blend
+  doesn't recover it. The fix is in how the engine uses that model — candidates,
+  diversity, the blend — and needs its own validation on 2015.
 
 **Considered and dropped**
 

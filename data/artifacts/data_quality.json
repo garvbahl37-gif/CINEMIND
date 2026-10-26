@@ -1,16 +1,16 @@
 {
- "generated": "2026-10-26T06:22:27Z",
+ "generated": "2026-10-26T16:11:18Z",
  "films": 88514,
  "movies": 88114,
  "tv": 400,
  "already_served": 17719,
  "added": 70795,
- "rating_backed": 84408,
- "metadata_only": 4106,
- "rating_backed_min5": 43867,
+ "rating_backed": 84404,
+ "metadata_only": 4110,
+ "rating_backed_min5": 43865,
  "movielens_ids": 87585,
  "duplicates_merged": 30,
- "shared_id_conflicts": 45,
+ "shared_id_conflicts": 7,
  "merges": [
   {
    "tmdbId": 3687,
@@ -405,342 +405,6 @@
  ],
  "conflicts": [
   {
-   "tmdbId": 744,
-   "movieIds": [
-    1101,
-    96062
-   ],
-   "titles": [
-    "Top Gun",
-    "Jekyll"
-   ],
-   "years": [
-    1986,
-    2007
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 3556,
-   "movieIds": [
-    95214,
-    27002
-   ],
-   "titles": [
-    "Mad Dog Coll",
-    "From the Earth to the Moon"
-   ],
-   "years": [
-    1961,
-    1998
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 4043,
-   "movieIds": [
-    26599,
-    107718
-   ],
-   "titles": [
-    "Law of Desire (Ley del deseo, La)",
-    "State of Play"
-   ],
-   "years": [
-    1987,
-    2003
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 9045,
-   "movieIds": [
-    6041,
-    26849
-   ],
-   "titles": [
-    "Amen.",
-    "The Stand"
-   ],
-   "years": [
-    2002,
-    1994
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 9343,
-   "movieIds": [
-    2970,
-    108977
-   ],
-   "titles": [
-    "Fitzcarraldo",
-    "Paranoia Agent"
-   ],
-   "years": [
-    1982,
-    2004
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 9687,
-   "movieIds": [
-    42197,
-    51024
-   ],
-   "titles": [
-    "Keeping Mum",
-    "The Odyssey"
-   ],
-   "years": [
-    2005,
-    1997
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 9693,
-   "movieIds": [
-    48774,
-    93040
-   ],
-   "titles": [
-    "Children of Men",
-    "The Civil War"
-   ],
-   "years": [
-    2006,
-    1990
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 10991,
-   "movieIds": [
-    4241,
-    174533
-   ],
-   "titles": [
-    "Pok\u00e9mon 3: The Movie",
-    "Pok\u00e9mon: Spell of the Unown"
-   ],
-   "years": [
-    2001,
-    2000
-   ],
-   "reason": "titles differ"
-  },
-  {
-   "tmdbId": 12117,
-   "movieIds": [
-    2676,
-    51185
-   ],
-   "titles": [
-    "Instinct",
-    "Human Trafficking"
-   ],
-   "years": [
-    1999,
-    2005
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 12584,
-   "movieIds": [
-    4710,
-    62970
-   ],
-   "titles": [
-    "The Shootist",
-    "Tin Man"
-   ],
-   "years": [
-    1976,
-    2007
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 12600,
-   "movieIds": [
-    5672,
-    174543
-   ],
-   "titles": [
-    "Pokemon 4 Ever (a.k.a. Pok\u00e9mon 4: The Movie)",
-    "Pok\u00e9mon 4Ever: Celebi - Voice of the Forest"
-   ],
-   "years": [
-    2002,
-    2001
-   ],
-   "reason": "titles differ"
-  },
-  {
-   "tmdbId": 13812,
-   "movieIds": [
-    62733,
-    42987
-   ],
-   "titles": [
-    "Quarantine",
-    "Fingersmith"
-   ],
-   "years": [
-    2008,
-    2005
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 13851,
-   "movieIds": [
-    60979,
-    87308
-   ],
-   "titles": [
-    "Batman: Gotham Knight",
-    "Jane Eyre"
-   ],
-   "years": [
-    2008,
-    2006
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 13894,
-   "movieIds": [
-    27647,
-    52784
-   ],
-   "titles": [
-    "Tipping the Velvet",
-    "Sharkwater"
-   ],
-   "years": [
-    2002,
-    2006
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 14968,
-   "movieIds": [
-    72178,
-    48268
-   ],
-   "titles": [
-    "Welcome to Dongmakgol",
-    "Empire Falls"
-   ],
-   "years": [
-    2005,
-    2005
-   ],
-   "reason": "titles differ"
-  },
-  {
-   "tmdbId": 16133,
-   "movieIds": [
-    37495,
-    27180
-   ],
-   "titles": [
-    "Survive Style 5+",
-    "Joan of Arc"
-   ],
-   "years": [
-    2004,
-    1999
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 18197,
-   "movieIds": [
-    4537,
-    26887
-   ],
-   "titles": [
-    "Running on Empty",
-    "The Langoliers"
-   ],
-   "years": [
-    1988,
-    1995
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 19002,
-   "movieIds": [
-    53827,
-    170279
-   ],
-   "titles": [
-    "Sybil",
-    "Darkman III: Die Darkman Die"
-   ],
-   "years": [
-    1976,
-    1996
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 19614,
-   "movieIds": [
-    8962,
-    26693
-   ],
-   "titles": [
-    "Fade to Black",
-    "It"
-   ],
-   "years": [
-    2004,
-    1990
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 19654,
-   "movieIds": [
-    7646,
-    140743
-   ],
-   "titles": [
-    "Rose Red",
-    "The Man I Love"
-   ],
-   "years": [
-    2002,
-    1997
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 19997,
-   "movieIds": [
-    2939,
-    59869
-   ],
-   "titles": [
-    "Niagara",
-    "The Andromeda Strain"
-   ],
-   "years": [
-    1953,
-    2008
-   ],
-   "reason": "years differ"
-  },
-  {
    "tmdbId": 21753,
    "movieIds": [
     145972,
@@ -757,102 +421,6 @@
    "reason": "years differ"
   },
   {
-   "tmdbId": 30991,
-   "movieIds": [
-    240714,
-    108979
-   ],
-   "titles": [
-    "The Curse of the Living Corpse",
-    "Cowboy Bebop"
-   ],
-   "years": [
-    1964,
-    1998
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 32166,
-   "movieIds": [
-    104072,
-    27292
-   ],
-   "titles": [
-    "The Count of Monte Cristo",
-    "Chasing Sleep"
-   ],
-   "years": [
-    1998,
-    2000
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 34129,
-   "movieIds": [
-    99792,
-    256549
-   ],
-   "titles": [
-    "Painted Lady",
-    "Shrill Cries of Summer"
-   ],
-   "years": [
-    1997,
-    2008
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 37306,
-   "movieIds": [
-    80137,
-    125501
-   ],
-   "titles": [
-    "If God Is Willing and da Creek Don't Rise",
-    "Voodoo Moon"
-   ],
-   "years": [
-    2010,
-    2006
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 37939,
-   "movieIds": [
-    44597,
-    79222
-   ],
-   "titles": [
-    "Youth of the Beast (Yaju no seishun)",
-    "The Phantom"
-   ],
-   "years": [
-    1963,
-    2009
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 38973,
-   "movieIds": [
-    93719,
-    228233
-   ],
-   "titles": [
-    "Dragon Age: Redemption",
-    "Kamen Rider Den-O The Movie: I\u2019m Born!"
-   ],
-   "years": [
-    2011,
-    2007
-   ],
-   "reason": "years differ"
-  },
-  {
    "tmdbId": 39172,
    "movieIds": [
     93928,
@@ -865,118 +433,6 @@
    "years": [
     2006,
     2009
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 39468,
-   "movieIds": [
-    86487,
-    105811
-   ],
-   "titles": [
-    "Mildred Pierce",
-    "Godzilla vs. Megaguirus (Gojira tai Megagirasu: J\u00ee sh\u00f4metsu sakusen)"
-   ],
-   "years": [
-    2011,
-    2000
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 42553,
-   "movieIds": [
-    114376,
-    53771
-   ],
-   "titles": [
-    "The Musketeers of Pig Alley",
-    "Alice in Wonderland"
-   ],
-   "years": [
-    1912,
-    1985
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 43016,
-   "movieIds": [
-    125067,
-    103277
-   ],
-   "titles": [
-    "Waltz of the Toreadors",
-    "Hatfields & McCoys"
-   ],
-   "years": [
-    1962,
-    2012
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 43065,
-   "movieIds": [
-    95717,
-    105091
-   ],
-   "titles": [
-    "Treasure Island",
-    "Nightmares in Red White & Blue: The Evolution of the American Horror Film"
-   ],
-   "years": [
-    2012,
-    2009
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 44264,
-   "movieIds": [
-    82459,
-    96347
-   ],
-   "titles": [
-    "True Grit",
-    "Endeavour"
-   ],
-   "years": [
-    2010,
-    2012
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 44434,
-   "movieIds": [
-    94041,
-    57236
-   ],
-   "titles": [
-    "Appropriate Adult",
-    "LOL"
-   ],
-   "years": [
-    2011,
-    2006
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 46976,
-   "movieIds": [
-    27724,
-    8400
-   ],
-   "titles": [
-    "Hitler: The Rise of Evil",
-    "Wish You Were Here"
-   ],
-   "years": [
-    2003,
-    1987
    ],
    "reason": "years differ"
   },
@@ -1045,38 +501,6 @@
    "reason": "years differ"
   },
   {
-   "tmdbId": 126193,
-   "movieIds": [
-    115955,
-    285825
-   ],
-   "titles": [
-    "Category 7: The End of the World",
-    "I... Dreaming"
-   ],
-   "years": [
-    2005,
-    1988
-   ],
-   "reason": "years differ"
-  },
-  {
-   "tmdbId": 128062,
-   "movieIds": [
-    32853,
-    128305
-   ],
-   "titles": [
-    "Sorrow and the Pity, The (Le chagrin et la piti\u00e9)",
-    "They All Lie"
-   ],
-   "years": [
-    1969,
-    2009
-   ],
-   "reason": "years differ"
-  },
-  {
    "tmdbId": 132641,
    "movieIds": [
     864,
@@ -1091,43 +515,11 @@
     1953
    ],
    "reason": "years differ"
-  },
-  {
-   "tmdbId": 542757,
-   "movieIds": [
-    203453,
-    215891
-   ],
-   "titles": [
-    "Rem\u00e9lem legk\u00f6zelebb siker\u00fcl meghalnod :)",
-    "Hope You Die Next Time :-)"
-   ],
-   "years": [
-    2018,
-    2018
-   ],
-   "reason": "titles differ"
-  },
-  {
-   "tmdbId": 792517,
-   "movieIds": [
-    242100,
-    239670
-   ],
-   "titles": [
-    "Hate by Dani Rovira",
-    "Dani Rovira: Odio"
-   ],
-   "years": [
-    2021,
-    2021
-   ],
-   "reason": "titles differ"
   }
  ],
  "source_coverage": {
   "movielens-32m": 87560,
-  "tmdb": 87064,
+  "tmdb": 87066,
   "wikidata": 75925,
   "movielens-20m": 959,
   "tmdb-legacy": 110
@@ -1148,7 +540,7 @@
    "poster": 0.9737,
    "directors": 0.9865,
    "cast": 0.9563,
-   "countries": 0.9931,
+   "countries": 0.9932,
    "imdbId": 0.9892,
    "tmdbId": 0.9984
   },
@@ -1171,55 +563,54 @@
    "genres": 0.9902,
    "tags": 0.4992,
    "runtime": 0.9837,
-   "lang": 0.9906,
-   "overview": 0.9792,
+   "lang": 0.9907,
+   "overview": 0.9793,
    "poster": 0.9694,
    "directors": 0.9853,
    "cast": 0.9489,
-   "countries": 0.9929,
+   "countries": 0.993,
    "imdbId": 1.0,
    "tmdbId": 0.9987
   }
  },
  "flags": {
-  "alias_of_served_film": 2,
-  "has_merged_duplicate": 30,
+  "alias_of_served_film": 6,
+  "has_merged_duplicate": 36,
   "legacy_tmdb_data_was_another_film": 7,
   "missing_genres": 720,
   "missing_imdb_id": 959,
-  "missing_language": 758,
-  "missing_overview": 1594,
-  "missing_poster": 2326,
-  "missing_runtime": 1307,
+  "missing_language": 757,
+  "missing_overview": 1592,
+  "missing_poster": 2324,
+  "missing_runtime": 1306,
   "missing_year": 71,
-  "no_ratings": 4106,
+  "no_ratings": 4110,
   "no_tmdb_id": 89,
   "runtime_outlier": 14,
   "runtime_zero_cleared": 6,
   "title_from_tmdb": 1,
   "tmdb_imdb_mismatch": 36,
   "tmdb_not_found": 1187,
-  "tmdb_shared_id_not_this_film": 2,
   "tmdb_year_conflict": 7,
   "wikidata_ambiguous": 42,
   "wikidata_year_conflict": 368
  },
  "flags_added": {
-  "has_merged_duplicate": 15,
+  "alias_of_served_film": 4,
+  "has_merged_duplicate": 17,
   "missing_genres": 693,
-  "missing_language": 662,
-  "missing_overview": 1470,
-  "missing_poster": 2165,
-  "missing_runtime": 1154,
+  "missing_language": 661,
+  "missing_overview": 1468,
+  "missing_poster": 2163,
+  "missing_runtime": 1153,
   "missing_year": 68,
-  "no_ratings": 3151,
+  "no_ratings": 3155,
   "no_tmdb_id": 89,
   "runtime_outlier": 14,
   "runtime_zero_cleared": 6,
   "title_from_tmdb": 1,
   "tmdb_imdb_mismatch": 29,
   "tmdb_not_found": 1120,
-  "tmdb_shared_id_not_this_film": 2,
   "tmdb_year_conflict": 1,
   "wikidata_ambiguous": 32,
   "wikidata_year_conflict": 349
@@ -1263,6 +654,62 @@
     2006,
     2006
    ]
+  },
+  {
+   "tmdbId": 10991,
+   "kept": 4241,
+   "alias": 174533,
+   "titles": [
+    "Pok\u00e9mon 3: The Movie",
+    "Pok\u00e9mon: Spell of the Unown"
+   ],
+   "years": [
+    2001,
+    2000
+   ],
+   "confirmed": "TMDB 10991, 'Pok\u00e9mon 3: The Movie' (2000-07-08), carries tt0235679, the second id's IMDb id; Wikidata Q890665, the item for tt0235679, is 'Pok\u00e9mon 3: The Movie'; both are directed by Kunihiko Yuyama. The 2000 Japanese release and its 2001 US release."
+  },
+  {
+   "tmdbId": 12600,
+   "kept": 5672,
+   "alias": 174543,
+   "titles": [
+    "Pokemon 4 Ever (a.k.a. Pok\u00e9mon 4: The Movie)",
+    "Pok\u00e9mon 4Ever: Celebi - Voice of the Forest"
+   ],
+   "years": [
+    2002,
+    2001
+   ],
+   "confirmed": "TMDB 12600, 'Pok\u00e9mon 4Ever' (2001-07-07), carries tt0287635, the second id's IMDb id; Wikidata Q82579, the item for tt0287635, is 'Pok\u00e9mon 4Ever'; same director (Kunihiko Yuyama) and runtime (80 min). The 2001 Japanese release and its 2002 US release."
+  },
+  {
+   "tmdbId": 542757,
+   "kept": 215891,
+   "alias": 203453,
+   "titles": [
+    "Hope You Die Next Time :-)",
+    "Rem\u00e9lem legk\u00f6zelebb siker\u00fcl meghalnod :)"
+   ],
+   "years": [
+    2018,
+    2018
+   ],
+   "confirmed": "The Hungarian original title and its English one, under two IMDb ids (tt8529512, tt8723836); one TMDB record (542757), the same director (Mih\u00e1ly Schwechtje), runtime (96 min) and year."
+  },
+  {
+   "tmdbId": 792517,
+   "kept": 242100,
+   "alias": 239670,
+   "titles": [
+    "Hate by Dani Rovira",
+    "Dani Rovira: Odio"
+   ],
+   "years": [
+    2021,
+    2021
+   ],
+   "confirmed": "'Odio' is Spanish for 'Hate': one stand-up special by Dani Rovira under its English and Spanish titles and two IMDb ids (tt13323128, tt13323166), with one TMDB record (792517) and the same year."
   }
  ],
  "excluded": []

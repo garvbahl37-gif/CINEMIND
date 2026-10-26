@@ -30,15 +30,15 @@ python pipelines/benchmark_report.py
 
 | Run | Films in catalogue | Candidate films | Films with training ratings | People | Test positives | Seed | Code | Timestamp |
 |---|---|---|---|---|---|---|---|---|
-| `before` | 17,719 | 17,716 | 16,753 | 3,000 | 138,943 | 42 | `8291d79 + uncommitted changes` | 2026-10-26T07:10:34Z |
-| `after-common` | 88,514 | 17,714 | 30,239 | 3,000 | 138,943 | 42 | `8291d79 + uncommitted changes` | 2026-10-26T07:13:25Z |
-| `after-full` | 88,514 | 67,601 | 30,239 | 3,000 | 168,527 | 42 | `8291d79 + uncommitted changes` | 2026-10-26T07:16:00Z |
+| `before` | 17,719 | 17,716 | 16,753 | 3,000 | 138,943 | 42 | `d4f22e9 + uncommitted changes` | 2026-10-26T16:49:17Z |
+| `after-common` | 88,514 | 17,714 | 30,239 | 3,000 | 138,943 | 42 | `d4f22e9 + uncommitted changes` | 2026-10-26T16:51:25Z |
+| `after-full` | 88,514 | 67,599 | 30,239 | 3,000 | 168,526 | 42 | `d4f22e9 + uncommitted changes` | 2026-10-26T16:54:32Z |
 
 Dataset: MovieLens 32M, MD5 as published by GroupLens: `links.csv` 8f033867bcb4e6be8792b21468b4fa6e, `movies.csv` 0df90835c19151f9d819d0822e190797, `ratings.csv` cf12b74f9ad4b94a011f079e26d4270a, `tags.csv` 963bf4fa4de6b8901868fddd3eb54567.
 
 - `before` two-tower model: validation Recall@20 0.170 from a full history, 0.208 from the last three likes — predicting each person's last like before 2016, held out.
-- `after-common` two-tower model: validation Recall@20 0.108 from a full history, 0.095 from the last three likes — predicting all of each person's 2015 likes, from their likes before 2015; 88,514 films, 22,499 with training data; 4,096 uniform negatives per batch.
-- `after-full` two-tower model: validation Recall@20 0.108 from a full history, 0.095 from the last three likes — predicting all of each person's 2015 likes, from their likes before 2015; 88,514 films, 22,499 with training data; 4,096 uniform negatives per batch.
+- `after-common` two-tower model: validation Recall@20 0.109 from a full history, 0.092 from the last three likes — predicting all of each person's 2015 likes, from their likes before 2015; 88,514 films, 22,499 with training data; 4,096 uniform negatives per batch.
+- `after-full` two-tower model: validation Recall@20 0.109 from a full history, 0.092 from the last three likes — predicting all of each person's 2015 likes, from their likes before 2015; 88,514 films, 22,499 with training data; 4,096 uniform negatives per batch.
 
 The two validation protocols differ — the newer one predicts a whole year of likes, the older one a single held-out like — so their numbers are not comparable with each other; the test-period results below are.
 
@@ -48,9 +48,9 @@ Chosen on validation only — 2015 likes from earlier likes; model trained on li
 
 | ID dropout | Best epoch | Recall@20, full history | last three likes | New-film recall@20 | New films' share of top-20 slots |
 |---|---|---|---|---|---|
-| 0.0 | 1 | 0.083 | 0.067 | 0.007 | 26.3% |
-| **0.3** | 4 | 0.108 | 0.095 | 0.000 | 0.1% |
-| 0.5 | 6 | 0.104 | 0.092 | 0.000 | 0.0% |
+| 0.0 | 1 | 0.082 | 0.067 | 0.006 | 26.7% |
+| **0.3** | 4 | 0.109 | 0.092 | 0.000 | 0.1% |
+| 0.5 | 6 | 0.103 | 0.093 | 0.000 | 0.0% |
 
 The model is then refit on every like before 2016 with ID dropout 0.3 for 4 epochs.
 
@@ -60,25 +60,35 @@ The adaptive engine's blend weights and similarity thresholds are chosen on vali
 
 | Setting | Recall@20 | NDCG@20 | Change vs current (points, paired 95% CI) |
 |---|---|---|---|
-| current {"w_tt": 0.45, "w_cf": 0.3, "w_sem": 0.15, "w_intent": 0.25, "w_quality": 0.2, "mmr_scale": 3.0, "neg_floor": 0.6, "explore_near": 0.6} | 0.152 | 0.150 | — |
-| {"w_tt": 0.3, "w_cf": 0.45, "w_sem": 0.15} | 0.147 | 0.145 | -0.45 (-0.61 to -0.32) |
-| {"w_tt": 0.2, "w_cf": 0.55, "w_sem": 0.15} | 0.145 | 0.144 | -0.62 (-0.79 to -0.46) |
-| {"w_tt": 0.35, "w_cf": 0.35, "w_sem": 0.1} | 0.149 | 0.147 | -0.30 (-0.41 to -0.18) |
-| {"w_tt": 0.45, "w_cf": 0.45, "w_sem": 0.15} | 0.148 | 0.147 | -0.32 (-0.45 to -0.19) |
-| {"w_tt": 0.3, "w_cf": 0.3, "w_sem": 0.3} | 0.151 | 0.150 | -0.03 (-0.21 to +0.12) |
+| current {"w_tt": 0.45, "w_cf": 0.3, "w_sem": 0.15, "w_intent": 0.25, "w_quality": 0.35, "mmr_scale": 3.0, "neg_floor": 0.6, "explore_near": 0.6, "unrated_k": 6, "u_tt": 0.5, "u_sem": 0.5} | 0.151 | 0.149 | — |
+| {"w_tt": 0.3, "w_cf": 0.45, "w_sem": 0.15} | 0.147 | 0.146 | -0.38 (-0.51 to -0.23) |
+| {"w_tt": 0.2, "w_cf": 0.55, "w_sem": 0.15} | 0.146 | 0.144 | -0.55 (-0.72 to -0.39) |
+| {"w_tt": 0.35, "w_cf": 0.35, "w_sem": 0.1} | 0.149 | 0.147 | -0.24 (-0.36 to -0.10) |
+| {"w_tt": 0.45, "w_cf": 0.45, "w_sem": 0.15} | 0.148 | 0.147 | -0.28 (-0.42 to -0.16) |
+| {"w_tt": 0.3, "w_cf": 0.3, "w_sem": 0.3} | 0.152 | 0.150 | +0.07 (-0.08 to +0.22) |
 | {"w_tt": 0.6, "w_cf": 0.3, "w_sem": 0.1} | 0.152 | 0.150 | +0.05 (-0.05 to +0.15) |
-| {"w_quality": 0.35} | 0.152 | 0.150 | +0.03 (+0.01 to +0.06) |
-| {"w_quality": 0.1} | 0.152 | 0.150 | +0.01 (-0.01 to +0.02) |
-| {"mmr_scale": 1.5} | 0.150 | 0.149 | -0.12 (-0.22 to -0.04) |
-| {"mmr_scale": 4.5} | 0.152 | 0.150 | +0.05 (-0.05 to +0.15) |
-| {"neg_floor": 0.5} | 0.152 | 0.151 | +0.04 (-0.08 to +0.16) |
-| {"neg_floor": 0.7} | 0.152 | 0.149 | +0.01 (-0.11 to +0.14) |
-| {"explore_near": 0.5} | 0.152 | 0.150 | +0.00 (-0.06 to +0.07) |
-| {"explore_near": 0.7} | 0.151 | 0.150 | -0.02 (-0.08 to +0.05) |
+| {"w_quality": 0.2} | 0.151 | 0.149 | +0.00 (-0.03 to +0.03) |
+| {"w_quality": 0.1} | 0.151 | 0.149 | -0.00 (-0.04 to +0.04) |
+| {"mmr_scale": 1.5} | 0.151 | 0.149 | +0.02 (-0.08 to +0.11) |
+| {"mmr_scale": 4.5} | 0.152 | 0.150 | +0.09 (-0.01 to +0.19) |
+| {"neg_floor": 0.5} | 0.152 | 0.151 | +0.12 (+0.00 to +0.23) |
+| {"neg_floor": 0.7} | 0.151 | 0.149 | -0.02 (-0.15 to +0.10) |
+| {"explore_near": 0.5} | 0.152 | 0.150 | +0.05 (-0.02 to +0.12) |
+| {"explore_near": 0.7} | 0.152 | 0.150 | +0.05 (-0.02 to +0.12) |
 
-Chosen: {"w_quality": 0.35}. The served defaults (`api/_adaptive.py`, `Options`) match.
+No setting beats the current ones; they stay. The served defaults (`api/_adaptive.py`, `Options`) match.
 
 With 14 settings tried, about 0.7 intervals would exclude zero by chance alone, so a winner's size matters as much as its interval: one that changes Recall@20 by a few hundredths of a point is adopted because the rule, fixed in advance, says so — not because it matters.
+
+The shelf of films nobody has rated is chosen the same way, on its own measure: for the 766 people who went on to love a film nobody had rated before the cutoff, how often the shelf held one. The main list is the same under every shelf setting.
+
+| Shelf setting | Held a later favourite | Change vs current (points, paired 95% CI) |
+|---|---|---|
+| current {"u_tt": 0.5, "u_sem": 0.5, "unrated_k": 6} | 1.0% | — |
+| {"u_tt": 1.0, "u_sem": 0.0} | 2.0% | +0.91 (+0.00 to +1.96) |
+| {"u_tt": 0.0, "u_sem": 1.0} | 0.0% | -1.04 (-1.83 to -0.39) |
+
+No shelf setting beats the current one; it stays. The served defaults match.
 
 ## Method
 
@@ -106,14 +116,14 @@ MovieLens 32M, 17,716 of the catalogue's 17,719 films as candidates.
 
 | Policy | Coverage | Diversity (ILD) | Novelty (bits) | Beyond top 1,000 | Cold-start share | Cold recall@20 (people) | Warm recall@20 | Latency p50 / p95 / p99 |
 |---|---|---|---|---|---|---|---|---|
-| Most popular | 1.8% | 0.725 | 2.35 | 0.0% | 0.0% | — (0) | 0.139 | 0.15 / 0.21 / 0.29 ms |
-| Item-item CF | 4.6% | 0.726 | 3.13 | 1.8% | 0.0% | — (0) | 0.201 | 0.07 / 0.17 / 0.27 ms |
-| Two-tower alone | 26.3% | 0.717 | 7.96 | 67.8% | 8.6% | — (0) | 0.133 | 0.28 / 0.45 / 0.62 ms |
-| **Hybrid (adaptive engine)** | 14.0% | 0.720 | 4.17 | 19.9% | 0.0% | — (0) | 0.223 | 3.95 / 16.97 / 34.57 ms |
-| Hybrid − drift | 12.3% | 0.721 | 4.06 | 18.5% | 0.0% | — (0) | 0.225 | 3.90 / 16.90 / 32.70 ms |
-| Hybrid − diversity | 14.1% | 0.715 | 4.34 | 21.3% | 0.0% | — (0) | 0.220 | 3.83 / 16.81 / 33.13 ms |
-| Hybrid − exploration | 11.6% | 0.706 | 4.14 | 18.6% | 0.0% | — (0) | 0.234 | 2.65 / 9.22 / 15.65 ms |
-| Hybrid − negatives | 14.0% | 0.718 | 4.22 | 20.3% | 0.0% | — (0) | 0.220 | 3.66 / 15.44 / 28.65 ms |
+| Most popular | 1.8% | 0.725 | 2.35 | 0.0% | 0.0% | — (0) | 0.139 | 0.14 / 0.16 / 0.17 ms |
+| Item-item CF | 4.6% | 0.726 | 3.13 | 1.8% | 0.0% | — (0) | 0.201 | 0.07 / 0.13 / 0.17 ms |
+| Two-tower alone | 26.3% | 0.717 | 7.96 | 67.8% | 8.6% | — (0) | 0.133 | 0.26 / 0.30 / 0.33 ms |
+| **Hybrid (adaptive engine)** | 14.0% | 0.720 | 4.17 | 19.9% | 0.0% | — (0) | 0.223 | 3.36 / 14.46 / 27.21 ms |
+| Hybrid − drift | 12.3% | 0.721 | 4.06 | 18.5% | 0.0% | — (0) | 0.225 | 3.26 / 14.48 / 26.81 ms |
+| Hybrid − diversity | 14.1% | 0.715 | 4.34 | 21.3% | 0.0% | — (0) | 0.220 | 3.23 / 14.42 / 27.21 ms |
+| Hybrid − exploration | 11.6% | 0.706 | 4.14 | 18.6% | 0.0% | — (0) | 0.234 | 2.28 / 7.64 / 12.84 ms |
+| Hybrid − negatives | 14.0% | 0.718 | 4.22 | 20.3% | 0.0% | — (0) | 0.220 | 3.09 / 13.20 / 23.81 ms |
 
 Ablations, each part of the hybrid switched off for the same people:
 
@@ -132,76 +142,78 @@ MovieLens 32M, 17,714 of the catalogue's 88,514 films as candidates.
 |---|---|---|---|---|---|---|---|---|
 | Most popular | 0.141 | 0.139 (0.134–0.145) | 0.136 | 0.119 | 0.152 | 0.144 | 0.065 | 54.1% |
 | Item-item CF | 0.203 | 0.201 (0.194–0.208) | 0.194 | 0.169 | 0.214 | 0.204 | 0.101 | 67.2% |
-| Two-tower alone | 0.166 | 0.168 (0.161–0.174) | 0.158 | 0.140 | 0.170 | 0.165 | 0.072 | 62.1% |
-| **Hybrid (adaptive engine)** | 0.215 | 0.219 (0.212–0.225) | 0.204 | 0.181 | 0.230 | 0.222 | 0.106 | 72.3% |
-| Hybrid − drift | 0.217 | 0.221 (0.214–0.228) | 0.206 | 0.183 | 0.232 | 0.223 | 0.106 | 72.8% |
-| Hybrid − diversity | 0.214 | 0.217 (0.211–0.223) | 0.204 | 0.180 | 0.230 | 0.221 | 0.105 | 72.0% |
-| Hybrid − exploration | 0.229 | 0.230 (0.224–0.237) | 0.218 | 0.190 | 0.241 | 0.232 | 0.115 | 73.2% |
-| Hybrid − negatives | 0.213 | 0.217 (0.210–0.223) | 0.202 | 0.180 | 0.228 | 0.220 | 0.105 | 72.1% |
+| Two-tower alone | 0.163 | 0.166 (0.160–0.172) | 0.155 | 0.139 | 0.167 | 0.163 | 0.071 | 61.5% |
+| **Hybrid (adaptive engine)** | 0.214 | 0.218 (0.212–0.225) | 0.203 | 0.181 | 0.230 | 0.222 | 0.106 | 72.1% |
+| Hybrid − drift | 0.217 | 0.221 (0.214–0.228) | 0.206 | 0.183 | 0.232 | 0.223 | 0.106 | 72.9% |
+| Hybrid − diversity | 0.214 | 0.216 (0.210–0.223) | 0.203 | 0.180 | 0.229 | 0.220 | 0.105 | 71.8% |
+| Hybrid − exploration | 0.229 | 0.230 (0.224–0.237) | 0.217 | 0.191 | 0.241 | 0.232 | 0.115 | 73.6% |
+| Hybrid − negatives | 0.212 | 0.216 (0.209–0.223) | 0.202 | 0.179 | 0.228 | 0.220 | 0.104 | 72.0% |
 
 | Policy | Coverage | Diversity (ILD) | Novelty (bits) | Beyond top 1,000 | Cold-start share | Cold recall@20 (people) | Warm recall@20 | Latency p50 / p95 / p99 |
 |---|---|---|---|---|---|---|---|---|
-| Most popular | 1.8% | 0.727 | 2.35 | 0.0% | 0.0% | — (0) | 0.139 | 0.36 / 0.53 / 0.65 ms |
-| Item-item CF | 4.6% | 0.726 | 3.13 | 1.9% | 0.0% | — (0) | 0.201 | 0.30 / 0.48 / 0.67 ms |
-| Two-tower alone | 16.9% | 0.723 | 5.93 | 49.1% | 0.0% | — (0) | 0.168 | 1.00 / 1.45 / 1.97 ms |
-| **Hybrid (adaptive engine)** | 14.6% | 0.715 | 4.44 | 23.4% | 0.0% | — (0) | 0.219 | 6.54 / 21.84 / 42.05 ms |
-| Hybrid − drift | 13.1% | 0.716 | 4.34 | 21.8% | 0.0% | — (0) | 0.221 | 6.48 / 21.23 / 37.90 ms |
-| Hybrid − diversity | 14.0% | 0.715 | 4.41 | 22.4% | 0.0% | — (0) | 0.217 | 6.51 / 22.10 / 39.82 ms |
-| Hybrid − exploration | 11.4% | 0.703 | 4.29 | 20.6% | 0.0% | — (0) | 0.230 | 5.30 / 13.87 / 21.62 ms |
-| Hybrid − negatives | 14.3% | 0.716 | 4.39 | 22.0% | 0.0% | — (0) | 0.217 | 6.34 / 20.39 / 34.36 ms |
+| Most popular | 1.8% | 0.727 | 2.35 | 0.0% | 0.0% | — (0) | 0.139 | 0.32 / 0.35 / 0.37 ms |
+| Item-item CF | 4.6% | 0.726 | 3.13 | 1.9% | 0.0% | — (0) | 0.201 | 0.26 / 0.32 / 0.37 ms |
+| Two-tower alone | 17.2% | 0.723 | 5.96 | 49.9% | 0.0% | — (0) | 0.166 | 0.84 / 0.90 / 0.95 ms |
+| **Hybrid (adaptive engine)** | 14.7% | 0.715 | 4.44 | 23.5% | 0.0% | — (0) | 0.218 | 5.28 / 15.54 / 27.29 ms |
+| Hybrid − drift | 12.9% | 0.716 | 4.34 | 21.9% | 0.0% | — (0) | 0.221 | 5.15 / 15.59 / 27.02 ms |
+| Hybrid − diversity | 13.9% | 0.715 | 4.42 | 22.5% | 0.0% | — (0) | 0.216 | 5.12 / 15.57 / 26.93 ms |
+| Hybrid − exploration | 11.4% | 0.703 | 4.29 | 20.7% | 0.0% | — (0) | 0.230 | 4.21 / 9.63 / 15.22 ms |
+| Hybrid − negatives | 14.2% | 0.716 | 4.39 | 22.1% | 0.0% | — (0) | 0.216 | 5.00 / 14.61 / 25.00 ms |
 
 Ablations, each part of the hybrid switched off for the same people:
 
 | Switched off | Recall@20 change (paired 95% CI, points) | NDCG@20 change (points) | Reading |
 |---|---|---|---|
-| drift | +0.20 (-0.01 to +0.36) | +0.13 | no measurable effect |
-| diversity | -0.19 (-0.34 to -0.04) | -0.11 | the part helps |
-| exploration | +1.17 (+1.01 to +1.32) | +1.02 | the part costs recall offline |
-| negatives | -0.17 (-0.31 to -0.02) | -0.17 | the part helps |
+| drift | +0.25 (+0.05 to +0.44) | +0.17 | the part costs recall offline |
+| diversity | -0.22 (-0.38 to -0.08) | -0.15 | the part helps |
+| exploration | +1.19 (+1.04 to +1.34) | +1.03 | the part costs recall offline |
+| negatives | -0.24 (-0.39 to -0.10) | -0.23 | the part helps |
 
 ## After, over the whole expanded catalogue — `after-full`
 
-MovieLens 32M, 67,601 of the catalogue's 88,514 films as candidates.
+MovieLens 32M, 67,599 of the catalogue's 88,514 films as candidates.
 
 | Policy | Recall@10 | Recall@20 (95% CI) | Precision@10 | Precision@20 | NDCG@10 | NDCG@20 | MAP@20 | Hit rate@10 |
 |---|---|---|---|---|---|---|---|---|
 | Most popular | 0.139 | 0.133 (0.127–0.138) | 0.136 | 0.119 | 0.151 | 0.140 | 0.063 | 54.1% |
 | Item-item CF | 0.199 | 0.190 (0.183–0.197) | 0.193 | 0.169 | 0.212 | 0.198 | 0.097 | 67.3% |
-| Two-tower alone | 0.165 | 0.161 (0.155–0.167) | 0.160 | 0.142 | 0.170 | 0.163 | 0.071 | 62.6% |
-| **Hybrid (adaptive engine)** | 0.212 | 0.207 (0.200–0.213) | 0.206 | 0.182 | 0.229 | 0.216 | 0.102 | 72.6% |
-| Hybrid − drift | 0.214 | 0.208 (0.202–0.215) | 0.208 | 0.184 | 0.230 | 0.217 | 0.102 | 73.2% |
-| Hybrid − diversity | 0.211 | 0.205 (0.198–0.211) | 0.205 | 0.181 | 0.228 | 0.214 | 0.101 | 72.1% |
-| Hybrid − exploration | 0.226 | 0.218 (0.211–0.224) | 0.219 | 0.192 | 0.240 | 0.226 | 0.111 | 73.5% |
-| Hybrid − negatives | 0.209 | 0.205 (0.198–0.211) | 0.203 | 0.181 | 0.226 | 0.214 | 0.100 | 72.4% |
+| Two-tower alone | 0.162 | 0.159 (0.153–0.165) | 0.157 | 0.141 | 0.168 | 0.161 | 0.070 | 62.2% |
+| **Hybrid (adaptive engine)** | 0.211 | 0.206 (0.200–0.212) | 0.205 | 0.182 | 0.228 | 0.215 | 0.102 | 72.3% |
+| Hybrid − drift | 0.214 | 0.208 (0.201–0.214) | 0.208 | 0.183 | 0.230 | 0.216 | 0.102 | 73.1% |
+| Hybrid − diversity | 0.210 | 0.205 (0.198–0.211) | 0.204 | 0.181 | 0.228 | 0.214 | 0.101 | 72.1% |
+| Hybrid − exploration | 0.226 | 0.218 (0.211–0.225) | 0.219 | 0.193 | 0.240 | 0.226 | 0.111 | 73.6% |
+| Hybrid − negatives | 0.209 | 0.204 (0.198–0.210) | 0.203 | 0.180 | 0.226 | 0.213 | 0.100 | 72.2% |
 
 | Policy | Coverage | Diversity (ILD) | Novelty (bits) | Beyond top 1,000 | Cold-start share | Cold recall@20 (people) | Warm recall@20 | Latency p50 / p95 / p99 |
 |---|---|---|---|---|---|---|---|---|
-| Most popular | 0.5% | 0.727 | 2.35 | 0.0% | 0.0% | 0.000 (1,231) | 0.133 | 0.55 / 0.63 / 0.68 ms |
-| Item-item CF | 1.3% | 0.726 | 3.15 | 2.0% | 0.0% | 0.000 (1,231) | 0.191 | 0.33 / 0.47 / 0.58 ms |
-| Two-tower alone | 4.5% | 0.722 | 5.96 | 49.8% | 0.1% | 0.000 (1,231) | 0.162 | 0.98 / 1.28 / 1.39 ms |
-| **Hybrid (adaptive engine)** | 4.0% | 0.716 | 4.41 | 23.1% | 0.0% | 0.000 (1,231) | 0.208 | 5.40 / 18.42 / 35.95 ms |
-| Hybrid − drift | 3.6% | 0.717 | 4.30 | 21.4% | 0.0% | 0.000 (1,231) | 0.209 | 5.29 / 18.38 / 35.16 ms |
-| Hybrid − diversity | 3.8% | 0.715 | 4.38 | 22.2% | 0.0% | 0.000 (1,231) | 0.206 | 5.23 / 18.33 / 35.19 ms |
-| Hybrid − exploration | 3.1% | 0.703 | 4.26 | 20.5% | 0.0% | 0.000 (1,231) | 0.219 | 4.23 / 10.22 / 16.52 ms |
-| Hybrid − negatives | 3.9% | 0.716 | 4.36 | 21.8% | 0.0% | 0.000 (1,231) | 0.206 | 5.10 / 16.93 / 30.68 ms |
+| Most popular | 0.5% | 0.727 | 2.35 | 0.0% | 0.0% | 0.000 (1,231) | 0.133 | 0.56 / 0.63 / 0.65 ms |
+| Item-item CF | 1.3% | 0.726 | 3.15 | 2.0% | 0.0% | 0.000 (1,231) | 0.191 | 0.33 / 0.46 / 0.55 ms |
+| Two-tower alone | 4.5% | 0.722 | 5.99 | 50.5% | 0.1% | 0.000 (1,231) | 0.160 | 0.99 / 1.27 / 1.33 ms |
+| **Hybrid (adaptive engine)** | 4.0% | 0.715 | 4.41 | 23.2% | 0.0% | 0.000 (1,231) | 0.207 | 7.65 / 20.53 / 37.82 ms |
+| Hybrid − drift | 3.5% | 0.716 | 4.30 | 21.5% | 0.0% | 0.000 (1,231) | 0.209 | 7.53 / 20.55 / 36.60 ms |
+| Hybrid − diversity | 3.8% | 0.715 | 4.39 | 22.4% | 0.0% | 0.000 (1,231) | 0.205 | 7.49 / 20.37 / 37.05 ms |
+| Hybrid − exploration | 3.1% | 0.703 | 4.26 | 20.5% | 0.0% | 0.000 (1,231) | 0.219 | 6.47 / 12.26 / 18.74 ms |
+| Hybrid − negatives | 3.9% | 0.716 | 4.37 | 21.9% | 0.0% | 0.000 (1,231) | 0.205 | 7.38 / 18.92 / 32.41 ms |
+
+Films nobody had rated before the cutoff: the hybrid's shelf of 6 held one that the person went on to love for 1.4% of the 1,231 people who loved such a film (95% CI 0.8%–2.1%); 6 films drawn at random from the 37,360 unrated ones would for 0.1%.
 
 Ablations, each part of the hybrid switched off for the same people:
 
 | Switched off | Recall@20 change (paired 95% CI, points) | NDCG@20 change (points) | Reading |
 |---|---|---|---|
-| drift | +0.17 (+0.01 to +0.33) | +0.11 | the part costs recall offline |
-| diversity | -0.20 (-0.34 to -0.08) | -0.13 | the part helps |
-| exploration | +1.12 (+0.99 to +1.27) | +1.03 | the part costs recall offline |
-| negatives | -0.20 (-0.32 to -0.07) | -0.19 | the part helps |
+| drift | +0.15 (-0.02 to +0.31) | +0.10 | no measurable effect |
+| diversity | -0.15 (-0.27 to -0.04) | -0.12 | the part helps |
+| exploration | +1.21 (+1.08 to +1.33) | +1.07 | the part costs recall offline |
+| negatives | -0.21 (-0.33 to -0.08) | -0.21 | the part helps |
 
 Counterfactual evaluation — could logs from one recommender say how another would do? 30,000 simulated impressions from a known logging policy (softmax over z-scored log-popularity (temperature 1/1.5) within each user's candidate set). Each policy shows one film from its own top 10, weighted by rank (1/log2(rank+1)), with 5% spread uniformly over the candidate set. The truth is computed exactly, so each estimator can be checked:
 
 | Policy | Truth | IPS | SNIPS | Direct method | Doubly robust (95% CI) | Effective logs |
 |---|---|---|---|---|---|---|
-| Most popular | 0.144 | 0.155 | 0.151 | 0.127 | 0.152 (0.138–0.166) | 2,740 |
-| Item-item CF | 0.201 | 0.199 | 0.196 | 0.175 | 0.196 (0.179–0.213) | 1,982 |
-| Two-tower alone | 0.162 | 0.158 | 0.160 | 0.104 | 0.158 (0.131–0.185) | 636 |
-| **Hybrid (adaptive engine)** | 0.217 | 0.216 | 0.208 | 0.142 | 0.211 (0.187–0.232) | 1,047 |
+| Most popular | 0.144 | 0.153 | 0.150 | 0.129 | 0.150 (0.136–0.165) | 2,744 |
+| Item-item CF | 0.201 | 0.205 | 0.198 | 0.179 | 0.198 (0.178–0.217) | 1,998 |
+| Two-tower alone | 0.160 | 0.161 | 0.164 | 0.102 | 0.164 (0.142–0.189) | 639 |
+| **Hybrid (adaptive engine)** | 0.216 | 0.217 | 0.218 | 0.145 | 0.217 (0.195–0.241) | 1,197 |
 
 Kendall's τ between each estimator's ranking of the four policies and the true one: IPS +1.00, SNIPS +1.00, DM +0.33, DR +1.00.
 
@@ -213,10 +225,24 @@ Same people, same held-out ratings, same candidate films (the expanded catalogue
 |---|---|---|---|---|---|
 | Most popular | 0.139 | 0.139 | +0.00 (+0.00 to +0.00) | +0.00 (+0.00 to +0.00) | no measurable change |
 | Item-item CF | 0.201 | 0.201 | +0.04 (-0.03 to +0.11) | +0.01 (-0.04 to +0.05) | no measurable change |
-| Two-tower alone | 0.133 | 0.168 | +3.46 (+3.11 to +3.81) | +3.55 (+3.19 to +3.92) | better |
-| **Hybrid (adaptive engine)** | 0.223 | 0.219 | -0.46 (-0.70 to -0.22) | -0.51 (-0.69 to -0.33) | worse |
+| Two-tower alone | 0.133 | 0.166 | +3.29 (+2.94 to +3.64) | +3.35 (+3.00 to +3.70) | better |
+| **Hybrid (adaptive engine)** | 0.223 | 0.218 | -0.48 (-0.72 to -0.24) | -0.52 (-0.70 to -0.34) | worse |
 
 3,000 people in both runs.
+
+## Why the hybrid dipped
+
+A diagnosis, not a selection: the expanded system on the old catalogue's films, with one part at a time put back as it was before the expansion, each compared person by person with `before`. All use the quality-prior weight `before` used. Nothing here chose a setting.
+
+| Step | Hybrid Recall@20 | Change vs before (points, paired 95% CI) |
+|---|---|---|
+| Before the expansion | 0.223 | — |
+| The expanded system, on the old catalogue's films | 0.218 | -0.47 (-0.71 to -0.23) |
+| … learning only from ratings of those films | 0.217 | -0.61 (-0.83 to -0.39) |
+| … with the two-tower model from before the expansion in their rows | 0.222 | -0.09 (-0.15 to -0.02) |
+| … and their sentence embeddings from before | 0.223 | -0.06 (-0.12 to -0.00) |
+
+Reproduce with `--universe data/raw/baseline-artifacts/catalog.json --users-file docs/benchmarks/users.json --blend '{"w_quality": 0.2}'`, adding `--train-in-universe` from the second step, on artifact copies whose two-tower and sentence-embedding rows for the old films are replaced by `data/raw/baseline-artifacts`'s.
 
 ## What these numbers cannot tell you
 

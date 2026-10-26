@@ -1,16 +1,18 @@
 [
- {"w_tt": 0.30, "w_cf": 0.45, "w_sem": 0.15},
- {"w_tt": 0.20, "w_cf": 0.55, "w_sem": 0.15},
- {"w_tt": 0.35, "w_cf": 0.35, "w_sem": 0.10},
+ {"w_tt": 0.3, "w_cf": 0.45, "w_sem": 0.15},
+ {"w_tt": 0.2, "w_cf": 0.55, "w_sem": 0.15},
+ {"w_tt": 0.35, "w_cf": 0.35, "w_sem": 0.1},
  {"w_tt": 0.45, "w_cf": 0.45, "w_sem": 0.15},
- {"w_tt": 0.30, "w_cf": 0.30, "w_sem": 0.30},
- {"w_tt": 0.60, "w_cf": 0.30, "w_sem": 0.10},
- {"w_quality": 0.35},
- {"w_quality": 0.10},
+ {"w_tt": 0.3, "w_cf": 0.3, "w_sem": 0.3},
+ {"w_tt": 0.6, "w_cf": 0.3, "w_sem": 0.1},
+ {"w_quality": 0.2},
+ {"w_quality": 0.1},
  {"mmr_scale": 1.5},
  {"mmr_scale": 4.5},
  {"neg_floor": 0.5},
  {"neg_floor": 0.7},
  {"explore_near": 0.5},
- {"explore_near": 0.7}
+ {"explore_near": 0.7},
+ {"u_tt": 1.0, "u_sem": 0.0},
+ {"u_tt": 0.0, "u_sem": 1.0}
 ]

@@ -13,8 +13,8 @@ WHAT IT CHECKS
               item_ids are stored in browsers); MovieLens and IMDb ids are
               unique and well-formed; titles present; years, ratings and
               runtimes in range; genres from the known vocabulary; tags
-              lower-case; metadata-only films carry no rating; an alias is a
-              served film's duplicate of a listed film with its TMDB id
+              lower-case; metadata-only films carry no rating; an alias duplicates
+              a listed film with its TMDB id and holds no ratings of its own
   id map      every MovieLens id maps into the catalogue; each film's own id
               maps to its own row
   vectors     one finite row per film in every matrix; unit length (or zero
@@ -89,9 +89,10 @@ def check_catalog(art: Path, r: Report) -> dict:
     r.check(all(t == t.lower() for ts in c["tags"] for t in ts), "catalog.json: a tag that is not lower-case")
     r.check(all(m in ("movie", "tv") for m in c["media"]), "catalog.json: unknown media type")
     alias = c.get("alias_of") or [None] * n
-    r.check(all(a is None or (i < LEGACY_N and 0 <= a < n and alias[a] is None and c["tmdbId"][a] == c["tmdbId"][i])
+    r.check(all(a is None or (0 <= a < n and alias[a] is None and c["tmdbId"][a] == c["tmdbId"][i] and c["rc"][i] == 0)
                 for i, a in enumerate(alias)),
-            "catalog.json: an alias that is not a served duplicate of a listed film with the same TMDB id")
+            "catalog.json: an alias that is not a duplicate of a listed film with the same TMDB id, "
+            "or that kept ratings of its own")
     return c
 
 
@@ -102,7 +103,9 @@ def check_id_map(art: Path, c: dict, r: Report):
     m = {int(k): int(v) for k, v in json.loads(f.read_text()).items()}
     n = len(c["title"])
     r.check(all(0 <= v < n for v in m.values()), "id_map.json: an id outside the catalogue")
-    r.check(all(m.get(int(mid)) == i for i, mid in enumerate(c["movieId"])), "id_map.json: a film's own id maps elsewhere")
+    alias = c.get("alias_of") or [None] * n
+    r.check(all(m.get(int(mid)) == (i if alias[i] is None else alias[i]) for i, mid in enumerate(c["movieId"])),
+            "id_map.json: a film's own id maps elsewhere than its row (or, for an alias, its listed film)")
 
 
 def unit_rows(M: np.ndarray, name: str, r: Report, allow_zero: bool = True):

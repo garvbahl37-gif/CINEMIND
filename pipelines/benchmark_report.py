@@ -229,7 +229,10 @@ def main():
         served = {k: v for k, v in vars(Options()).items() if not isinstance(v, bool)}
         current = val["experiment"].get("adaptive_options") or served
         m = val["metrics"]
-        blends = [(k, json.loads(k[len("blend "):])) for k in m if k.startswith("blend ")]
+        shelf_keys = {"u_tt", "u_sem", "unrated_k"}
+        grid = [(k, json.loads(k[len("blend "):])) for k in m if k.startswith("blend ")]
+        blends = [(k, b) for k, b in grid if not set(b) <= shelf_keys]
+        shelf_grid = [(k, b) for k, b in grid if set(b) <= shelf_keys]
         e = val["experiment"]
         cut, until, tcut = e["split"]["cutoff"], e["split"].get("until"), val["two_tower"].get("cutoff")
         if not until or (tcut or "9999") > cut:
@@ -266,6 +269,34 @@ def main():
               "alone, so a winner's size matters as much as its interval: one that changes Recall@20 by a few "
               "hundredths of a point is adopted because the rule, fixed in advance, says so — not because it "
               "matters.", ""]
+        base_shelf = m["adaptive"].get("unrated_shelf")
+        if shelf_grid and base_shelf:
+            L += ["The shelf of films nobody has rated is chosen the same way, on its own measure: for the "
+                  f"{base_shelf['people']:,} people who went on to love a film nobody had rated before the cutoff, "
+                  "how often the shelf held one. The main list is the same under every shelf setting.", "",
+                  "| Shelf setting | Held a later favourite | Change vs current (points, paired 95% CI) |",
+                  "|---|---|---|",
+                  f"| current {json.dumps({k: current.get(k, served.get(k)) for k in ('u_tt', 'u_sem', 'unrated_k')})} "
+                  f"| {pct(base_shelf['hit_rate'])} | — |"]
+            shelf_win = []
+            for k, b in shelf_grid:
+                x = m[k].get("unrated_shelf")
+                if not x:
+                    continue
+                v = x["vs_adaptive"]
+                L.append(f"| {json.dumps(b)} | {pct(x['hit_rate'])} | {100 * v['hit_rate']:+.2f} "
+                         f"({signed_ci(v['hit_rate_ci'])}) |")
+                if v["hit_rate_ci"][0] > 0:
+                    shelf_win.append((x["hit_rate"], b))
+            if shelf_win:
+                pick = max(shelf_win, key=lambda w: w[0])[1]
+                ok = all(abs(served[k] - v) < 1e-9 for k, v in pick.items())
+                L += ["", f"Chosen: {json.dumps(pick)}." + (" The served defaults match." if ok else
+                                                           " **The served defaults do not match.**"), ""]
+            else:
+                ok = all(abs(served[k] - current.get(k, served[k])) < 1e-9 for k in ("u_tt", "u_sem"))
+                L += ["", "No shelf setting beats the current one; it stays." +
+                      (" The served defaults match." if ok else " **The served defaults do not match.**"), ""]
 
     L += ["## Method", "",
           "- **Split.** Temporal, at 2016-01-01, on MovieLens 32M. Ratings before it are the only training data "
@@ -298,6 +329,12 @@ def main():
         m = run["metrics"]
         L += [f"## {title} — `{label}`", "", run["dataset"] + ".", ""]
         L += accuracy_table(m) + [""] + beyond_table(m) + [""]
+        sh = m.get("adaptive", {}).get("unrated_shelf")
+        if sh:
+            L += [f"Films nobody had rated before the cutoff: the hybrid's shelf of {sh['k']} held one that the "
+                  f"person went on to love for {pct(sh['hit_rate'])} of the {sh['people']:,} people who loved such "
+                  f"a film (95% CI {pct(sh['hit_rate_ci'][0])}–{pct(sh['hit_rate_ci'][1])}); {sh['k']} films drawn "
+                  f"at random from the {sh['pool']:,} unrated ones would for {pct(sh['chance'])}.", ""]
         if any(k.startswith("adaptive − ") for k in m):
             L += ["Ablations, each part of the hybrid switched off for the same people:", ""]
             L += ablation_table(m) + [""]
@@ -338,6 +375,28 @@ def main():
                      f"{f3(runs['after-common']['metrics'][k]['recall'])} | {100 * dr:+.2f} ({signed_ci(cr)}) | "
                      f"{100 * dn:+.2f} ({signed_ci(cn)}) | {reading} |")
         L += ["", f"{n_:,} people in both runs.", ""]
+
+    steps = [("D0-current", "The expanded system, on the old catalogue's films"),
+             ("D1-train-in-universe", "… learning only from ratings of those films"),
+             ("D2-plus-old-tower", "… with the two-tower model from before the expansion in their rows"),
+             ("D3-plus-old-semantic", "… and their sentence embeddings from before")]
+    diag = {k: load(args.dir / "diagnosis", k) for k, _ in steps}
+    if per_user.get("before") and all(r and pu for r, pu in diag.values()):
+        b = per_user["before"]
+        L += ["## Why the hybrid dipped", "",
+              "A diagnosis, not a selection: the expanded system on the old catalogue's films, with one part at a "
+              "time put back as it was before the expansion, each compared person by person with `before`. All "
+              "use the quality-prior weight `before` used. Nothing here chose a setting.", "",
+              "| Step | Hybrid Recall@20 | Change vs before (points, paired 95% CI) |", "|---|---|---|",
+              f"| Before the expansion | {f3(runs['before']['metrics']['adaptive']['recall'])} | — |"]
+        for k, label in steps:
+            run, pu = diag[k]
+            d, c_, _ = paired(b, pu, "recall_20", "adaptive")
+            L.append(f"| {label} | {f3(run['metrics']['adaptive']['recall'])} | {100 * d:+.2f} ({signed_ci(c_)}) |")
+        L += ["", "Reproduce with `--universe data/raw/baseline-artifacts/catalog.json --users-file "
+              f"{rel}/users.json --blend '{{\"w_quality\": 0.2}}'`, adding `--train-in-universe` from the second "
+              "step, on artifact copies whose two-tower and sentence-embedding rows for the old films are "
+              "replaced by `data/raw/baseline-artifacts`'s.", ""]
 
     L += ["## What these numbers cannot tell you", ""]
     seen = set()

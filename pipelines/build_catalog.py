@@ -360,6 +360,8 @@ def main():
 
     by_tmdb: dict[int, list[int]] = defaultdict(list)
     for mid in served_ids + new_ids:
+        if mid in legacy_set and legacy["media"][LEGACY_POS[mid]] == "tv":
+            continue            # a served series' id is in TMDB's TV namespace, not the films'
         t = info(mid)[2]
         if t is not None:
             by_tmdb[int(t)].append(mid)
@@ -391,6 +393,22 @@ def main():
             else:
                 conflicts.append({"tmdbId": t, "movieIds": [head, m], "titles": [ht, mt_], "years": [hy, my],
                                   "reason": why})
+    # Pairs a person confirmed are one film, from evidence beyond their titles
+    # (pipelines/confirmed_duplicates.json): the rule above cannot see them.
+    known = served_set | set(new_ids)
+    for d in json.loads((ROOT / "pipelines" / "confirmed_duplicates.json").read_text())["pairs"]:
+        k, a = int(d["keep"]), int(d["alias"])
+        if k not in known or a not in known or a in alias or a in served_alias or k in served_alias:
+            continue
+        if a in served_set and k in served_set:
+            served_alias[a] = k
+            served_dupes.append({"tmdbId": d["tmdbId"], "kept": k, "alias": a, "titles": [info(k)[0], info(a)[0]],
+                                 "years": [info(k)[1], info(a)[1]], "confirmed": d["evidence"]})
+        elif a not in served_set:
+            alias[a] = k
+            merges.append({"tmdbId": d["tmdbId"], "kept": k, "merged": a, "titles": [info(k)[0], info(a)[0]],
+                           "years": [info(k)[1], info(a)[1]], "confirmed": d["evidence"]})
+        conflicts = [c for c in conflicts if set(c["movieIds"]) != {k, a}]
     canon_new = [m for m in new_ids if m not in alias]
     conflict_ids = {m for c in conflicts for m in c["movieIds"]}
     log(f"{len(merges)} duplicates merged by TMDB id, {len(served_dupes)} served duplicates kept as aliases, "
@@ -407,6 +425,12 @@ def main():
         members[pos[m]].append(m)
     for m, c in alias.items():
         members[pos[c]].append(m)
+    # An alias keeps its row (browsers may hold its item_id), but its ratings count for
+    # the film it duplicates, and the ratings pipelines read them there through id_map.
+    for a, k in served_alias.items():
+        id_map[str(a)] = pos[k]
+        members[pos[a]].remove(a)
+        members[pos[k]].append(a)
 
     keys = list(base.keys())
     for k in ("imdbId", "countries", "released", "alias_of"):
@@ -717,7 +741,8 @@ def markdown(r: dict) -> str:
     flags = "\n".join(f"| `{k}` | {v:,} | {r['flags_added'].get(k, 0):,} |" for k, v in r["flags"].items())
     merges = "\n".join(f"| {m['tmdbId']} | {m['kept']} | {m['merged']} | {m['titles'][0]} / {m['titles'][1]} | {m['years'][0]} / {m['years'][1]} |" for m in r["merges"]) or "| – | – | – | – | – |"
     conf = "\n".join(f"| {c['tmdbId']} | {c['movieIds'][0]}, {c['movieIds'][1]} | {c['titles'][0]} / {c['titles'][1]} | {c['years'][0]} / {c['years'][1]} | {c['reason']} |" for c in r["conflicts"]) or "| – | – | – | – | – |"
-    dupes = "\n".join(f"| {d['tmdbId']} | {d['kept']} | {d['alias']} | {d['titles'][0]} / {d['titles'][1]} | {d['years'][0]} / {d['years'][1]} |" for d in r.get("served_duplicates", [])) or "| – | – | – | – | – |"
+    dupes = "\n".join(f"| {d['tmdbId']} | {d['kept']} | {d['alias']} | {d['titles'][0]} / {d['titles'][1]} | {d['years'][0]} / {d['years'][1]} | {'confirmed by review' if d.get('confirmed') else 'shared TMDB id, year and title'} |" for d in r.get("served_duplicates", [])) or "| – | – | – | – | – | – |"
+    evidence = "\n".join(f"- **{d['titles'][0]}** / {d['titles'][1]}: {d['confirmed']}" for d in r.get("served_duplicates", []) if d.get("confirmed"))
     src = "\n".join(f"- **{k}** — {v}" for k, v in r["sources"].items())
     return f"""# Catalogue data quality
 
@@ -769,11 +794,16 @@ were that film's, and are cleared.
 
 Both ids may be stored in browsers, so neither row is removed: the alias keeps
 its item_id and resolves, but is never listed — search, matches, home rows and
-recommendations skip it, and a like of it counts for the film it duplicates.
+recommendations skip it — and its ratings, and a like of it, count for the film
+it duplicates. Pairs the automatic rule cannot see, because their titles differ,
+are listed in `pipelines/confirmed_duplicates.json` once a person has confirmed
+them.
 
-| TMDB id | Listed movieId | Alias movieId | Titles | Years |
-|---|---|---|---|---|
+| TMDB id | Listed movieId | Alias movieId | Titles | Years | Found by |
+|---|---|---|---|---|---|
 {dupes}
+
+{evidence}
 
 ## Shared TMDB ids kept apart
 

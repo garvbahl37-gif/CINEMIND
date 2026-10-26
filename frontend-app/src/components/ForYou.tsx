@@ -90,19 +90,28 @@ const ForYou = ({ taste, onSelect }: { taste: Taste; onSelect: (m: Movie) => voi
     const explored = data?.results.filter(m => m.exploring).length ?? 0;
 
     return (
-        <Shelf id="for-you" title="For you"
-            aside={data ? summary(data.profile) : undefined}
-            controls={explored > 0 ? (
-                <span className="hidden md:inline-flex items-center gap-1.5 mr-2 text-[13px] text-white/60">
-                    <Compass className="w-3.5 h-3.5" /> {count(explored, 'pick')} off your usual path
-                </span>
-            ) : undefined}>
-            {failed && !data ? (
-                <p className="text-[14px] text-white/70 py-6">Your picks didn't load. They'll try again when your taste changes.</p>
-            ) : data ? (
-                data.results.map(m => <RecCard key={m.item_id} m={m} onSelect={open} />)
-            ) : <Skeleton />}
-        </Shelf>
+        <>
+            <Shelf id="for-you" title="For you"
+                aside={data ? summary(data.profile) : undefined}
+                controls={explored > 0 ? (
+                    <span className="hidden md:inline-flex items-center gap-1.5 mr-2 text-[13px] text-white/60">
+                        <Compass className="w-3.5 h-3.5" /> {count(explored, 'pick')} off your usual path
+                    </span>
+                ) : undefined}>
+                {failed && !data ? (
+                    <p className="text-[14px] text-white/70 py-6">Your picks didn't load. They'll try again when your taste changes.</p>
+                ) : data ? (
+                    data.results.map(m => <RecCard key={m.item_id} m={m} onSelect={open} />)
+                ) : <Skeleton />}
+            </Shelf>
+            {/* Their own shelf, so a film nobody has rated never takes a place earned on ratings. */}
+            {data && data.unrated.length > 0 && (
+                <Shelf id="not-yet-rated" title="Nobody has rated these yet"
+                    aside="Matched to your taste on what they are about">
+                    {data.unrated.map(m => <RecCard key={m.item_id} m={m} onSelect={open} />)}
+                </Shelf>
+            )}
+        </>
     );
 };
 

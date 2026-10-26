@@ -1,12 +1,12 @@
 {
  "generated": "2026-10-26",
- "runtime_s": 99,
+ "runtime_s": 84,
  "dataset": "MovieLens 32M, 17,716 of the catalogue's 17,719 films as candidates",
  "experiment": {
   "label": "before",
-  "timestamp": "2026-10-26T07:10:34Z",
+  "timestamp": "2026-10-26T16:49:17Z",
   "code": {
-   "commit": "8291d79",
+   "commit": "d4f22e9",
    "uncommitted_changes": true
   },
   "artifacts": "data/raw/baseline-artifacts",
@@ -33,6 +33,7 @@
    "availability": "only films released or rated before the cutoff are candidates or targets"
   },
   "seed": 42,
+  "train_in_universe": false,
   "adaptive_options": {
    "w_tt": 0.45,
    "w_cf": 0.3,
@@ -41,7 +42,10 @@
    "w_quality": 0.2,
    "mmr_scale": 3.0,
    "neg_floor": 0.6,
-   "explore_near": 0.6
+   "explore_near": 0.6,
+   "unrated_k": 6,
+   "u_tt": 0.5,
+   "u_sem": 0.5
   },
   "catalog_films": 17719,
   "rating_backed_films": 16759,
@@ -118,9 +122,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.1392,
    "latency_ms": {
-    "p50": 0.15,
-    "p95": 0.21,
-    "p99": 0.29
+    "p50": 0.14,
+    "p95": 0.16,
+    "p99": 0.17
    },
    "vs_adaptive": {
     "recall": -0.084,
@@ -163,8 +167,8 @@
    "warm_recall": 0.2006,
    "latency_ms": {
     "p50": 0.07,
-    "p95": 0.17,
-    "p99": 0.27
+    "p95": 0.13,
+    "p99": 0.17
    },
    "vs_adaptive": {
     "recall": -0.0226,
@@ -206,9 +210,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.1329,
    "latency_ms": {
-    "p50": 0.28,
-    "p95": 0.45,
-    "p99": 0.62
+    "p50": 0.26,
+    "p95": 0.3,
+    "p99": 0.33
    },
    "vs_adaptive": {
     "recall": -0.0904,
@@ -250,9 +254,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.2233,
    "latency_ms": {
-    "p50": 3.95,
-    "p95": 16.97,
-    "p99": 34.57
+    "p50": 3.36,
+    "p95": 14.46,
+    "p99": 27.21
    }
   },
   "adaptive \u2212 drift": {
@@ -281,9 +285,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.2251,
    "latency_ms": {
-    "p50": 3.9,
-    "p95": 16.9,
-    "p99": 32.7
+    "p50": 3.26,
+    "p95": 14.48,
+    "p99": 26.81
    },
    "vs_adaptive": {
     "recall": 0.0018,
@@ -325,9 +329,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.2199,
    "latency_ms": {
-    "p50": 3.83,
-    "p95": 16.81,
-    "p99": 33.13
+    "p50": 3.23,
+    "p95": 14.42,
+    "p99": 27.21
    },
    "vs_adaptive": {
     "recall": -0.0034,
@@ -369,9 +373,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.2344,
    "latency_ms": {
-    "p50": 2.65,
-    "p95": 9.22,
-    "p99": 15.65
+    "p50": 2.28,
+    "p95": 7.64,
+    "p99": 12.84
    },
    "vs_adaptive": {
     "recall": 0.0112,
@@ -413,9 +417,9 @@
    "cold_recall_users": 0,
    "warm_recall": 0.2202,
    "latency_ms": {
-    "p50": 3.66,
-    "p95": 15.44,
-    "p99": 28.65
+    "p50": 3.09,
+    "p95": 13.2,
+    "p99": 23.81
    },
    "vs_adaptive": {
     "recall": -0.003,

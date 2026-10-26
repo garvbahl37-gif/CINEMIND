@@ -248,6 +248,9 @@ def main():
                     help="JSON object or file of adaptive-engine blend weights to evaluate instead of the defaults")
     ap.add_argument("--blend-grid", type=Path, default=None,
                     help="JSON file: a list of blends, each evaluated as an extra policy (for validation only)")
+    ap.add_argument("--train-in-universe", action="store_true",
+                    help="diagnostic: learn only from ratings of films in --universe, as a system that "
+                         "knew only those films would")
     ap.add_argument("--per-user", type=Path, default=None,
                     help="write each user's Recall@20 and NDCG@20 per policy here (.json.gz), for paired "
                          "comparisons between runs")
@@ -288,6 +291,8 @@ def main():
     if until:
         r = r[r.timestamp < until]
     train, test = r[r.timestamp < cutoff], r[r.timestamp >= cutoff]
+    if args.train_in_universe:
+        train = train[allowed[train.item.values]]
     # Only a film that existed at the cutoff can be recommended then, or missed: released
     # before it by any source's date, or rated before it (MovieLens lists a few films before
     # release). A 2019 film is neither a candidate nor a target for a list made in 2016.
@@ -358,6 +363,7 @@ def main():
         variants["blend " + json.dumps(b, separators=(",", ":"))] = dict(explore=0.3, opt=Options(**{**blend, **b}))
     names = ["popularity", "item-cf", "two-tower", *variants]
     recs: dict[str, list[list[int]]] = {k: [] for k in names}
+    shelves: dict[str, list[list[int]]] = {k: [] for k in variants}     # films nobody had rated
     lat: dict[str, list[float]] = {k: [] for k in names}
     truth: list[set[int]] = []
     ope_rows = []
@@ -390,6 +396,7 @@ def main():
                                                           allowed=allowed if blocked.size else None,
                                                           explain=False, **kw))
             recs[name].append(out["ids"])
+            shelves[name].append(out.get("unrated", []))
         if args.no_ope:
             if (n_u + 1) % 500 == 0:
                 log(f"  {n_u + 1}/{len(users)}")
@@ -462,6 +469,35 @@ def main():
         log(f"  {name:24} recall@20 {metrics[name]['recall']:.4f}  ndcg@20 {metrics[name]['ndcg']:.4f}  "
             f"map@20 {metrics[name]['map_20']:.4f}  cov {metrics[name]['coverage']:.3f}  "
             f"cold {metrics[name]['cold_start_share']:.3f}  p95 {metrics[name]['latency_ms'].get('p95')} ms")
+
+    # The shelf of films nobody had rated at the cutoff: for the people who went on to love
+    # one, how often the shelf held it — against the same number of films drawn at random
+    # from those nobody had rated, whose chance is computed exactly.
+    pool_n = int(((rc == 0) & allowed).sum())
+    cold_t = [{i for i in truth[j] if cold[i]} for j in keep]
+    shelf_people = [x for x, ct in enumerate(cold_t) if ct]
+    shelf_hits: dict[str, np.ndarray] = {}
+    for name in variants:
+        S = [shelves[name][j] for j in keep]
+        k_ = max((len(x) for x in S), default=0)
+        if not shelf_people or not k_:
+            continue
+        hits = np.array([1.0 if set(S[x]) & cold_t[x] else 0.0 for x in shelf_people])
+        chance = float(np.mean([1 - math.prod((pool_n - len(cold_t[x]) - t) / (pool_n - t) for t in range(k_))
+                                for x in shelf_people]))
+        shelf_hits[name] = hits
+        metrics[name]["unrated_shelf"] = {
+            "k": k_, "pool": pool_n, "people": len(shelf_people),
+            "hit_rate": round(float(hits.mean()), 4), "hit_rate_ci": boot_ci(hits, brng),
+            "chance": round(chance, 4),
+            "hits_per_shelf": round(float(np.mean([len(set(S[x]) & cold_t[x]) for x in shelf_people])), 4)}
+        log(f"  {name:24} unrated shelf: {hits.mean():.4f} of {len(shelf_people):,} people "
+            f"(chance {chance:.4f}, pool {pool_n:,})")
+    for name, hits in shelf_hits.items():
+        if name != "adaptive" and "adaptive" in shelf_hits:
+            d = hits - shelf_hits["adaptive"]
+            metrics[name]["unrated_shelf"]["vs_adaptive"] = {"hit_rate": round(float(d.mean()), 4),
+                                                             "hit_rate_ci": boot_ci(d, brng)}
 
     # Every policy against the adaptive engine, user by user.
     base_rec, base_nd = per_user["adaptive"]
@@ -613,6 +649,7 @@ def main():
                       "candidate_universe": str(args.universe) if args.universe else "all films in the catalogue",
                       "availability": "only films released or rated before the cutoff are candidates or targets"},
             "seed": args.seed,
+            "train_in_universe": bool(args.train_in_universe),
             "adaptive_options": {k: v for k, v in vars(Options(**blend)).items() if not isinstance(v, bool)},
             "catalog_films": n, "rating_backed_films": int(sum(1 for x in e.c["rc"] if x)),
             "candidate_films": int(allowed.sum()),

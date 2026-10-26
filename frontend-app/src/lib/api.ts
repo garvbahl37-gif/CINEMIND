@@ -89,6 +89,8 @@ export async function fetchSimilar(itemId: number, k = 24, signal?: AbortSignal)
 
 export interface ForYou {
     results: Movie[];
+    /** Films nobody has rated yet, matched on what they are about — a shelf of their own. */
+    unrated: Movie[];
     profile: {
         signals: number; liked: number; skipped: number; searches: number;
         long_term: string[]; lately: string[]; drift: number; adventurousness: number; cold_start: boolean;
@@ -111,7 +113,10 @@ export async function fetchForYou(body: {
         }),
         signal,
     });
-    return { results: (d.results ?? []).map(toMovie), profile: d.profile, policy: d.policy ?? {} };
+    return {
+        results: (d.results ?? []).map(toMovie), unrated: (d.unrated ?? []).map(toMovie),
+        profile: d.profile, policy: d.policy ?? {},
+    };
 }
 
 export interface Discovery {

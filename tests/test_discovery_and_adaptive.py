@@ -307,3 +307,19 @@ def test_browse_and_health_report_the_catalogue(e, client):
     assert {"hero", "top50", "tv", "rows", "total"} <= set(b) and b["total"] == e.n
     h = client.get("/api/health").json()
     assert h["items"] == e.n and 0 < h["rating_backed"] <= e.n
+
+
+def test_films_nobody_has_rated_get_their_own_labelled_shelf(e, a):
+    sig = likes(e, HORROR)
+    out = a.recommend(sig, [], k=24, explore=0.3, now=NOW)
+    shelf, main = out["unrated"], {r["item_id"] for r in out["results"]}
+    assert 0 < len(shelf) <= 6
+    for r in shelf:
+        assert r["rating_backed"] is False and r["rating_avg"] is None      # never a borrowed rating
+        assert r["item_id"] not in main and not e.hidden[r["item_id"]]
+        assert r["reason"].startswith("No ratings yet")
+    assert sum("horror" in e.genre_of[r["item_id"]] for r in shelf) >= len(shelf) // 2
+    gone = {r["item_id"] for r in shelf}
+    again = a.recommend(sig, [], k=24, explore=0.3, now=NOW, exclude=gone)["unrated"]
+    assert not gone & {r["item_id"] for r in again}
+    assert a.recommend([], [], k=12, now=NOW)["unrated"] == []              # nothing to match a taste to

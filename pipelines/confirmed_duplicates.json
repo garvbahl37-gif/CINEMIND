@@ -1,0 +1,32 @@
+{
+ "about": "MovieLens ids a person confirmed are one film, from evidence beyond the titles. pipelines/build_catalog.py keeps the second as an alias of the first: its item_id still resolves, it is never listed, and its ratings count for the first. Pairs the automatic rule (shared TMDB id, years within one, matching titles) cannot see because their titles differ.",
+ "pairs": [
+  {
+   "keep": 4241, "alias": 174533, "tmdbId": 10991, "reviewed": "2026-10-26",
+   "titles": ["Pokémon 3: The Movie (2001)", "Pokémon: Spell of the Unown (2000)"],
+   "evidence": "TMDB 10991, 'Pokémon 3: The Movie' (2000-07-08), carries tt0235679, the second id's IMDb id; Wikidata Q890665, the item for tt0235679, is 'Pokémon 3: The Movie'; both are directed by Kunihiko Yuyama. The 2000 Japanese release and its 2001 US release."
+  },
+  {
+   "keep": 5672, "alias": 174543, "tmdbId": 12600, "reviewed": "2026-10-26",
+   "titles": ["Pokemon 4 Ever (a.k.a. Pokémon 4: The Movie) (2002)", "Pokémon 4Ever: Celebi - Voice of the Forest (2001)"],
+   "evidence": "TMDB 12600, 'Pokémon 4Ever' (2001-07-07), carries tt0287635, the second id's IMDb id; Wikidata Q82579, the item for tt0287635, is 'Pokémon 4Ever'; same director (Kunihiko Yuyama) and runtime (80 min). The 2001 Japanese release and its 2002 US release."
+  },
+  {
+   "keep": 215891, "alias": 203453, "tmdbId": 542757, "reviewed": "2026-10-26",
+   "titles": ["Hope You Die Next Time :-) (2018)", "Remélem legközelebb sikerül meghalnod :) (2018)"],
+   "evidence": "The Hungarian original title and its English one, under two IMDb ids (tt8529512, tt8723836); one TMDB record (542757), the same director (Mihály Schwechtje), runtime (96 min) and year."
+  },
+  {
+   "keep": 242100, "alias": 239670, "tmdbId": 792517, "reviewed": "2026-10-26",
+   "titles": ["Hate by Dani Rovira (2021)", "Dani Rovira: Odio (2021)"],
+   "evidence": "'Odio' is Spanish for 'Hate': one stand-up special by Dani Rovira under its English and Spanish titles and two IMDb ids (tt13323128, tt13323166), with one TMDB record (792517) and the same year."
+  }
+ ],
+ "not_duplicates": [
+  {
+   "movieIds": [72178, 48268], "tmdbId": 14968, "reviewed": "2026-10-26",
+   "titles": ["Welcome to Dongmakgol (2005)", "Empire Falls (2005)"],
+   "evidence": "A Korean film and an HBO miniseries. Empire Falls is a series served before the expansion, whose TMDB id is in TMDB's TV namespace; it only coincides with the film's movie id."
+  }
+ ]
+}
