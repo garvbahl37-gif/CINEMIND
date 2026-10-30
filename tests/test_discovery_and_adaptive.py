@@ -322,6 +322,16 @@ def test_browse_and_health_report_the_catalogue(e, client):
     assert h["items"] == e.n and 0 < h["rating_backed"] <= e.n and h["search_index"] == "prebuilt"
 
 
+def test_the_static_home_page_is_exactly_what_browse_answers(e, client):
+    """The site opens from frontend-app/public/home.json, not the API: rebuild it
+    (pipelines/build_home.py) whenever the artifacts or the item fields change."""
+    f = Path(__file__).resolve().parent.parent / "frontend-app" / "public" / "home.json"
+    static = json.loads(f.read_text(encoding="utf-8"))
+    live = client.get("/api/browse").json()
+    live.pop("latency_ms")
+    assert static == live, "home.json is stale: run pipelines/build_home.py"
+
+
 def test_films_nobody_has_rated_get_their_own_labelled_shelf(e, a):
     sig = likes(e, HORROR)
     out = a.recommend(sig, [], k=24, explore=0.3, now=NOW)

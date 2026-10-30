@@ -18,8 +18,9 @@ before-2015 two-tower model, which pipelines/evaluate.py --cutoff 2015-01-01
 uses to choose the adaptive engine's settings without touching the test period.
 
 data/artifacts is untouched until --promote, which validates the staging copy
-once more, replaces each changed file with an atomic rename, and removes any
-file the build no longer makes. A failed step stops the run and leaves the live
+once more, replaces each changed file with an atomic rename, removes any
+file the build no longer makes, and rewrites the home page's static data
+(build_home.py). A failed step stops the run and leaves the live
 artifacts as they were.
 
 Fetch the inputs first (both resumable): ingest_wikidata.py and, with a TMDB
@@ -120,6 +121,7 @@ def main():
     if args.promote:
         run(str(PIPE / "validate_artifacts.py"), "--art", str(args.stage))
         promote(args.stage)
+        run(str(PIPE / "build_home.py"))            # the home page's static data, from what is now served
     else:
         print(f"\n[rebuild] staged and validated in {args.stage}; rerun with --promote to serve it")
 

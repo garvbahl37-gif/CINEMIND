@@ -417,6 +417,16 @@ class Engine:
     def items(self, ids) -> list[dict]:
         return [self.item(int(i)) for i in ids]
 
+    def home(self) -> dict:
+        """Everything the home page shows, from prebuilt lists. /api/browse serves it, and
+        pipelines/build_home.py writes it as a static file, so the site opens without
+        waiting for this function to start."""
+        b = self.browse
+        rows = [{"genre": g, "items": self.items(ids[:24])} for g, ids in b["genres"].items()]
+        rows.sort(key=lambda r: -len(r["items"]))
+        return {"hero": self.items(b["hero"]), "top50": self.items(b["top50"]), "tv": self.items(b["tv"]),
+                "rows": rows, "total": self.n}
+
     # -- recommendations --------------------------------------------------
     def similar(self, i: int, k: int = 12) -> list[dict]:
         """Precomputed hybrid neighbours: item-item CF + two-tower + content."""

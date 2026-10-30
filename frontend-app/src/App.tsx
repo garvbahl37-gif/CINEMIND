@@ -32,9 +32,14 @@ const RowSkeleton = () => (
   </>
 );
 
+// The opening plays once per tab: a reload goes straight to the site.
+const INTRO = 'cinemind.intro.v1';
+const introSeen = () => { try { return sessionStorage.getItem(INTRO) === '1'; } catch { return false; } };
+const markIntroSeen = () => { try { sessionStorage.setItem(INTRO, '1'); } catch { /* storage blocked: it plays again */ } };
+
 function App() {
   const [view, setView] = useState<View>('home');
-  const [booted, setBooted] = useState(false);
+  const [booted, setBooted] = useState(introSeen);
 
   // The whole home page arrives in one prebuilt response.
   const [browse, setBrowse] = useState<Browse | null>(null);
@@ -289,7 +294,7 @@ function App() {
         {pick && <MatchStage key="stage" pick={pick} onClose={() => setPick(null)} taste={taste} />}
       </AnimatePresence>
       <ChatInterface key={who} onSelect={setPick} />
-      {!booted && <Loader ready={!!browse || !!browseError} films={browse?.total} onDone={() => setBooted(true)} />}
+      {!booted && <Loader ready={!!browse || !!browseError} films={browse?.total} onDone={() => { markIntroSeen(); setBooted(true); }} />}
     </div>
   );
 }

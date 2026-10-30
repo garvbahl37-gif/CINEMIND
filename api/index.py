@@ -82,19 +82,9 @@ async def health(response: Response):
 async def browse(response: Response):
     """Everything the home page needs, in one prebuilt round trip."""
     t0 = time.perf_counter()
-    e = get_engine()
-    b = e.browse
-    rows = [{"genre": g, "items": e.items(ids[:24])} for g, ids in b["genres"].items()]
-    rows.sort(key=lambda r: -len(r["items"]))
+    home = get_engine().home()
     _cache(response)
-    return {
-        "hero": e.items(b["hero"]),
-        "top50": e.items(b["top50"]),
-        "tv": e.items(b["tv"]),
-        "rows": rows,
-        "total": e.n,
-        "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
-    }
+    return {**home, "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
 
 
 @app.get("/api/similar/{item_id}")

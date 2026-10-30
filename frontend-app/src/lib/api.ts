@@ -67,8 +67,26 @@ export interface Browse {
     rows: { genre: string; items: Movie[] }[];
 }
 
+/** The home page's data: a static file built with the site (pipelines/build_home.py), so the
+ *  site opens without waiting for the API to start; /api/browse answers the same if it's missing. */
+async function home(): Promise<any> {
+    try {
+        const res = await fetch(`/home.json?v=${__BUILD_ID__}`);
+        // A dev server answers a missing file with index.html, so check what came back.
+        if (res.ok && (res.headers.get('content-type') ?? '').includes('json')) {
+            const d = await res.json();
+            if (Array.isArray(d?.rows)) {
+                // Start the API now, while the page is being looked at, so the first search doesn't wait for it.
+                fetch(versioned('/api/health')).catch(() => { });
+                return d;
+            }
+        }
+    } catch { /* fall through to the API */ }
+    return get('/api/browse');
+}
+
 export async function fetchBrowse(): Promise<Browse> {
-    const d = await get('/api/browse');
+    const d = await home();
     return {
         total: d.total,
         hero: d.hero.map(toMovie),

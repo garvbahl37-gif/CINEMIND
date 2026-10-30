@@ -12,7 +12,7 @@ interface Props {
 }
 
 /** Long enough for the mark to assemble once; never longer than the data takes past it. */
-const MIN_MS = 1500;
+const MIN_MS = 700;
 const EASE = [0.76, 0, 0.18, 1] as const;
 
 /**
@@ -59,7 +59,7 @@ const Loader = ({ ready, onDone, films }: Props) => {
             className="fixed inset-0 z-[200] bg-ultra overflow-hidden"
             initial={{ opacity: 1 }}
             animate={{ opacity: phase === 'fading' ? 0 : 1 }}
-            transition={{ duration: reduce ? 0.2 : 0.35, ease: 'easeOut' }}
+            transition={{ duration: reduce ? 0.2 : 0.25, ease: 'easeOut' }}
             onAnimationComplete={() => { if (phase === 'fading') onDone(); }}
         >
             {/* The gate: the app's black, opening from a sliver to the shell's own edges. */}
@@ -73,14 +73,14 @@ const Loader = ({ ready, onDone, films }: Props) => {
                         : `inset(${inset}px ${inset}px ${inset}px ${inset}px round 28px)`,
                 }}
                 // Waits for the wordmark to clear before it opens.
-                transition={{ duration: reduce ? 0 : 0.8, delay: reduce ? 0 : 0.28, ease: EASE }}
+                transition={{ duration: reduce ? 0 : 0.55, delay: reduce ? 0 : 0.12, ease: EASE }}
                 onAnimationComplete={() => { if (phase === 'opening') setPhase('fading'); }}
             />
 
             <motion.div
                 className="absolute inset-0 grid place-items-center px-6"
                 animate={{ opacity: phase === 'loading' ? 1 : 0, scale: phase === 'loading' ? 1 : 0.96 }}
-                transition={{ duration: reduce ? 0 : 0.3, ease: 'easeIn' }}
+                transition={{ duration: reduce ? 0 : 0.2, ease: 'easeIn' }}
             >
                 <div className="flex flex-col items-center text-center">
                     {/* The mark assembles the way the stage does: the side cards slide out from behind the centre. */}
@@ -89,20 +89,20 @@ const Loader = ({ ready, onDone, films }: Props) => {
                             <motion.rect key={x} y={MARK.side.y} width={MARK.side.w} height={MARK.side.h} rx={MARK.side.rx}
                                 initial={reduce ? false : { x: 9, opacity: 0 }}
                                 animate={{ x, opacity: 0.45 }}
-                                transition={{ delay: 0.45 + i * 0.06, type: 'spring', stiffness: 220, damping: 22 }} />
+                                transition={{ delay: 0.22 + i * 0.05, type: 'spring', stiffness: 320, damping: 26 }} />
                         ))}
                         <motion.rect x={MARK.centre.x} y={MARK.centre.y} width={MARK.centre.w} height={MARK.centre.h} rx={MARK.centre.rx}
                             style={{ originX: '50%', originY: '50%' }}
                             initial={reduce ? false : { scaleY: 0, opacity: 0 }}
                             animate={{ scaleY: 1, opacity: 1 }}
-                            transition={{ delay: 0.1, duration: 0.5, ease: EASE }} />
+                            transition={{ delay: 0.05, duration: 0.35, ease: EASE }} />
                     </svg>
 
                     <h1 className="mt-8 overflow-hidden display text-[clamp(56px,13vw,168px)] leading-[0.82]">
                         <motion.span className="block"
                             initial={reduce ? false : { y: '102%' }}
                             animate={{ y: 0 }}
-                            transition={{ delay: 0.35, duration: 0.9, ease: EASE }}>
+                            transition={{ delay: 0.12, duration: 0.55, ease: EASE }}>
                             Cinemind
                         </motion.span>
                     </h1>
@@ -119,7 +119,7 @@ const Loader = ({ ready, onDone, films }: Props) => {
 
                     <motion.p className="mt-5 text-[14px] text-white/75 tabular-nums"
                         initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }}
-                        transition={{ delay: 0.7, duration: 0.5 }}>
+                        transition={{ delay: 0.35, duration: 0.35 }}>
                         {ready && films ? `${films.toLocaleString()} films, 24 matches each` : 'Loading the catalogue'}
                     </motion.p>
                 </div>

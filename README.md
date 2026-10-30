@@ -600,6 +600,17 @@ request to an idle deployment took 10.4, 12.7 and 12.8 s without it and 4.7,
 7.8 and 7.4 s with it (`/api/health`, three cold starts of each build, timed
 from a client far from the iad1 region, so network time is included).
 
+**Opening.** The site no longer waits for the API at all. The home page — hero,
+top 50, series and every genre shelf — depends on the served artifacts alone,
+so `pipelines/build_home.py` writes it to `frontend-app/public/home.json` with
+the engine's own code, and it arrives from Vercel's CDN with the rest of the
+site; a test fails if it differs from what `/api/browse` answers, which remains
+the fallback. Once it has loaded, the page wakes the API in the background, so a
+first search doesn't wait out the cold start. The opening animation is shorter
+(0.7 s at least on screen, down from 1.5 s, and a quicker gate) and plays once
+per tab: a reload goes straight to the site. From a fresh browser, the site
+opened in 3.6 s before and 2.2 s after, data in hand at 0.4 s in both.
+
 Catalogue coverage: 88,514 films, 86,188 with artwork, 245,683 director and
 cast names (351,458 index keys, counting surnames) and 46,370 indexed tags.
 
@@ -610,7 +621,7 @@ Interactive schema at [`/docs`](https://cinemind-theta.vercel.app/docs).
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/health` | Liveness, catalogue size, how many films have ratings, and whether the search index was loaded prebuilt |
-| `GET /api/browse` | Hero picks, top 50, series and every genre shelf in one response, with the catalogue `total` |
+| `GET /api/browse` | Hero picks, top 50, series and every genre shelf in one response, with the catalogue `total` — also shipped as the static `home.json` the site opens from |
 | `GET /api/similar/{item_id}?k=12` | Ranked neighbours with match strength, shared genres/tags, and `match_basis` — `collaborative`, `hybrid` or `content` |
 | `GET /api/movie/{item_id}` | A single film |
 | `GET /api/search` | Category and free-text search with filters and facets |
@@ -820,6 +831,8 @@ outside this repository.
   content and era weights, and the adaptive engine's blend, similarity
   thresholds and how its diversity pass measures alikeness — each choice and its
   alternatives recorded in `manifest.json` and [docs/BENCHMARK.md](docs/BENCHMARK.md).
+- The static home page the site opens from is checked identical to
+  `/api/browse` (`tests/test_discovery_and_adaptive.py`).
 - Search, the assistant, discovery, the adaptive engine and per-profile
   isolation, as before (`tests/test_search_and_chat.py`,
   `tests/test_discovery_and_adaptive.py`).
