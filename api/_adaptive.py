@@ -108,9 +108,21 @@ class Options:
     # Thresholds on two-tower similarity: how hard the diversity pass pushes apart films
     # alike, how alike a film must be to one you passed on to be held back, and how far
     # from your likes an exploration pick must sit (unless it is outside your genres).
-    mmr_scale: float = 3.0
+    # The retrained tower spreads the similarities among a person's best candidates about
+    # half as widely as the one before it, so the pass pushes harder than the 3.0 it had:
+    # chosen on 2015 by the rule (docs/BENCHMARK.md, Similarity-space selection), though on
+    # the test period it changed nothing measurable.
+    mmr_scale: float = 5.0
     neg_floor: float = 0.6
     explore_near: float = 0.6
+    # Where the diversity pass and exploration measure how alike two films are: the
+    # two-tower model's item space ("tower"), its history table — the embeddings the user
+    # tower averages, so films liked by the same people sit together ("history") — the
+    # sentence embedding of what each is about ("content"), or the mean of the tower's and
+    # the content cosines ("both"). Content alone made the pass cost recall on 2015: what
+    # films are about is not what one person likes together.
+    diversity_space: str = "tower"
+    explore_space: str = "tower"
     # A shelf of its own for films nobody has rated, so they never take a place earned on
     # ratings: how many, and how its two content signals weigh.
     unrated_k: int = 6
@@ -140,6 +152,7 @@ class Adaptive:
         self.e = e
         self.tower = get_tower(root) if tower is None else tower
         self.TT = self.tower.V                  # item side of the two-tower model
+        self._history = None                    # its history side as unit rows, made on first use
         self.X = item_matrix(root) if semantic is None else semantic
         self.sem = get_model(root) if encoder is None else encoder
         self.nbr = e.nbr if nbr is None else nbr
@@ -290,13 +303,13 @@ class Adaptive:
         top = C[order[:250]]
         topb = base[order[:250]]
         delta = (0.25 + 0.50 * explore) if opt.diversity else 0.0
-        chosen = self._mmr(top, topb, n_exploit, delta * opt.mmr_scale)
+        chosen = self._mmr(top, topb, n_exploit, delta * opt.mmr_scale, opt.diversity_space)
 
         # Exploration: relevant, well-rated films outside the usual territory, sampled.
         explored, props = [], {}
         if n_explore:
             explored, props = self._explore(P, C, q_pool, chosen, exclude, n_explore, now, explore, seed,
-                                            near_max=opt.explore_near)
+                                            near_max=opt.explore_near, space=opt.explore_space)
         ranked = self._interleave(chosen, explored)
 
         unrated = [] if cold else self._unrated(P, s_tt, s_sem, s_int, exclude, out_of_bounds, opt)
@@ -353,10 +366,20 @@ class Adaptive:
             score = score + opt.w_intent * _z(s_int[pool])
         return [int(i) for i in pool[np.argsort(-score, kind="stable")[:opt.unrated_k]]]
 
-    def _mmr(self, items: np.ndarray, scores: np.ndarray, k: int, delta: float) -> list[int]:
+    def _spaces(self, space: str) -> tuple[np.ndarray, ...]:
+        """Where to measure how alike films are (see Options): the mean of their cosines
+        in these tables, each clipped to 0..1."""
+        if space == "history":
+            if self._history is None:
+                H = self.tower.H.astype(np.float32)
+                self._history = (H / np.maximum(np.linalg.norm(H, axis=1, keepdims=True), 1e-12)).astype(np.float16)
+            return (self._history,)
+        return {"tower": (self.TT,), "content": (self.X,), "both": (self.TT, self.X)}[space]
+
+    def _mmr(self, items: np.ndarray, scores: np.ndarray, k: int, delta: float, space: str = "tower") -> list[int]:
         if k <= 0 or items.size == 0:
             return []
-        V = self.TT[items]
+        Vs = [M[items] for M in self._spaces(space)]
         picked: list[int] = []
         best_sim = np.zeros(items.size, np.float32)
         avail = np.ones(items.size, bool)
@@ -366,10 +389,11 @@ class Adaptive:
             j = int(np.argmax(val))
             picked.append(int(items[j]))
             avail[j] = False
-            best_sim = np.maximum(best_sim, np.clip(mm(V, V[j]), 0, 1))
+            best_sim = np.maximum(best_sim, sum(np.clip(mm(V, V[j]), 0, 1) for V in Vs) / len(Vs))
         return picked
 
-    def _explore(self, P: Profile, C, q_pool, chosen, exclude, n, now, explore, seed, near_max: float = 0.6):
+    def _explore(self, P: Profile, C, q_pool, chosen, exclude, n, now, explore, seed, near_max: float = 0.6,
+                 space: str = "tower"):
         pos_items = list(P.positive)
         usual = self._top_genres(P.positive, 3)
         pool = set(C.tolist()) | set(q_pool.tolist())
@@ -383,7 +407,9 @@ class Adaptive:
         else:
             r = np.zeros(pool.size, np.float32)
             floor = -1.0
-        near = np.clip(mm(self.TT[pool], self.TT[pos_items].T), 0, 1).max(axis=1) if pos_items else np.zeros(pool.size)
+        mats = self._spaces(space)
+        near = (sum(np.clip(mm(M[pool], M[pos_items].T), 0, 1) for M in mats) / len(mats)).max(axis=1) \
+            if pos_items else np.zeros(pool.size)
         outside = np.array([0.0 if (self.genre_of[i] & usual) else 1.0 for i in pool]) if usual else np.ones(pool.size)
         ok = (self.quality[pool] >= 0.6) & (self.rc[pool] >= 300) & (r >= floor) & ((near < near_max) | (outside > 0))
         if not ok.any():

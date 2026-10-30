@@ -185,6 +185,19 @@ def test_excluded_films_never_come_back_as_exploration(e, a):
     assert not explored & {r["item_id"] for r in again["results"]}
 
 
+@pytest.mark.parametrize("space", ["tower", "content", "both"])
+def test_every_similarity_space_gives_a_full_valid_list(e, a, space):
+    """The diversity pass and exploration can measure alikeness in either space (chosen on 2015)."""
+    from _adaptive import Options
+    sig = likes(e, HORROR)
+    out = a.recommend(sig, [], k=24, explore=1.0, now=NOW, seed=5, explain=False,
+                      opt=Options(diversity_space=space, explore_space=space))
+    liked = {s.item for s in sig}
+    assert len(out["ids"]) == len(set(out["ids"])) == 24
+    assert not liked & set(out["ids"]) and not any(e.hidden[i] for i in out["ids"])
+    assert out["propensities"] and set(out["propensities"]) <= set(out["ids"])
+
+
 def test_an_allowed_set_bounds_every_candidate_source(e, a):
     """The offline evaluation's common universe: candidates come from these films only."""
     import numpy as np
@@ -306,7 +319,7 @@ def test_browse_and_health_report_the_catalogue(e, client):
     b = client.get("/api/browse").json()
     assert {"hero", "top50", "tv", "rows", "total"} <= set(b) and b["total"] == e.n
     h = client.get("/api/health").json()
-    assert h["items"] == e.n and 0 < h["rating_backed"] <= e.n
+    assert h["items"] == e.n and 0 < h["rating_backed"] <= e.n and h["search_index"] == "prebuilt"
 
 
 def test_films_nobody_has_rated_get_their_own_labelled_shelf(e, a):

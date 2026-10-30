@@ -181,6 +181,21 @@
    "rows": 88514,
    "sha256": "eecc2deece2f8b6b74e93513f759337bb1a9bbc586171f2fa297f01240eddf43"
   },
+  "search_index.npz": {
+   "built": "2026-10-30T16:42:14Z",
+   "bytes": 8886132,
+   "catalog": "catalog.json.gz",
+   "catalog_sha256": "d4b71e6016ff435dc6af5088921151d48617c4c49ed298f5181af7b0cadbde89",
+   "films": 88514,
+   "format": 1,
+   "keys": {
+    "key_index": 99627,
+    "people": 351458,
+    "tag_index": 46370,
+    "tokens": 43875
+   },
+   "sha256": "a41f992c51e43e28e28d25c02f9d293fd6a44fe2940b5fe93223e9768a025e13"
+  },
   "semantic_items.npy": {
    "built": "2026-10-26T16:11:33Z",
    "bytes": 45319296,

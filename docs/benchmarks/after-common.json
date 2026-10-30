@@ -1,12 +1,12 @@
 {
- "generated": "2026-10-26",
- "runtime_s": 128,
+ "generated": "2026-10-30",
+ "runtime_s": 185,
  "dataset": "MovieLens 32M, 17,714 of the catalogue's 88,514 films as candidates",
  "experiment": {
   "label": "after-common",
-  "timestamp": "2026-10-26T16:51:25Z",
+  "timestamp": "2026-10-30T17:02:45Z",
   "code": {
-   "commit": "d4f22e9",
+   "commit": "245f087",
    "uncommitted_changes": true
   },
   "artifacts": "data/artifacts",
@@ -40,9 +40,11 @@
    "w_sem": 0.15,
    "w_intent": 0.25,
    "w_quality": 0.35,
-   "mmr_scale": 3.0,
+   "mmr_scale": 5.0,
    "neg_floor": 0.6,
    "explore_near": 0.6,
+   "diversity_space": "tower",
+   "explore_space": "tower",
    "unrated_k": 6,
    "u_tt": 0.5,
    "u_sem": 0.5
@@ -267,20 +269,20 @@
    "cold_recall_users": 0,
    "warm_recall": 0.1392,
    "latency_ms": {
-    "p50": 0.32,
-    "p95": 0.35,
-    "p99": 0.37
+    "p50": 0.37,
+    "p95": 0.44,
+    "p99": 0.52
    },
    "vs_adaptive": {
-    "recall": -0.0792,
+    "recall": -0.0795,
     "recall_ci": [
-     -0.0848,
-     -0.0736
+     -0.0849,
+     -0.0738
     ],
-    "ndcg": -0.0775,
+    "ndcg": -0.0778,
     "ndcg_ci": [
-     -0.0833,
-     -0.0721
+     -0.0837,
+     -0.0724
     ],
     "significant": true
    }
@@ -311,20 +313,20 @@
    "cold_recall_users": 0,
    "warm_recall": 0.201,
    "latency_ms": {
-    "p50": 0.26,
-    "p95": 0.32,
-    "p99": 0.37
+    "p50": 0.31,
+    "p95": 0.41,
+    "p99": 0.49
    },
    "vs_adaptive": {
-    "recall": -0.0174,
+    "recall": -0.0177,
     "recall_ci": [
-     -0.0219,
-     -0.0132
+     -0.0221,
+     -0.0135
     ],
-    "ndcg": -0.0173,
+    "ndcg": -0.0176,
     "ndcg_ci": [
-     -0.0218,
-     -0.0129
+     -0.022,
+     -0.013
     ],
     "significant": true
    }
@@ -355,95 +357,95 @@
    "cold_recall_users": 0,
    "warm_recall": 0.1657,
    "latency_ms": {
-    "p50": 0.84,
-    "p95": 0.9,
-    "p99": 0.95
+    "p50": 1.05,
+    "p95": 1.29,
+    "p99": 1.5
    },
    "vs_adaptive": {
-    "recall": -0.0527,
+    "recall": -0.053,
     "recall_ci": [
-     -0.0582,
-     -0.0475
+     -0.0587,
+     -0.0478
     ],
-    "ndcg": -0.0587,
+    "ndcg": -0.059,
     "ndcg_ci": [
-     -0.064,
-     -0.0529
+     -0.0642,
+     -0.0532
     ],
     "significant": true
    }
   },
   "adaptive": {
-   "recall": 0.2184,
+   "recall": 0.2187,
    "recall_ci": [
     0.2119,
-    0.225
+    0.2252
    ],
-   "ndcg": 0.2217,
+   "ndcg": 0.222,
    "ndcg_ci": [
     0.2146,
-    0.2285
+    0.2289
    ],
-   "recall_10": 0.2143,
-   "ndcg_10": 0.2297,
-   "precision_10": 0.2035,
-   "precision_20": 0.181,
-   "map_20": 0.1058,
-   "hit_rate_10": 0.721,
-   "coverage": 0.1467,
-   "diversity": 0.7154,
-   "novelty": 4.442,
-   "long_tail": 0.2352,
+   "recall_10": 0.2158,
+   "ndcg_10": 0.2306,
+   "precision_10": 0.2047,
+   "precision_20": 0.1814,
+   "map_20": 0.1057,
+   "hit_rate_10": 0.726,
+   "coverage": 0.1534,
+   "diversity": 0.7159,
+   "novelty": 4.485,
+   "long_tail": 0.247,
    "cold_start_share": 0.0,
    "cold_recall": null,
    "cold_recall_users": 0,
-   "warm_recall": 0.2184,
+   "warm_recall": 0.2187,
    "latency_ms": {
-    "p50": 5.28,
-    "p95": 15.54,
-    "p99": 27.29
+    "p50": 6.95,
+    "p95": 21.81,
+    "p99": 41.59
    }
   },
   "adaptive \u2212 drift": {
-   "recall": 0.221,
+   "recall": 0.2209,
    "recall_ci": [
-    0.2145,
+    0.2144,
     0.2277
    ],
-   "ndcg": 0.2234,
+   "ndcg": 0.2237,
    "ndcg_ci": [
-    0.2163,
-    0.2306
+    0.2168,
+    0.2308
    ],
-   "recall_10": 0.2174,
-   "ndcg_10": 0.2319,
-   "precision_10": 0.2065,
-   "precision_20": 0.1826,
-   "map_20": 0.1064,
-   "hit_rate_10": 0.729,
-   "coverage": 0.1294,
-   "diversity": 0.716,
-   "novelty": 4.336,
-   "long_tail": 0.2189,
+   "recall_10": 0.2176,
+   "ndcg_10": 0.2323,
+   "precision_10": 0.2068,
+   "precision_20": 0.1832,
+   "map_20": 0.1066,
+   "hit_rate_10": 0.7287,
+   "coverage": 0.1354,
+   "diversity": 0.7164,
+   "novelty": 4.374,
+   "long_tail": 0.2297,
    "cold_start_share": 0.0,
    "cold_recall": null,
    "cold_recall_users": 0,
-   "warm_recall": 0.221,
+   "warm_recall": 0.2209,
    "latency_ms": {
-    "p50": 5.15,
-    "p95": 15.59,
-    "p99": 27.02
+    "p50": 6.98,
+    "p95": 21.38,
+    "p99": 38.12
    },
    "vs_adaptive": {
-    "recall": 0.0025,
+    "recall": 0.0022,
     "recall_ci": [
-     0.0005,
-     0.0044
+     0.0004,
+     0.0041
     ],
     "ndcg": 0.0017,
     "ndcg_ci": [
-     -0.0001,
-     0.0034
+     -0.0,
+     0.0033
     ],
     "significant": true
    }
@@ -474,108 +476,108 @@
    "cold_recall_users": 0,
    "warm_recall": 0.2162,
    "latency_ms": {
-    "p50": 5.12,
-    "p95": 15.57,
-    "p99": 26.93
+    "p50": 6.94,
+    "p95": 21.55,
+    "p99": 38.64
    },
    "vs_adaptive": {
-    "recall": -0.0022,
+    "recall": -0.0025,
     "recall_ci": [
-     -0.0038,
-     -0.0008
+     -0.0044,
+     -0.0007
     ],
-    "ndcg": -0.0015,
+    "ndcg": -0.0018,
     "ndcg_ci": [
-     -0.0024,
-     -0.0006
+     -0.003,
+     -0.0007
     ],
     "significant": true
    }
   },
   "adaptive \u2212 exploration": {
-   "recall": 0.2303,
+   "recall": 0.2305,
    "recall_ci": [
-    0.2238,
-    0.2374
+    0.2239,
+    0.2377
    ],
-   "ndcg": 0.2321,
+   "ndcg": 0.2323,
    "ndcg_ci": [
-    0.224,
-    0.2397
+    0.2242,
+    0.2398
    ],
-   "recall_10": 0.2289,
-   "ndcg_10": 0.2408,
-   "precision_10": 0.2175,
-   "precision_20": 0.1907,
-   "map_20": 0.1145,
-   "hit_rate_10": 0.7357,
-   "coverage": 0.1139,
-   "diversity": 0.7027,
-   "novelty": 4.294,
-   "long_tail": 0.2068,
+   "recall_10": 0.2293,
+   "ndcg_10": 0.2411,
+   "precision_10": 0.2177,
+   "precision_20": 0.1908,
+   "map_20": 0.1146,
+   "hit_rate_10": 0.7387,
+   "coverage": 0.1183,
+   "diversity": 0.7031,
+   "novelty": 4.311,
+   "long_tail": 0.2125,
    "cold_start_share": 0.0,
    "cold_recall": null,
    "cold_recall_users": 0,
-   "warm_recall": 0.2303,
+   "warm_recall": 0.2305,
    "latency_ms": {
-    "p50": 4.21,
-    "p95": 9.63,
-    "p99": 15.22
+    "p50": 5.67,
+    "p95": 13.2,
+    "p99": 19.96
    },
    "vs_adaptive": {
-    "recall": 0.0119,
+    "recall": 0.0118,
     "recall_ci": [
-     0.0104,
-     0.0134
+     0.0103,
+     0.0133
     ],
     "ndcg": 0.0103,
     "ndcg_ci": [
-     0.0094,
+     0.0093,
      0.0113
     ],
     "significant": true
    }
   },
   "adaptive \u2212 negatives": {
-   "recall": 0.2161,
+   "recall": 0.2168,
    "recall_ci": [
-    0.2095,
-    0.2228
+    0.2102,
+    0.2235
    ],
-   "ndcg": 0.2195,
+   "ndcg": 0.2201,
    "ndcg_ci": [
-    0.2129,
-    0.2268
+    0.2134,
+    0.2273
    ],
-   "recall_10": 0.2121,
-   "ndcg_10": 0.2276,
-   "precision_10": 0.2015,
-   "precision_20": 0.1789,
+   "recall_10": 0.2127,
+   "ndcg_10": 0.2279,
+   "precision_10": 0.202,
+   "precision_20": 0.1797,
    "map_20": 0.1043,
-   "hit_rate_10": 0.7197,
-   "coverage": 0.1425,
-   "diversity": 0.7156,
-   "novelty": 4.394,
-   "long_tail": 0.2208,
+   "hit_rate_10": 0.7217,
+   "coverage": 0.1471,
+   "diversity": 0.7161,
+   "novelty": 4.423,
+   "long_tail": 0.2295,
    "cold_start_share": 0.0,
    "cold_recall": null,
    "cold_recall_users": 0,
-   "warm_recall": 0.2161,
+   "warm_recall": 0.2168,
    "latency_ms": {
-    "p50": 5.0,
-    "p95": 14.61,
-    "p99": 25.0
+    "p50": 6.74,
+    "p95": 19.77,
+    "p99": 33.1
    },
    "vs_adaptive": {
-    "recall": -0.0024,
+    "recall": -0.0019,
     "recall_ci": [
-     -0.0039,
-     -0.001
+     -0.0033,
+     -0.0003
     ],
-    "ndcg": -0.0023,
+    "ndcg": -0.0019,
     "ndcg_ci": [
-     -0.0032,
-     -0.0013
+     -0.0029,
+     -0.001
     ],
     "significant": true
    }

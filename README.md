@@ -386,12 +386,14 @@ works* page draws from the full-catalogue run (`/api/evaluation`).
 **Split.** Temporal, at 2016-01-01: MovieLens ratings before it to learn from,
 after it to test on, and nothing after it used to choose anything — the
 two-tower model, the match graph's content weights and the adaptive engine's
-blend are all selected on 2015, inside the training period. None of the
-alternative blends and similarity thresholds tried for the adaptive engine
-clears the rule fixed in advance; a quality-prior weight of 0.35, which cleared
-it by 0.03 recall points in an earlier round, is kept and makes no measurable
-difference. 3,000 people, drawn once and fixed (`docs/benchmarks/users.json`),
-each with ten or more likes before the cutoff and three or more new ones after.
+blend are all selected on 2015, inside the training period. Of the blends,
+similarity thresholds and similarity spaces tried for the adaptive engine, two
+settings have cleared the rule fixed in advance: a quality-prior weight of 0.35
+(by 0.03 recall points) and a harder-pushing diversity pass, `mmr_scale` 5.0
+(by 0.12, 95% CI +0.01 to +0.23). Both are served; neither makes a measurable
+difference on the test period. 3,000 people, drawn once and fixed
+(`docs/benchmarks/users.json`), each with ten or more likes before the cutoff
+and three or more new ones after.
 A later rating of 4★ or more on a film they hadn't rated is a hit. Only films
 that existed at the cutoff — released or rated before it — are candidates or
 targets: a list made on 1 January 2016 cannot hold a film from 2019, and
@@ -399,7 +401,7 @@ counting one as a miss would be as wrong as recommending it. The co-rating graph
 is rebuilt from training ratings with the production formula, because the
 shipped graph saw all 32M.
 
-**Over the whole expanded catalogue** (67,601 candidate films — those that
+**Over the whole expanded catalogue** (67,599 candidate films — those that
 existed at the cutoff; 1,231 of the 3,000 people later loved one that nobody
 had rated before it):
 
@@ -408,7 +410,7 @@ had rated before it):
 | Most popular | 0.133 (0.127–0.138) | 0.140 | 0.063 | 54.1% | 0.5% | 0.0% |
 | Item-item CF | 0.190 (0.183–0.197) | 0.198 | 0.097 | 67.3% | 1.3% | 2.0% |
 | Two-tower alone | 0.159 (0.153–0.165) | 0.161 | 0.070 | 62.2% | 4.5% | 50.5% |
-| **Adaptive engine (hybrid)** | **0.206 (0.200–0.212)** | **0.215** | **0.102** | **72.3%** | 4.0% | 23.2% |
+| **Adaptive engine (hybrid)** | **0.207 (0.200–0.213)** | **0.216** | **0.102** | **72.4%** | 4.3% | 24.2% |
 
 **Before and after, person by person.** The same 3,000 people, the same
 held-out ratings, and only the old catalogue's films as candidates and
@@ -421,18 +423,31 @@ quality-prior weight and all:
 | Most popular | 0.139 | 0.139 | 0.00 |
 | Item-item CF | 0.201 | 0.201 | +0.04 (−0.03 to +0.11) |
 | Two-tower alone | 0.133 | 0.166 | **+3.29 (+2.94 to +3.64)** |
-| Adaptive engine (hybrid) | 0.223 | 0.218 | −0.48 (−0.72 to −0.24) |
+| Adaptive engine (hybrid) | 0.223 | 0.219 | −0.46 (−0.68 to −0.21) |
 
 The retrained two-tower model is the clear gain: 3.3 recall points on the same
 people and films. Popularity and item-item CF don't move, as they shouldn't —
-they see the same training ratings. The adaptive engine is 0.48 points (2.1%)
+they see the same training ratings. The adaptive engine is 0.46 points (2.1%)
 worse, and the [benchmark](docs/BENCHMARK.md#why-the-hybrid-dipped) finds why
 by putting parts back one at a time: learning only from the old films' ratings
 changes nothing (−0.61 points), but putting the old two-tower model back in
-their rows closes almost all of the gap (−0.09). The new model is far better
-alone yet adds less to the blend — most likely because it now learns much of
-what the co-rating signal already knows — and re-weighting the blend on 2015
-doesn't recover it (see [Status](#status)).
+their rows closes almost all of the gap (−0.09).
+
+Which of the model's jobs costs the points was then found on 2015, without
+touching the test period, by handing each job in turn to an old-style model
+trained before 2015
+([details](docs/BENCHMARK.md#which-of-the-towers-roles-on-2015)). Not
+retrieving candidates or scoring them — the new model does both at least as
+well — but the diversity pass, which keeps a row from being twelve versions of
+one film. It judges which films are alike by the model's similarities, and
+among a person's best candidates the new model packs those about half as
+widely as the old one did (a spread of 0.07 against 0.12), so the pass barely
+reorders the list. Run on the old model's similarities, the same pass gains
+0.27 points. Pushing harder (`mmr_scale` 5.0) cleared the 2015 rule and is
+served, but changes nothing measurable on the test period (+0.03 points, −0.09
+to +0.15); judging alikeness by what films are about costs 0.34 points on
+2015; and the model's history table, whose similarities track the old model's
+more closely still, doesn't help either. The dip stands (see [Status](#status)).
 
 Over the whole catalogue the adaptive engine still leads every baseline. No
 ranked list holds a film nobody had rated before the cutoff — cold recall is
@@ -572,6 +587,19 @@ Every similar-films ranking is precomputed, so that request is an array slice;
 search, discovery and *For you* rank at request time over all 88,514 films in
 NumPy. Production latency adds the network and Vercel's routing on top.
 
+**Start-up.** A cold start used to build the search index — title keys, title
+words, tags, and every director and cast name with its surname — from the
+catalogue: about 1.8 of the engine's 2.2 s to start on a laptop. The index now
+ships prebuilt (`search_index.npz`, 8.9 MB, from
+`pipelines/build_search_index.py`), stamped with the checksum of the catalogue
+it was built from; the engine loads it in about a quarter of a second, and
+builds its own only when the stamp doesn't match, so a stale index is never
+served. The engine now starts in 0.8 s locally, and the whole API warms up in
+1.5 s rather than 2.7 s, for about 14 MB more at peak. On Vercel, the first
+request to an idle deployment took 10.4, 12.7 and 12.8 s without it and 4.7,
+7.8 and 7.4 s with it (`/api/health`, three cold starts of each build, timed
+from a client far from the iad1 region, so network time is included).
+
 Catalogue coverage: 88,514 films, 86,188 with artwork, 245,683 director and
 cast names (351,458 index keys, counting surnames) and 46,370 indexed tags.
 
@@ -581,7 +609,7 @@ Interactive schema at [`/docs`](https://cinemind-theta.vercel.app/docs).
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/health` | Liveness, catalogue size and how many films have ratings |
+| `GET /api/health` | Liveness, catalogue size, how many films have ratings, and whether the search index was loaded prebuilt |
 | `GET /api/browse` | Hero picks, top 50, series and every genre shelf in one response, with the catalogue `total` |
 | `GET /api/similar/{item_id}?k=12` | Ranked neighbours with match strength, shared genres/tags, and `match_basis` — `collaborative`, `hybrid` or `content` |
 | `GET /api/movie/{item_id}` | A single film |
@@ -779,14 +807,18 @@ outside this repository.
   and is measured on its own (`tests/test_discovery_and_adaptive.py`).
 - Duplicates a person confirmed are listed once and resolve by both ids
   (`tests/test_catalog_and_vectors.py`).
+- The search index ships prebuilt, stamped with the checksum of the catalogue
+  it was built from: the engine refuses a stale one and builds its own, and
+  what it loads is checked identical to a fresh build, key order included
+  (`tests/test_search_and_chat.py`, `pipelines/validate_artifacts.py`).
 - The evaluation harness: metric definitions checked on hand-worked cases, a
   reproducible run on a fixture, fixed populations and a common candidate
   universe for before/after comparisons, and a refusal to score a model trained
   past the held-out period.
 - Every tuned setting chosen on validation inside the training period, never on
   the test set: the two-tower model's ID dropout and epoch, the match graph's
-  content and era weights, and the adaptive engine's blend and similarity
-  thresholds — each choice and its
+  content and era weights, and the adaptive engine's blend, similarity
+  thresholds and how its diversity pass measures alikeness — each choice and its
   alternatives recorded in `manifest.json` and [docs/BENCHMARK.md](docs/BENCHMARK.md).
 - Search, the assistant, discovery, the adaptive engine and per-profile
   isolation, as before (`tests/test_search_and_chat.py`,
@@ -806,14 +838,21 @@ outside this repository.
   by the real runs that built this catalogue, not by tests.
 - Each deploy's API reads carry its build id, so a browser never shows the
   previous deploy's cached answers; checked by hand after deploying.
+- `pipelines/diagnose_tower_roles.py`, the diagnostic that hands the two-tower
+  model's roles to another model one at a time: its records are in
+  `docs/benchmarks/diagnosis/`, and it refuses to run if the engine's source
+  has moved on from the lines it patches.
 
 **Planned**
 
-- Recovering the adaptive engine's dip. Its cause is found
-  ([Evaluation](#evaluation)): the retrained two-tower model, better on its
-  own, adds less to the blend than the old one did, and re-weighting the blend
-  doesn't recover it. The fix is in how the engine uses that model — candidates,
-  diversity, the blend — and needs its own validation on 2015.
+- Recovering the adaptive engine's last 0.46 points. The cause is narrowed to
+  the similarities the diversity pass judges films by
+  ([Evaluation](#evaluation)), and nothing the shipped model offers — its item
+  vectors pushed harder, its history table, content, or a mix — recovers it.
+  The next thing to try is a similarity learned for the job: an embedding
+  trained, as the old model was, with in-batch negatives only (whose crowding
+  of unrated films matters for retrieval, not for telling apart candidates
+  already chosen), over the whole catalogue, validated on 2015 the same way.
 
 **Considered and dropped**
 

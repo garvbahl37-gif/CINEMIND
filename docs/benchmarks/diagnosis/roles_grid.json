@@ -1,0 +1,12 @@
+[
+ {"roles": "all-old"},
+ {"roles": "on"},
+ {"roles": "no"},
+ {"roles": "oo"},
+ {"geo": "m"},
+ {"geo": "n"},
+ {"geo": "e"},
+ {"geo": "mne"},
+ {"mmr_scale": 5.0},
+ {"diversity_space": "history"}
+]

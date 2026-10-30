@@ -5,6 +5,7 @@ Rebuild every serving artifact into a staging directory, validate, then promote.
 
 Steps, each into the staging copy (default data/raw/staging):
   1. build_catalog.py     catalogue, id map, provenance, data-quality report
+     build_search_index.py the API's search index, prebuilt from that catalogue
   2. build_semantic.py    sentence embeddings (cached by text, so only new or
                           changed films are encoded)
   3. train_two_tower.py   two-tower model over the whole catalogue, selected on
@@ -104,6 +105,7 @@ def main():
                 shutil.copy2(f, args.stage / f.name)
         run(str(PIPE / "build_catalog.py"), "--ml32m", str(args.ml32m), "--out", str(args.stage),
             "--base", str(args.stage))
+        run(str(PIPE / "build_search_index.py"), "--art", str(args.stage))
     if "semantic" not in skip:
         run(str(PIPE / "build_semantic.py"), "--model-dir", str(args.model_dir), "--art", str(args.stage))
     tower_2015 = args.stage.parent / "validation-tower"

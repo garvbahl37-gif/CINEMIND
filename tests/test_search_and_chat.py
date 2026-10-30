@@ -186,3 +186,40 @@ def test_a_plain_year_still_browses_the_year(e):
 def test_typeahead_keeps_a_well_known_title_above_obscure_namesakes(e):
     titles = [(x["title"], x["year"]) for x in e.suggest("drive")]
     assert titles[0] == ("Drive", 2011) and ("Drive My Car", 2021) in titles
+
+
+# -- the prebuilt search index -------------------------------------------------
+
+def test_the_served_search_index_is_prebuilt_and_matches_a_fresh_build(e):
+    """A cold start loads search_index.npz instead of building it; what it loads must be
+    exactly what the engine would have built from the catalogue it serves."""
+    from _engine import build_search
+    assert e.search_prebuilt, "search_index.npz is missing or stale: run pipelines/build_search_index.py"
+    built = build_search(e.c, e.hidden, e.canonical)
+    for k, v in built.items():
+        assert getattr(e, k) == v, k
+        if isinstance(v, dict):
+            assert list(getattr(e, k)) == list(v), f"{k}: key order"
+
+
+def test_a_search_index_round_trips_and_one_from_another_catalogue_is_refused(tmp_path):
+    import json
+
+    import numpy as np
+    from _engine import (POSTINGS, SEARCH_INDEX, aliases, build_search, catalog_path, file_sha256, load_search,
+                         pack_search)
+    c = {"title": ["Amélie", "Seven (a.k.a. Se7en)", "Fabuleux destin d'Amélie Poulain, Le"],
+         "tags": [["whimsical", "paris"], ["serial killer"], []],
+         "directors": [["Jean-Pierre Jeunet"], ["David Fincher"], []],
+         "cast": [["Audrey Tautou"], ["Brad Pitt", "Morgan Freeman"], []],
+         "alias_of": [None, None, 0]}
+    (tmp_path / "catalog.json").write_text(json.dumps(c), encoding="utf-8")
+    ix = build_search(c, *aliases(c))
+    np.savez_compressed(tmp_path / SEARCH_INDEX, **pack_search(ix, file_sha256(catalog_path(tmp_path))))
+    assert load_search(tmp_path, catalog_path(tmp_path), 3) == ix
+    assert list(ix["key_index"]["se7en"]) == [1] and list(ix["people"]["pitt"]) == [1]
+    # An alias's title finds the film it duplicates, and the alias itself is never listed.
+    assert list(ix["key_index"]["le fabuleux destin d amelie poulain"]) == [0]
+    assert ix["keys"][2] == () and not any(2 in ids for name in POSTINGS for ids in ix[name].values())
+    (tmp_path / "catalog.json").write_text(json.dumps({**c, "title": ["Amélie", "Se7en", "Amelie"]}))
+    assert load_search(tmp_path, catalog_path(tmp_path), 3) is None

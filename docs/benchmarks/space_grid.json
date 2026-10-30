@@ -1,0 +1,8 @@
+[
+ {"diversity_space": "content"},
+ {"diversity_space": "both"},
+ {"mmr_scale": 5.0},
+ {"diversity_space": "content", "explore_space": "content"},
+ {"diversity_space": "both", "explore_space": "both"},
+ {"explore_space": "content"}
+]

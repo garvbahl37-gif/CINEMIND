@@ -26,6 +26,8 @@ WHAT IT CHECKS
               finite and sorted; the basis label agrees with the co-rating evidence
   browse      one Bayesian score per film; every listed film exists and is
               not an alias
+  search      the prebuilt search index is present, stamped with this
+              catalogue's checksum, and identical to a fresh build from it
   manifest    checksums and row counts match the files on disk
   legacy index (optional) the FAISS index of the original two-tower model
               reconstructs to item_vectors.npy
@@ -182,6 +184,19 @@ def check_browse(art: Path, c: dict, r: Report):
     r.check(all(alias[i] is None for i in listed), "browse.json: lists an alias")
 
 
+def check_search(art: Path, c: dict, r: Report):
+    from _engine import SEARCH_INDEX, aliases, build_search, catalog_path, load_search
+    if not (art / SEARCH_INDEX).exists():
+        r.check(False, f"{SEARCH_INDEX} is missing — run pipelines/build_search_index.py")
+        return
+    loaded = load_search(art, catalog_path(art), len(c["title"]))
+    r.check(loaded is not None, f"{SEARCH_INDEX}: built from another catalogue — rerun pipelines/build_search_index.py")
+    if loaded is not None:
+        built = build_search(c, *aliases(c))
+        r.check(all(loaded[k] == v and (not isinstance(v, dict) or list(loaded[k]) == list(v)) for k, v in built.items()),
+                f"{SEARCH_INDEX}: differs from a fresh build of the catalogue")
+
+
 def check_manifest(art: Path, c: dict, r: Report):
     f = art / "manifest.json"
     if not f.exists():
@@ -219,6 +234,7 @@ def validate(art: Path, faiss_index: Path | None = None) -> Report:
     check_vectors(art, c, r)
     check_neighbors(art, c, r)
     check_browse(art, c, r)
+    check_search(art, c, r)
     check_manifest(art, c, r)
     if faiss_index and faiss_index.exists() and (art / "item_vectors.npy").exists():
         check_faiss(art, faiss_index, r)

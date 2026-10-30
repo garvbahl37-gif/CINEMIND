@@ -1,0 +1,1242 @@
+{
+ "generated": "2026-10-30",
+ "runtime_s": 432,
+ "dataset": "MovieLens 32M, 17,681 of the catalogue's 88,514 films as candidates",
+ "experiment": {
+  "label": "roles-2015",
+  "timestamp": "2026-10-30T17:12:00Z",
+  "code": {
+   "commit": "245f087",
+   "uncommitted_changes": true
+  },
+  "artifacts": "data/raw/validation",
+  "dataset": {
+   "name": "MovieLens 32M",
+   "checksums": [
+    "8f033867bcb4e6be8792b21468b4fa6e",
+    "links.csv",
+    "0df90835c19151f9d819d0822e190797",
+    "movies.csv",
+    "cf12b74f9ad4b94a011f079e26d4270a",
+    "ratings.csv",
+    "963bf4fa4de6b8901868fddd3eb54567",
+    "tags.csv"
+   ]
+  },
+  "split": {
+   "type": "temporal",
+   "cutoff": "2015-01-01",
+   "until": "2016-01-01",
+   "positive": "rating >= 4",
+   "eligible": ">= 10 positives before the cutoff and >= 3 new positives after it",
+   "candidate_universe": "data/raw/baseline-artifacts",
+   "availability": "only films released or rated before the cutoff are candidates or targets"
+  },
+  "seed": 42,
+  "train_in_universe": true,
+  "adaptive_options": {
+   "w_tt": 0.45,
+   "w_cf": 0.3,
+   "w_sem": 0.15,
+   "w_intent": 0.25,
+   "w_quality": 0.35,
+   "mmr_scale": 3.0,
+   "neg_floor": 0.6,
+   "explore_near": 0.6,
+   "diversity_space": "tower",
+   "explore_space": "tower",
+   "unrated_k": 6,
+   "u_tt": 0.5,
+   "u_sem": 0.5,
+   "roles": "nn",
+   "geo": ""
+  },
+  "catalog_films": 88514,
+  "rating_backed_films": 84404,
+  "candidate_films": 17681,
+  "films_with_training_ratings": 16454,
+  "evaluated_users": 2797,
+  "users_without_targets": 0,
+  "test_interactions": 82366,
+  "models": {
+   "two_tower": {
+    "films": 88514,
+    "content_history_branch": true,
+    "seed": 7,
+    "uniform_negatives": 4096,
+    "id_dropout": 0.3,
+    "short_history_share": 0.5,
+    "dim": 64,
+    "logq": 0.5,
+    "epochs": 4,
+    "trained": "2026-10-26",
+    "cutoff": "2015-01-01",
+    "films_with_training_data": 18233,
+    "validation_recall@20": 0.1088,
+    "validation_recall@20_last3": 0.092
+   },
+   "semantic": {
+    "built": "2026-10-26T16:11:33Z",
+    "bytes": 45319296,
+    "dim": 256,
+    "dtype": "float16",
+    "empty_rows": 0,
+    "model": "minishlab/potion-base-8M",
+    "recipe": "title. genres. tags. tags. overview",
+    "rows": 88514,
+    "sha256": "a428feb632c24935d054df5d2222d5894bb339a84e4a44a60c5461b880ed42df"
+   },
+   "neighbors": {
+    "basis": {
+     "collaborative": 17279,
+     "content": 23507,
+     "hybrid": 47728
+    },
+    "built": "2026-10-26T16:35:38Z",
+    "bytes": 8572608,
+    "checks": {
+     "all": {
+      "films": 88514,
+      "mean_year_gap": 6.54,
+      "share_a_genre": 0.9694
+     },
+     "collaborative": {
+      "films": 17279,
+      "mean_year_gap": 8.31,
+      "share_a_genre": 0.9565
+     },
+     "content": {
+      "films": 23507,
+      "mean_year_gap": 6.54,
+      "share_a_genre": 0.9593
+     },
+     "hybrid": {
+      "films": 47728,
+      "mean_year_gap": 5.89,
+      "share_a_genre": 0.979
+     }
+    },
+    "era_span_years": 40.0,
+    "full_evidence_raters": 20,
+    "k": 24,
+    "rows": 88514,
+    "sha256": "0daed298a30b760d6b67009725b6a0cc718cd5ae59c89e43a5a930649b543edb",
+    "w_era": 1.0,
+    "w_sem": 0.5,
+    "weights": {
+     "fran": 0.4,
+     "gen": 0.6,
+     "icf": 1.35,
+     "tag": 0.5,
+     "thin": 0.7,
+     "tt": 0.75
+    }
+   }
+  }
+ },
+ "split": {
+  "cutoff": "2015-01-01",
+  "train_ratings": 19075175,
+  "test_ratings": 1669985,
+  "eligible_users": 2797,
+  "evaluated_users": 2797,
+  "items": 88514,
+  "candidate_items": 17681
+ },
+ "k": 20,
+ "two_tower": {
+  "trained": "2026-10-26",
+  "films": 88514,
+  "content_history_branch": true,
+  "seed": 7,
+  "uniform_negatives": 4096,
+  "id_dropout": 0.3,
+  "short_history_share": 0.5,
+  "dim": 64,
+  "logq": 0.5,
+  "epochs": 4,
+  "cutoff": "2015-01-01",
+  "films_with_training_data": 18233,
+  "validation_recall@20": 0.1088,
+  "validation_recall@20_last3": 0.092
+ },
+ "policies": {
+  "popularity": "Most-liked films in training",
+  "item-cf": "Item-item collaborative filtering (damped co-occurrence, cosine), rebuilt from training",
+  "two-tower": "The user tower over the liked films, nearest films by the item tower",
+  "adaptive": "The production adaptive engine: drift, negatives, quality, MMR diversity, 30% adventurousness"
+ },
+ "metrics": {
+  "popularity": {
+   "recall": 0.0812,
+   "recall_ci": [
+    0.0765,
+    0.086
+   ],
+   "ndcg": 0.0831,
+   "ndcg_ci": [
+    0.0779,
+    0.0877
+   ],
+   "recall_10": 0.082,
+   "ndcg_10": 0.088,
+   "precision_10": 0.0773,
+   "precision_20": 0.0649,
+   "map_20": 0.0333,
+   "hit_rate_10": 0.3761,
+   "coverage": 0.0217,
+   "diversity": 0.7302,
+   "novelty": 2.433,
+   "long_tail": 0.0001,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.0814,
+   "latency_ms": {
+    "p50": 0.33,
+    "p95": 0.38,
+    "p99": 0.4
+   },
+   "vs_adaptive": {
+    "recall": -0.0733,
+    "recall_ci": [
+     -0.0784,
+     -0.0682
+    ],
+    "ndcg": -0.0693,
+    "ndcg_ci": [
+     -0.0746,
+     -0.0643
+    ],
+    "significant": true
+   }
+  },
+  "item-cf": {
+   "recall": 0.1183,
+   "recall_ci": [
+    0.1128,
+    0.1238
+   ],
+   "ndcg": 0.1189,
+   "ndcg_ci": [
+    0.1137,
+    0.1253
+   ],
+   "recall_10": 0.116,
+   "ndcg_10": 0.1231,
+   "precision_10": 0.1097,
+   "precision_20": 0.0945,
+   "map_20": 0.0506,
+   "hit_rate_10": 0.478,
+   "coverage": 0.0427,
+   "diversity": 0.7287,
+   "novelty": 3.23,
+   "long_tail": 0.0225,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1185,
+   "latency_ms": {
+    "p50": 0.28,
+    "p95": 0.36,
+    "p99": 0.41
+   },
+   "vs_adaptive": {
+    "recall": -0.0362,
+    "recall_ci": [
+     -0.0404,
+     -0.0316
+    ],
+    "ndcg": -0.0334,
+    "ndcg_ci": [
+     -0.0379,
+     -0.0292
+    ],
+    "significant": true
+   }
+  },
+  "two-tower": {
+   "recall": 0.1129,
+   "recall_ci": [
+    0.1079,
+    0.1179
+   ],
+   "ndcg": 0.1103,
+   "ndcg_ci": [
+    0.1048,
+    0.1159
+   ],
+   "recall_10": 0.1098,
+   "ndcg_10": 0.113,
+   "precision_10": 0.1021,
+   "precision_20": 0.0883,
+   "map_20": 0.044,
+   "hit_rate_10": 0.4834,
+   "coverage": 0.1473,
+   "diversity": 0.7275,
+   "novelty": 6.256,
+   "long_tail": 0.5604,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1131,
+   "latency_ms": {
+    "p50": 0.86,
+    "p95": 1.05,
+    "p99": 1.1
+   },
+   "vs_adaptive": {
+    "recall": -0.0416,
+    "recall_ci": [
+     -0.0474,
+     -0.0362
+    ],
+    "ndcg": -0.0421,
+    "ndcg_ci": [
+     -0.0473,
+     -0.0369
+    ],
+    "significant": true
+   }
+  },
+  "adaptive": {
+   "recall": 0.1545,
+   "recall_ci": [
+    0.149,
+    0.1608
+   ],
+   "ndcg": 0.1523,
+   "ndcg_ci": [
+    0.1467,
+    0.1588
+   ],
+   "recall_10": 0.1462,
+   "ndcg_10": 0.1548,
+   "precision_10": 0.1352,
+   "precision_20": 0.1169,
+   "map_20": 0.0639,
+   "hit_rate_10": 0.5974,
+   "coverage": 0.1342,
+   "diversity": 0.7218,
+   "novelty": 5.218,
+   "long_tail": 0.395,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.155,
+   "latency_ms": {
+    "p50": 6.93,
+    "p95": 23.36,
+    "p99": 39.65
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973
+   }
+  },
+  "adaptive \u2212 drift": {
+   "recall": 0.1558,
+   "recall_ci": [
+    0.1502,
+    0.1612
+   ],
+   "ndcg": 0.1529,
+   "ndcg_ci": [
+    0.1479,
+    0.159
+   ],
+   "recall_10": 0.1467,
+   "ndcg_10": 0.1553,
+   "precision_10": 0.1358,
+   "precision_20": 0.1175,
+   "map_20": 0.0639,
+   "hit_rate_10": 0.6024,
+   "coverage": 0.1244,
+   "diversity": 0.7223,
+   "novelty": 5.115,
+   "long_tail": 0.3773,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1564,
+   "latency_ms": {
+    "p50": 6.87,
+    "p95": 22.47,
+    "p99": 38.57
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0865,
+    "hit_rate_ci": [
+     0.0595,
+     0.1135
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0946,
+    "vs_adaptive": {
+     "hit_rate": -0.0027,
+     "hit_rate_ci": [
+      -0.0081,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0013,
+    "recall_ci": [
+     -0.0006,
+     0.0034
+    ],
+    "ndcg": 0.0006,
+    "ndcg_ci": [
+     -0.001,
+     0.0023
+    ],
+    "significant": false
+   }
+  },
+  "adaptive \u2212 diversity": {
+   "recall": 0.154,
+   "recall_ci": [
+    0.1481,
+    0.1597
+   ],
+   "ndcg": 0.1518,
+   "ndcg_ci": [
+    0.1457,
+    0.1577
+   ],
+   "recall_10": 0.1452,
+   "ndcg_10": 0.154,
+   "precision_10": 0.1343,
+   "precision_20": 0.1165,
+   "map_20": 0.0637,
+   "hit_rate_10": 0.601,
+   "coverage": 0.1294,
+   "diversity": 0.7218,
+   "novelty": 5.162,
+   "long_tail": 0.3806,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1545,
+   "latency_ms": {
+    "p50": 6.86,
+    "p95": 23.1,
+    "p99": 38.9
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0595,
+     0.1216
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": -0.0005,
+    "recall_ci": [
+     -0.0018,
+     0.0008
+    ],
+    "ndcg": -0.0006,
+    "ndcg_ci": [
+     -0.0014,
+     0.0002
+    ],
+    "significant": false
+   }
+  },
+  "adaptive \u2212 exploration": {
+   "recall": 0.1632,
+   "recall_ci": [
+    0.1575,
+    0.1691
+   ],
+   "ndcg": 0.1595,
+   "ndcg_ci": [
+    0.1532,
+    0.1653
+   ],
+   "recall_10": 0.1544,
+   "ndcg_10": 0.1612,
+   "precision_10": 0.1427,
+   "precision_20": 0.1233,
+   "map_20": 0.0686,
+   "hit_rate_10": 0.6149,
+   "coverage": 0.0971,
+   "diversity": 0.71,
+   "novelty": 5.11,
+   "long_tail": 0.3741,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1638,
+   "latency_ms": {
+    "p50": 5.25,
+    "p95": 12.55,
+    "p99": 19.27
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0087,
+    "recall_ci": [
+     0.0074,
+     0.0101
+    ],
+    "ndcg": 0.0071,
+    "ndcg_ci": [
+     0.0063,
+     0.0079
+    ],
+    "significant": true
+   }
+  },
+  "adaptive \u2212 negatives": {
+   "recall": 0.1528,
+   "recall_ci": [
+    0.1472,
+    0.1583
+   ],
+   "ndcg": 0.1509,
+   "ndcg_ci": [
+    0.1444,
+    0.1568
+   ],
+   "recall_10": 0.1448,
+   "ndcg_10": 0.1535,
+   "precision_10": 0.1339,
+   "precision_20": 0.1157,
+   "map_20": 0.063,
+   "hit_rate_10": 0.5949,
+   "coverage": 0.1323,
+   "diversity": 0.7222,
+   "novelty": 5.13,
+   "long_tail": 0.3738,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1534,
+   "latency_ms": {
+    "p50": 6.58,
+    "p95": 20.59,
+    "p99": 33.92
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0595,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": -0.0017,
+    "recall_ci": [
+     -0.003,
+     -0.0004
+    ],
+    "ndcg": -0.0015,
+    "ndcg_ci": [
+     -0.0024,
+     -0.0005
+    ],
+    "significant": true
+   }
+  },
+  "blend {\"roles\":\"all-old\"}": {
+   "recall": 0.1581,
+   "recall_ci": [
+    0.1521,
+    0.1642
+   ],
+   "ndcg": 0.1555,
+   "ndcg_ci": [
+    0.1496,
+    0.1616
+   ],
+   "recall_10": 0.1493,
+   "ndcg_10": 0.1578,
+   "precision_10": 0.1377,
+   "precision_20": 0.1189,
+   "map_20": 0.0658,
+   "hit_rate_10": 0.6099,
+   "coverage": 0.1302,
+   "diversity": 0.7255,
+   "novelty": 5.01,
+   "long_tail": 0.3685,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1587,
+   "latency_ms": {
+    "p50": 6.87,
+    "p95": 22.74,
+    "p99": 38.6
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0757,
+    "hit_rate_ci": [
+     0.0514,
+     0.1054
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0757,
+    "vs_adaptive": {
+     "hit_rate": -0.0135,
+     "hit_rate_ci": [
+      -0.0405,
+      0.0135
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0036,
+    "recall_ci": [
+     0.0015,
+     0.0058
+    ],
+    "ndcg": 0.0032,
+    "ndcg_ci": [
+     0.0017,
+     0.0046
+    ],
+    "significant": true
+   }
+  },
+  "blend {\"roles\":\"on\"}": {
+   "recall": 0.1537,
+   "recall_ci": [
+    0.1484,
+    0.1594
+   ],
+   "ndcg": 0.1516,
+   "ndcg_ci": [
+    0.1456,
+    0.1575
+   ],
+   "recall_10": 0.1452,
+   "ndcg_10": 0.154,
+   "precision_10": 0.1343,
+   "precision_20": 0.1164,
+   "map_20": 0.0636,
+   "hit_rate_10": 0.5974,
+   "coverage": 0.1317,
+   "diversity": 0.7223,
+   "novelty": 5.204,
+   "long_tail": 0.393,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1542,
+   "latency_ms": {
+    "p50": 8.41,
+    "p95": 27.44,
+    "p99": 44.26
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0595,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": -0.0008,
+    "recall_ci": [
+     -0.0015,
+     -0.0001
+    ],
+    "ndcg": -0.0007,
+    "ndcg_ci": [
+     -0.0013,
+     -0.0002
+    ],
+    "significant": true
+   }
+  },
+  "blend {\"roles\":\"no\"}": {
+   "recall": 0.1548,
+   "recall_ci": [
+    0.1489,
+    0.1601
+   ],
+   "ndcg": 0.1532,
+   "ndcg_ci": [
+    0.1471,
+    0.1593
+   ],
+   "recall_10": 0.1476,
+   "ndcg_10": 0.1563,
+   "precision_10": 0.1363,
+   "precision_20": 0.1169,
+   "map_20": 0.0643,
+   "hit_rate_10": 0.6067,
+   "coverage": 0.1439,
+   "diversity": 0.7211,
+   "novelty": 5.431,
+   "long_tail": 0.4328,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1552,
+   "latency_ms": {
+    "p50": 8.36,
+    "p95": 27.16,
+    "p99": 44.22
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0757,
+    "hit_rate_ci": [
+     0.0514,
+     0.1054
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0757,
+    "vs_adaptive": {
+     "hit_rate": -0.0135,
+     "hit_rate_ci": [
+      -0.0405,
+      0.0135
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0003,
+    "recall_ci": [
+     -0.0014,
+     0.0018
+    ],
+    "ndcg": 0.0008,
+    "ndcg_ci": [
+     -0.0002,
+     0.002
+    ],
+    "significant": false
+   }
+  },
+  "blend {\"roles\":\"oo\"}": {
+   "recall": 0.1541,
+   "recall_ci": [
+    0.1489,
+    0.1595
+   ],
+   "ndcg": 0.1526,
+   "ndcg_ci": [
+    0.1472,
+    0.1584
+   ],
+   "recall_10": 0.1469,
+   "ndcg_10": 0.1557,
+   "precision_10": 0.1356,
+   "precision_20": 0.1165,
+   "map_20": 0.064,
+   "hit_rate_10": 0.6053,
+   "coverage": 0.1429,
+   "diversity": 0.7217,
+   "novelty": 5.415,
+   "long_tail": 0.4298,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1546,
+   "latency_ms": {
+    "p50": 8.38,
+    "p95": 27.23,
+    "p99": 45.49
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0757,
+    "hit_rate_ci": [
+     0.0486,
+     0.1027
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0757,
+    "vs_adaptive": {
+     "hit_rate": -0.0135,
+     "hit_rate_ci": [
+      -0.0405,
+      0.0135
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": -0.0004,
+    "recall_ci": [
+     -0.002,
+     0.0012
+    ],
+    "ndcg": 0.0002,
+    "ndcg_ci": [
+     -0.001,
+     0.0014
+    ],
+    "significant": false
+   }
+  },
+  "blend {\"geo\":\"m\"}": {
+   "recall": 0.1572,
+   "recall_ci": [
+    0.1515,
+    0.1629
+   ],
+   "ndcg": 0.1542,
+   "ndcg_ci": [
+    0.1482,
+    0.1605
+   ],
+   "recall_10": 0.1473,
+   "ndcg_10": 0.1561,
+   "precision_10": 0.1365,
+   "precision_20": 0.1183,
+   "map_20": 0.0651,
+   "hit_rate_10": 0.5999,
+   "coverage": 0.13,
+   "diversity": 0.7242,
+   "novelty": 4.985,
+   "long_tail": 0.3634,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1577,
+   "latency_ms": {
+    "p50": 6.86,
+    "p95": 22.83,
+    "p99": 38.26
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0027,
+    "recall_ci": [
+     0.001,
+     0.0045
+    ],
+    "ndcg": 0.0019,
+    "ndcg_ci": [
+     0.0008,
+     0.0029
+    ],
+    "significant": true
+   }
+  },
+  "blend {\"geo\":\"n\"}": {
+   "recall": 0.1551,
+   "recall_ci": [
+    0.1495,
+    0.161
+   ],
+   "ndcg": 0.1524,
+   "ndcg_ci": [
+    0.1466,
+    0.1586
+   ],
+   "recall_10": 0.1443,
+   "ndcg_10": 0.1537,
+   "precision_10": 0.1335,
+   "precision_20": 0.1168,
+   "map_20": 0.0638,
+   "hit_rate_10": 0.5924,
+   "coverage": 0.1326,
+   "diversity": 0.7236,
+   "novelty": 5.093,
+   "long_tail": 0.3722,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1557,
+   "latency_ms": {
+    "p50": 6.84,
+    "p95": 22.79,
+    "p99": 37.98
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1162
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0006,
+    "recall_ci": [
+     -0.0007,
+     0.002
+    ],
+    "ndcg": 0.0001,
+    "ndcg_ci": [
+     -0.001,
+     0.001
+    ],
+    "significant": false
+   }
+  },
+  "blend {\"geo\":\"e\"}": {
+   "recall": 0.1557,
+   "recall_ci": [
+    0.1501,
+    0.1615
+   ],
+   "ndcg": 0.1532,
+   "ndcg_ci": [
+    0.1475,
+    0.159
+   ],
+   "recall_10": 0.1475,
+   "ndcg_10": 0.1557,
+   "precision_10": 0.1363,
+   "precision_20": 0.1177,
+   "map_20": 0.0645,
+   "hit_rate_10": 0.6017,
+   "coverage": 0.1293,
+   "diversity": 0.722,
+   "novelty": 5.163,
+   "long_tail": 0.3881,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1562,
+   "latency_ms": {
+    "p50": 7.81,
+    "p95": 26.94,
+    "p99": 44.55
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1216
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0012,
+    "recall_ci": [
+     0.0003,
+     0.0022
+    ],
+    "ndcg": 0.0009,
+    "ndcg_ci": [
+     0.0002,
+     0.0016
+    ],
+    "significant": true
+   }
+  },
+  "blend {\"geo\":\"mne\"}": {
+   "recall": 0.1575,
+   "recall_ci": [
+    0.1517,
+    0.1632
+   ],
+   "ndcg": 0.1545,
+   "ndcg_ci": [
+    0.1485,
+    0.1606
+   ],
+   "recall_10": 0.148,
+   "ndcg_10": 0.1567,
+   "precision_10": 0.1371,
+   "precision_20": 0.1184,
+   "map_20": 0.0653,
+   "hit_rate_10": 0.6006,
+   "coverage": 0.123,
+   "diversity": 0.7258,
+   "novelty": 4.818,
+   "long_tail": 0.3363,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1581,
+   "latency_ms": {
+    "p50": 7.78,
+    "p95": 26.73,
+    "p99": 44.16
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.003,
+    "recall_ci": [
+     0.0009,
+     0.0052
+    ],
+    "ndcg": 0.0021,
+    "ndcg_ci": [
+     0.0006,
+     0.0036
+    ],
+    "significant": true
+   }
+  },
+  "blend {\"mmr_scale\":5.0}": {
+   "recall": 0.1551,
+   "recall_ci": [
+    0.1492,
+    0.1604
+   ],
+   "ndcg": 0.1525,
+   "ndcg_ci": [
+    0.1465,
+    0.1582
+   ],
+   "recall_10": 0.1463,
+   "ndcg_10": 0.1546,
+   "precision_10": 0.1352,
+   "precision_20": 0.1172,
+   "map_20": 0.0637,
+   "hit_rate_10": 0.5992,
+   "coverage": 0.1398,
+   "diversity": 0.7218,
+   "novelty": 5.28,
+   "long_tail": 0.4091,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1556,
+   "latency_ms": {
+    "p50": 6.7,
+    "p95": 22.31,
+    "p99": 37.96
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0648,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0006,
+    "recall_ci": [
+     -0.0005,
+     0.0017
+    ],
+    "ndcg": 0.0001,
+    "ndcg_ci": [
+     -0.0006,
+     0.0008
+    ],
+    "significant": false
+   }
+  },
+  "blend {\"diversity_space\":\"history\"}": {
+   "recall": 0.1548,
+   "recall_ci": [
+    0.149,
+    0.1607
+   ],
+   "ndcg": 0.1522,
+   "ndcg_ci": [
+    0.146,
+    0.1583
+   ],
+   "recall_10": 0.1447,
+   "ndcg_10": 0.1539,
+   "precision_10": 0.1341,
+   "precision_20": 0.1167,
+   "map_20": 0.0639,
+   "hit_rate_10": 0.5974,
+   "coverage": 0.1291,
+   "diversity": 0.7256,
+   "novelty": 4.96,
+   "long_tail": 0.3504,
+   "cold_start_share": 0.0,
+   "cold_recall": 0.0,
+   "cold_recall_users": 370,
+   "warm_recall": 0.1553,
+   "latency_ms": {
+    "p50": 6.77,
+    "p95": 22.53,
+    "p99": 38.76
+   },
+   "unrated_shelf": {
+    "k": 6,
+    "pool": 1227,
+    "people": 370,
+    "hit_rate": 0.0892,
+    "hit_rate_ci": [
+     0.0622,
+     0.1189
+    ],
+    "chance": 0.0069,
+    "hits_per_shelf": 0.0973,
+    "vs_adaptive": {
+     "hit_rate": 0.0,
+     "hit_rate_ci": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "vs_adaptive": {
+    "recall": 0.0003,
+    "recall_ci": [
+     -0.0015,
+     0.0019
+    ],
+    "ndcg": -0.0001,
+    "ndcg_ci": [
+     -0.0011,
+     0.0009
+    ],
+    "significant": false
+   }
+  }
+ },
+ "ope": null,
+ "assumptions": [
+  "A held-out positive (\u22654\u2605 after the cutoff) is a success; a film not rated afterwards counts as a miss, though the person may never have seen it. MovieLens ratings are missing not at random.",
+  "The logging policy is simulated and its propensities are known exactly. A live system must log them \u2014 CINEMIND records the probability of every exploration slot it shows.",
+  "Each logged event is one film shown to one user; slates and position effects are not modelled.",
+  "Taste is assumed stable across the cutoff, apart from what the drift model captures.",
+  "These are relative comparisons between methods on the same data, not predictions of live click-through.",
+  "Offline recall only rewards films a person went on to rate, so it can measure what exploration costs but not what it learns. That is why exploration slots log their propensities: the counterfactual estimators need them once real feedback exists.",
+  "The single temporal split tests drift only loosely: the test period runs to 2023, and recency is measured from each person's last rating before 2016, not from the moment they would see the list."
+ ],
+ "notes": [
+  "The adaptive engine runs here exactly as deployed, except that its co-rating graph is item-item CF rebuilt from training data: the production graph was built from all 32M ratings and would leak the test period.",
+  "Film descriptions use viewer tags collected up to 2023, a small content-side leak into the test period."
+ ]
+}

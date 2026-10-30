@@ -55,6 +55,23 @@ def signed_ci(c):
     return f"{100 * c[0]:+.2f} to {100 * c[1]:+.2f}"
 
 
+def grid_of(m: dict) -> list[tuple[str, dict]]:
+    return [(k, json.loads(k[len("blend "):])) for k in m if k.startswith("blend ")]
+
+
+def winner(m: dict, grid: list[tuple[str, dict]]) -> dict:
+    """The rule, fixed before every selection run: the best setting whose paired 95% interval
+    against the current one lies above zero, or none."""
+    won = [(m[k]["recall"], b) for k, b in grid if m[k]["vs_adaptive"]["recall_ci"][0] > 0]
+    return max(won, key=lambda w: w[0])[1] if won else {}
+
+
+def matches(served: dict, setting: dict) -> bool:
+    """Whether the served defaults hold this setting (numbers to within rounding)."""
+    return all(abs(served[k] - v) < 1e-9 if isinstance(v, (int, float)) else served[k] == v
+               for k, v in setting.items())
+
+
 def load(d: Path, label: str):
     f = d / f"{label}.json"
     if not f.exists():
@@ -174,10 +191,18 @@ def main():
           "# 1. choose the adaptive engine's blend on 2015 (data/raw/validation comes from rebuild.py)",
           "python pipelines/evaluate.py --ml32m data/raw/ml-32m --art data/raw/validation \\",
           "  --cutoff 2015-01-01 --until 2016-01-01 --users 3000 --seed 42 --no-ope --label validation \\",
-          f"  --blend-grid {rel}/hybrid_grid.json --out {rel}/validation.json",
-          "# 2. the test period, before and after, on the same people",
+          f"  --blend '{{\"mmr_scale\": 3.0}}' --blend-grid {rel}/hybrid_grid.json --out {rel}/validation.json",
+          "# 1b. then how the diversity pass measures how alike films are: two rounds, each against the last",
+          "python pipelines/evaluate.py --ml32m data/raw/ml-32m --art data/raw/validation \\",
+          "  --cutoff 2015-01-01 --until 2016-01-01 --users 3000 --seed 42 --no-ope --label validation-space \\",
+          f"  --blend '{{\"mmr_scale\": 3.0}}' --blend-grid {rel}/space_grid.json --out {rel}/validation-space.json",
+          "python pipelines/evaluate.py --ml32m data/raw/ml-32m --art data/raw/validation \\",
+          "  --cutoff 2015-01-01 --until 2016-01-01 --users 3000 --seed 42 --no-ope --label validation-history \\",
+          f"  --blend-grid {rel}/history_grid.json --out {rel}/validation-history.json",
+          "# 2. the test period, before and after, on the same people ('before' as it was deployed)",
           "python pipelines/evaluate.py --ml32m data/raw/ml-32m --art data/raw/baseline-artifacts \\",
           f"  --users 3000 --seed 42 --no-ope --label before --save-users {rel}/users.json \\",
+          "  --blend '{\"w_quality\": 0.2, \"mmr_scale\": 3.0}' \\",
           f"  --out {rel}/before.json --per-user {rel}/before.per_user.json.gz",
           "python pipelines/evaluate.py --ml32m data/raw/ml-32m --art data/artifacts \\",
           f"  --universe data/raw/baseline-artifacts/catalog.json --users-file {rel}/users.json \\",
@@ -222,15 +247,19 @@ def main():
         L += ["", f"The model is then refit on every like before 2016 with ID dropout {sel['id_dropout']} "
               f"for {sel['epoch']} epochs.", ""]
 
+    sys.path.insert(0, str(ROOT / "api"))
+    from _adaptive import Options
+    served = {k: v for k, v in vars(Options()).items() if not isinstance(v, bool)}
+    # Selections made after the hybrid's, in order: each round compared with what the one before chose.
+    rounds = [r for r in (load(args.dir, k)[0] for k in ("validation-space", "validation-history")) if r]
+    wins = [winner(r["metrics"], grid_of(r["metrics"])) for r in rounds]
+    later = {k: v for w in wins for k, v in w.items()}
     val, _ = load(args.dir, "validation")
     if val:
-        sys.path.insert(0, str(ROOT / "api"))
-        from _adaptive import Options
-        served = {k: v for k, v in vars(Options()).items() if not isinstance(v, bool)}
         current = val["experiment"].get("adaptive_options") or served
         m = val["metrics"]
         shelf_keys = {"u_tt", "u_sem", "unrated_k"}
-        grid = [(k, json.loads(k[len("blend "):])) for k in m if k.startswith("blend ")]
+        grid = grid_of(m)
         blends = [(k, b) for k, b in grid if not set(b) <= shelf_keys]
         shelf_grid = [(k, b) for k, b in grid if set(b) <= shelf_keys]
         e = val["experiment"]
@@ -258,10 +287,10 @@ def main():
         if winners:
             pick = max(winners, key=lambda w: w[0])[1]
             verdict = f"Chosen: {json.dumps(pick)}."
-            ok = all(abs(served[k] - v) < 1e-9 for k, v in {**current, **pick}.items())
+            ok = matches(served, {**current, **pick, **later})
         else:
             verdict = "No setting beats the current ones; they stay."
-            ok = all(abs(served[k] - v) < 1e-9 for k, v in current.items())
+            ok = matches(served, {**current, **later})
         chance = len(blends) * 0.05
         L += ["", verdict + (" The served defaults (`api/_adaptive.py`, `Options`) match." if ok else
                              " **The served defaults do not match the chosen setting.**"),
@@ -290,13 +319,49 @@ def main():
                     shelf_win.append((x["hit_rate"], b))
             if shelf_win:
                 pick = max(shelf_win, key=lambda w: w[0])[1]
-                ok = all(abs(served[k] - v) < 1e-9 for k, v in pick.items())
+                ok = matches(served, pick)
                 L += ["", f"Chosen: {json.dumps(pick)}." + (" The served defaults match." if ok else
                                                            " **The served defaults do not match.**"), ""]
             else:
-                ok = all(abs(served[k] - current.get(k, served[k])) < 1e-9 for k in ("u_tt", "u_sem"))
+                ok = matches(served, {k: current.get(k, served[k]) for k in ("u_tt", "u_sem")})
                 L += ["", "No shelf setting beats the current one; it stays." +
                       (" The served defaults match." if ok else " **The served defaults do not match.**"), ""]
+
+    for n_, (run, won) in enumerate(zip(rounds, wins)):
+        m, e = run["metrics"], run["experiment"]
+        keys = ("diversity_space", "explore_space", "mmr_scale")
+        current = {k: e["adaptive_options"].get(k, served.get(k)) for k in keys}
+        if n_ == 0:
+            L += ["## Similarity-space selection", "",
+                  "Where the diversity pass and exploration measure how alike two films are, and how hard the pass "
+                  "pushes, chosen on the same 2015 validation as the blend, with the blend held at the setting "
+                  f"above: {e['evaluated_users']:,} people, {e['test_interactions']:,} held-out likes, the same rule "
+                  "fixed before each run. Why the question arose is under "
+                  "[Which of the tower's roles](#which-of-the-towers-roles-on-2015). The spaces: the two-tower "
+                  "model's item vectors (`tower`), its history table — the embeddings the user tower averages "
+                  "(`history`) — the sentence embedding of what a film is about (`content`), or the mean of the "
+                  "tower's and the content cosines (`both`).", ""]
+        else:
+            L += [f"A second round, against what the first chose ({e['evaluated_users']:,} people, the same "
+                  "held-out likes):", ""]
+        L += ["| Setting | Recall@20 | NDCG@20 | Diversity | Change vs current (points, paired 95% CI) |",
+              "|---|---|---|---|---|",
+              f"| current {json.dumps(current)} | {f3(m['adaptive']['recall'])} | {f3(m['adaptive']['ndcg'])} | "
+              f"{f3(m['adaptive']['diversity'])} | — |"]
+        grid = grid_of(m)
+        for k, b in grid:
+            v = m[k]["vs_adaptive"]
+            L.append(f"| {json.dumps(b)} | {f3(m[k]['recall'])} | {f3(m[k]['ndcg'])} | {f3(m[k]['diversity'])} | "
+                     f"{100 * v['recall']:+.2f} ({signed_ci(v['recall_ci'])}) |")
+        after = {k: v for w in wins[n_:] for k, v in w.items()}
+        verdict = f"Chosen: {json.dumps(won)}." if won else "No setting beats the current one; it stays."
+        ok = matches(served, {**current, **after})
+        L += ["", verdict + (" The served defaults (`api/_adaptive.py`, `Options`) match." if ok else
+                             " **The served defaults do not match the chosen setting.**"),
+              "", f"With {len(grid)} settings tried, about {len(grid) * 0.05:.1f} intervals would exclude zero by "
+              "chance alone; the test period is the independent check."
+              + (" Diversity is measured in the sentence-embedding space, so a pass that spreads films apart in "
+                 "that space raises it by construction." if n_ == 0 else ""), ""]
 
     L += ["## Method", "",
           "- **Split.** Temporal, at 2016-01-01, on MovieLens 32M. Ratings before it are the only training data "
@@ -393,10 +458,76 @@ def main():
             run, pu = diag[k]
             d, c_, _ = paired(b, pu, "recall_20", "adaptive")
             L.append(f"| {label} | {f3(run['metrics']['adaptive']['recall'])} | {100 * d:+.2f} ({signed_ci(c_)}) |")
+        fixed, fpu = load(args.dir / "diagnosis", "D4-fixed")
+        if fixed and fpu:
+            d, c_, _ = paired(b, fpu, "recall_20", "adaptive")
+            L.append(f"| The expanded system as served now — the diversity pass pushing harder, `mmr_scale` "
+                     f"{fixed['experiment']['adaptive_options'].get('mmr_scale')} (chosen on 2015, above) | "
+                     f"{f3(fixed['metrics']['adaptive']['recall'])} | {100 * d:+.2f} ({signed_ci(c_)}) |")
         L += ["", "Reproduce with `--universe data/raw/baseline-artifacts/catalog.json --users-file "
-              f"{rel}/users.json --blend '{{\"w_quality\": 0.2}}'`, adding `--train-in-universe` from the second "
-              "step, on artifact copies whose two-tower and sentence-embedding rows for the old films are "
-              "replaced by `data/raw/baseline-artifacts`'s.", ""]
+              f"{rel}/users.json --blend '{{\"w_quality\": 0.2, \"mmr_scale\": 3.0}}'`, adding "
+              "`--train-in-universe` from the second step, on artifact copies whose two-tower and sentence-embedding "
+              "rows for the old films are replaced by `data/raw/baseline-artifacts`'s; the last row with "
+              "`--blend '{\"w_quality\": 0.2}'` on `data/artifacts` as they are.", ""]
+
+    roles, _ = load(args.dir / "diagnosis", "roles-2015")
+    if roles:
+        m, e = roles["metrics"], roles["experiment"]
+        L += ["## Which of the tower's roles, on 2015", "",
+              "The ladder above puts the dip on the retrained two-tower model. The adaptive engine uses its tower for "
+              "five things: retrieving candidates, scoring their relevance, and — through how alike films are in its "
+              "space — the diversity pass, the penalty for resembling a film passed on, and exploration. To find which "
+              "matters without touching the test period, the old trainer was run on likes before 2015 and each role "
+              "handed to it in turn, on 2015 as the held-out year, over the old catalogue's films and learning only "
+              f"from their ratings ({e['evaluated_users']:,} people; `pipelines/diagnose_tower_roles.py`). A "
+              "diagnosis: nothing here chose a setting.", "",
+              "| Taken from the old-style tower | Recall@20 | Change vs the expanded engine (points, paired 95% CI) |",
+              "|---|---|---|",
+              f"| Nothing (the expanded engine) | {f3(m['adaptive']['recall'])} | — |"]
+        for k, b in grid_of(m):
+            if b.get("roles") == "all-old":
+                what = "Everything"
+            elif "roles" in b or "geo" in b:
+                r = b.get("roles", "nn")
+                what = ", ".join([x for x, on in (("retrieving candidates", r[0] == "o"),
+                                                  ("scoring relevance", r[1] == "o")) if on] +
+                                 [x for c_, x in (("m", "the diversity pass"), ("n", "the skip penalty"),
+                                                  ("e", "exploration")) if c_ in b.get("geo", "")])
+                what = what[0].upper() + what[1:]
+            else:
+                what = f"Nothing — but {json.dumps(b)}"
+            v = m[k]["vs_adaptive"]
+            L.append(f"| {what} | {f3(m[k]['recall'])} | {100 * v['recall']:+.2f} ({signed_ci(v['recall_ci'])}) |")
+        sp = args.dir / "diagnosis" / "spread-2015.json"
+        if sp.exists():
+            x = json.loads(sp.read_text())
+            L += ["", f"Why the diversity pass: over {x['lists']} of the {x['films_per_list']}-film lists it is handed, "
+                  "the similarities it could work from. It reorders a list by how much more one film resembles a "
+                  "better one than another film does, so the spread in the third column is what gives it purchase; "
+                  "the last column is how closely each similarity tracks the old-style tower's, whose pass gained "
+                  "recall.", "",
+                  "| Similarity | Pairwise mean | Pairwise sd | Among the 20 best: sd of each film's highest "
+                  "similarity to a better one | Correlation with the old-style tower's |", "|---|---|---|---|---|"]
+            for name, v in x["spaces"].items():
+                label = {"artifacts' tower": "Expanded system's two-tower model (item vectors, as served)",
+                         "artifacts' tower, history table": "… its history table",
+                         "second tower": "Old-style two-tower model",
+                         "sentence embedding": "Sentence embedding (what a film is about)",
+                         "co-rating": "Co-rating neighbours"}.get(name, name)
+                L.append(f"| {label} | {f3(v['pairwise_mean'])} | {f3(v['pairwise_sd'])} | "
+                         f"{f3(v['top20_max_similarity_to_a_better_film_sd'])} | "
+                         f"{v['correlation_with_second_tower']:+.2f} |")
+            L += ["", "The served tower's similarities follow the old one's closely but are packed about half as "
+                  "widely, so its pass barely reorders a list; pushing harder (the selection above) and the history "
+                  "table, which tracks the old tower more closely still, did not recover the old pass's gain, and on "
+                  "the test period the harder push changed nothing measurable (the ladder's last row). "
+                  "Content-based similarity tracks it least, and costs recall."]
+        L += ["", "Reproduce: `python pipelines/diagnose_tower_roles.py --alt-tower DIR --spread "
+              f"{rel}/diagnosis/spread-2015.json -- --ml32m data/raw/ml-32m --art data/raw/validation "
+              "--cutoff 2015-01-01 --until 2016-01-01 --users 3000 --seed 42 --no-ope --universe "
+              "data/raw/baseline-artifacts --train-in-universe --blend '{\"mmr_scale\": 3.0}' "
+              f"--blend-grid {rel}/diagnosis/roles_grid.json "
+              f"--out {rel}/diagnosis/roles-2015.json`.", ""]
 
     L += ["## What these numbers cannot tell you", ""]
     seen = set()

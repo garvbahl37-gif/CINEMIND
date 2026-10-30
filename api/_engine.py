@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import bisect
 import gzip
+import hashlib
 import json
 import re
 import sys
@@ -161,6 +162,151 @@ def load_catalog(where: Path) -> dict:
     return json.loads(f.read_text(encoding="utf-8"))
 
 
+# -- the search index ------------------------------------------------------------
+# Built from the catalogue alone. It takes most of a cold start to build (about
+# 2 s on a laptop), so pipelines/build_search_index.py ships it prebuilt.
+SEARCH_INDEX = "search_index.npz"
+SEARCH_FORMAT = 1
+# Posting lists — film ids, ascending — by title key, title word, tag and person.
+POSTINGS = ("key_index", "tokens", "tag_index", "people")
+
+
+def aliases(c: dict) -> tuple[np.ndarray, np.ndarray]:
+    """Which films are aliases (hidden), and the listed film each resolves to."""
+    alias = c.get("alias_of") or [None] * len(c["title"])
+    hidden = np.array([a is not None for a in alias], bool)
+    return hidden, np.array([i if a is None else a for i, a in enumerate(alias)], np.int64)
+
+
+def build_search(c: dict, hidden: np.ndarray, canonical: np.ndarray) -> dict:
+    """Folded titles, each film's title keys, and the posting lists in POSTINGS.
+    Read-only once built, so stored compactly: tuples per film, int arrays per key."""
+    n = len(c["title"])
+    fold = [_fold(t) for t in c["title"]]
+    # An alias's title is another name for the film it duplicates: "Pokémon 4Ever: Celebi"
+    # finds "Pokemon 4 Ever", which is listed in its place.
+    also: dict[int, list[str]] = {}
+    for i in np.flatnonzero(hidden):
+        also.setdefault(int(canonical[i]), []).append(c["title"][i])
+    keys = [() if hidden[i] else
+            tuple(sorted(title_variants(t).union(*(title_variants(x) for x in also.get(i, ())))))
+            for i, t in enumerate(c["title"])]
+    key_index: dict[str, list[int]] = {}
+    for i, ks in enumerate(keys):
+        for k in ks:
+            key_index.setdefault(k, []).append(i)
+
+    def post(index: dict[str, list[int]], key: str, i: int):
+        """Films are visited in id order, so each posting list stays sorted and a
+        repeat can only be the film just added — lists, not sets, while building."""
+        ids = index.setdefault(key, [])
+        if not ids or ids[-1] != i:
+            ids.append(i)
+
+    tokens: dict[str, list[int]] = {}
+    for i, t in enumerate(fold):
+        if hidden[i]:
+            continue
+        for w in re.split(r"[^a-z0-9']+", " ".join([t, *map(_fold, also.get(i, ()))])):
+            if len(w) > 1 and w not in _STOP:
+                post(tokens, w, i)
+
+    # Tags, so "heist" or "time travel" finds films by theme.
+    tag_index: dict[str, list[int]] = {}
+    for i, ts in enumerate(c["tags"]):
+        if hidden[i]:
+            continue
+        for t in ts:
+            post(tag_index, t, i)
+            for w in t.split():
+                if len(w) > 2:
+                    post(tag_index, w, i)
+
+    # Directors and cast, by full name and by surname.
+    people: dict[str, list[int]] = {}
+    folded: dict[str, str] = {}            # a name recurs in many films: fold it once
+    directors, cast = c.get("directors") or [()] * n, c.get("cast") or [()] * n
+    for i in range(n):
+        if hidden[i]:
+            continue
+        for nm in (*directors[i], *cast[i]):
+            fn = folded.get(nm)
+            if fn is None:
+                fn = folded[nm] = _fold(nm)
+            post(people, fn, i)
+            parts = fn.split()
+            if len(parts) > 1:
+                post(people, parts[-1], i)
+    built = {"key_index": key_index, "tokens": tokens, "tag_index": tag_index, "people": people}
+    return {"fold": fold, "keys": keys,
+            **{name: {k: array("i", v) for k, v in built[name].items()} for name in POSTINGS}}
+
+
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _blob(strings) -> np.ndarray:
+    """Strings as one newline-joined UTF-8 array (np.load needs no pickle for it)."""
+    strings = list(strings)
+    if any("\n" in s for s in strings):
+        raise ValueError("a search key contains a newline")
+    return np.frombuffer("\n".join(strings).encode("utf-8"), np.uint8)
+
+
+def _unblob(a: np.ndarray, count: int) -> list[str] | None:
+    s = a.tobytes().decode("utf-8").split("\n") if count else []
+    return s if len(s) == count else None
+
+
+def pack_search(ix: dict, catalog_sha256: str) -> dict[str, np.ndarray]:
+    """The index as flat arrays, stamped with the catalogue it was built from: per
+    posting index, its keys in their dict order, offsets into one id array. A film's
+    title keys aren't stored; they are the title-key index inverted."""
+    if array("i").itemsize != 4:
+        raise ValueError("this platform's C int is not 32 bits")
+    out = {"format": np.array(SEARCH_FORMAT), "catalog": np.array(catalog_sha256),
+           "fold": _blob(ix["fold"]), "fold_count": np.array(len(ix["fold"]))}
+    for name in POSTINGS:
+        d = ix[name]
+        out[f"{name}_keys"] = _blob(d)
+        out[f"{name}_offsets"] = np.concatenate([[0], np.cumsum([len(v) for v in d.values()])]).astype(np.int64)
+        out[f"{name}_ids"] = np.frombuffer(b"".join(v.tobytes() for v in d.values()), np.int32)
+    return out
+
+
+def load_search(root: Path, catalog: Path, n: int) -> dict | None:
+    """The prebuilt index in `root`, or None when there is none, or it was built from
+    another catalogue than `catalog` — a stale index is never served."""
+    f = root / SEARCH_INDEX
+    if not f.exists() or array("i").itemsize != 4:
+        return None
+    with np.load(f, allow_pickle=False) as z:
+        if int(z["format"]) != SEARCH_FORMAT or str(z["catalog"]) != file_sha256(catalog):
+            return None
+        fold = _unblob(z["fold"], int(z["fold_count"]))
+        if fold is None or len(fold) != n:
+            return None
+        ix = {"fold": fold}
+        for name in POSTINGS:
+            off = z[f"{name}_offsets"].tolist()
+            ks = _unblob(z[f"{name}_keys"], len(off) - 1)
+            if ks is None:
+                return None
+            buf = z[f"{name}_ids"].astype(np.int32).tobytes()
+            ix[name] = {k: array("i", buf[4 * a:4 * b]) for k, a, b in zip(ks, off, off[1:])}
+    keys: list[list[str]] = [[] for _ in range(n)]
+    for k, ids in ix["key_index"].items():
+        for i in ids:
+            keys[i].append(k)
+    ix["keys"] = [tuple(sorted(k)) for k in keys]
+    return ix
+
+
 class Engine:
     def __init__(self, root: Path = ART):
         for f in (catalog_path(root), root / "neighbors.npz", root / "browse.json"):
@@ -176,9 +322,7 @@ class Engine:
         self.browse = json.loads((root / "browse.json").read_text())
         # A film served twice under two MovieLens ids keeps both item_ids (browsers store
         # them), but the second is an alias: it resolves by id and is never listed.
-        alias = self.c.get("alias_of") or [None] * self.n
-        self.hidden = np.array([a is not None for a in alias], bool)
-        self.canonical = np.array([i if a is None else a for i, a in enumerate(alias)], np.int64)
+        self.hidden, self.canonical = aliases(self.c)
         self._validate(root)
         self.rated = sum(1 for r in self.c["rc"] if r)
         # The same names, genres and tags recur across thousands of films; one
@@ -190,45 +334,17 @@ class Engine:
         for col in ("lang", "media"):
             self.c[col] = [sys.intern(x) if isinstance(x, str) else x for x in self.c[col]]
 
-        # Search structures, built once per instance. Read-only from here on, so
-        # they are stored compactly: tuples for per-film lists, shared frozensets
-        # for genre sets, int arrays for posting lists.
-        self.fold = [_fold(t) for t in self.c["title"]]
-        # An alias's title is another name for the film it duplicates: "Pokémon 4Ever: Celebi"
-        # finds "Pokemon 4 Ever", which is listed in its place.
-        also: dict[int, list[str]] = {}
-        for i in np.flatnonzero(self.hidden):
-            also.setdefault(int(self.canonical[i]), []).append(self.c["title"][i])
-        self.keys = [() if self.hidden[i] else
-                     tuple(title_variants(t).union(*(title_variants(x) for x in also.get(i, ()))))
-                     for i, t in enumerate(self.c["title"])]
-        self.key_index: dict[str, list[int]] = {}
-        for i, ks in enumerate(self.keys):
-            for k in ks:
-                self.key_index.setdefault(k, []).append(i)
-        self.key_index = {k: array("i", v) for k, v in self.key_index.items()}
+        # Search structures: shipped prebuilt (pipelines/build_search_index.py), or built
+        # here when that file is missing or was built from another catalogue.
+        ix = load_search(root, catalog_path(root), self.n)
+        self.search_prebuilt = ix is not None
+        if ix is None:
+            ix = build_search(self.c, self.hidden, self.canonical)
+        self.fold, self.keys = ix["fold"], ix["keys"]
+        self.key_index, self.tokens, self.tag_index, self.people = (ix[k] for k in POSTINGS)
+        del ix
         self._key_sorted = sorted(self.key_index)
         self.bayes = np.array(self.browse["bayes"], np.float32)
-
-        def post(index: dict[str, list[int]], key: str, i: int):
-            """Films are visited in id order, so each posting list stays sorted and a
-            repeat can only be the film just added — lists, not sets, while building."""
-            ids = index.setdefault(key, [])
-            if not ids or ids[-1] != i:
-                ids.append(i)
-
-        def compact(index: dict[str, list[int]]) -> dict[str, array]:
-            return {k: array("i", v) for k, v in index.items()}
-
-        tokens: dict[str, list[int]] = {}
-        for i, t in enumerate(self.fold):
-            if self.hidden[i]:
-                continue
-            for w in re.split(r"[^a-z0-9']+", " ".join([t, *map(_fold, also.get(i, ()))])):
-                if len(w) > 1 and w not in _STOP:
-                    post(tokens, w, i)
-        self.tokens = compact(tokens)
-        del tokens
         shared: dict[frozenset, frozenset] = {}
         self.genre_of = [shared.setdefault(fs, fs) for fs in (frozenset(g.lower() for g in gs) for gs in self.c["genres"])]
         self.tag_of = self.c["tags"]          # tuples; intersected per response, a few at a time
@@ -237,38 +353,6 @@ class Engine:
         self.genre_label = {g.lower(): g for gs in self.c["genres"] for g in gs}
         self._cats: dict | None = None
         self._sugg: dict | None = None
-
-        # Tag lookup, so "heist" or "time travel" finds films by theme.
-        tag_index: dict[str, list[int]] = {}
-        for i, ts in enumerate(self.c["tags"]):
-            if self.hidden[i]:
-                continue
-            for t in ts:
-                post(tag_index, t, i)
-                for w in t.split():
-                    if len(w) > 2:
-                        post(tag_index, w, i)
-        self.tag_index = compact(tag_index)
-        del tag_index
-
-        # Directors and cast, indexed by full name and by surname.
-        people: dict[str, list[int]] = {}
-        folded: dict[str, str] = {}            # a name recurs in many films: fold it once
-        for i in range(self.n):
-            if self.hidden[i]:
-                continue
-            names = (self.c.get("directors") or [[]] * self.n)[i] + \
-                    (self.c.get("cast") or [[]] * self.n)[i]
-            for nm in names:
-                fn = folded.get(nm)
-                if fn is None:
-                    fn = folded[nm] = _fold(nm)
-                post(people, fn, i)
-                parts = fn.split()
-                if len(parts) > 1:
-                    post(people, parts[-1], i)
-        self.people = compact(people)
-        del people
         release_memory()
 
     def _validate(self, root: Path):

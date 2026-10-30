@@ -1,0 +1,36 @@
+{
+ "lists": 300,
+ "films_per_list": 250,
+ "spaces": {
+  "artifacts' tower": {
+   "pairwise_mean": 0.3693,
+   "pairwise_sd": 0.1543,
+   "top20_max_similarity_to_a_better_film_sd": 0.0735,
+   "correlation_with_second_tower": 0.714
+  },
+  "artifacts' tower, history table": {
+   "pairwise_mean": 0.1929,
+   "pairwise_sd": 0.1955,
+   "top20_max_similarity_to_a_better_film_sd": 0.1317,
+   "correlation_with_second_tower": 0.778
+  },
+  "second tower": {
+   "pairwise_mean": 0.3688,
+   "pairwise_sd": 0.2003,
+   "top20_max_similarity_to_a_better_film_sd": 0.1219,
+   "correlation_with_second_tower": 1.0
+  },
+  "sentence embedding": {
+   "pairwise_mean": 0.2667,
+   "pairwise_sd": 0.1209,
+   "top20_max_similarity_to_a_better_film_sd": 0.1315,
+   "correlation_with_second_tower": 0.258
+  },
+  "co-rating": {
+   "pairwise_mean": 0.0678,
+   "pairwise_sd": 0.2001,
+   "top20_max_similarity_to_a_better_film_sd": 0.201,
+   "correlation_with_second_tower": 0.443
+  }
+ }
+}

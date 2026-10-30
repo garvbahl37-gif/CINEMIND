@@ -75,7 +75,7 @@ async def health(response: Response):
     e = get_engine()
     _cache(response, "public, max-age=30")
     return {"status": "healthy", "items": e.n, "neighbors_per_item": int(e.nbr.shape[1]),
-            "rating_backed": e.rated}
+            "rating_backed": e.rated, "search_index": "prebuilt" if e.search_prebuilt else "built at start-up"}
 
 
 @app.get("/api/browse")

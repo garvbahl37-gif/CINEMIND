@@ -1,0 +1,5 @@
+[
+ {"diversity_space": "history", "mmr_scale": 3.0},
+ {"diversity_space": "history"},
+ {"diversity_space": "history", "explore_space": "history", "mmr_scale": 3.0}
+]
